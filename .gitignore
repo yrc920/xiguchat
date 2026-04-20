@@ -1,0 +1,6 @@
+build/
+xiguchat.pro.user
+Debug/
+x64/
+.vs/
+*.vcxproj.user
