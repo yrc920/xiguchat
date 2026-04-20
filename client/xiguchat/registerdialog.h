@@ -23,8 +23,12 @@ public:
     explicit RegisterDialog(QWidget *parent = nullptr);
     ~RegisterDialog();
 
+private slots:
+    void on_get_code_clicked();
+
 private:
     Ui::RegisterDialog *ui;
+    void showTip(QString str, bool bo_k); //显示提示信息
 };
 
 #endif // REGISTERDIALOG_H
