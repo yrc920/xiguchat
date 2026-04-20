@@ -8,29 +8,19 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     _login_dlg = new LoginDialog(this);
     setCentralWidget(_login_dlg); //将登录页面设置为主窗口的中心组件
-    //_login_dlg->show();
 
     //创建和注册消息链接
     connect(_login_dlg, &LoginDialog::switchRegister, this, &MainWindow::SlotSwitchReg);
     _reg_dlg = new RegisterDialog(this);
 
-    _login_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint); //设置登录页面为无边框窗口,相当于将嵌入到主窗口
-    _reg_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint); //设置注册页面为无边框窗口
-    _reg_dlg->hide();
+    //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+    _login_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
+    _reg_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
-    // if(_login_dlg){
-    //     delete _login_dlg;
-    //     _login_dlg = nullptr;
-    // }
-
-    // if(_reg_dlg){
-    //     delete _reg_dlg;
-    //     _reg_dlg = nullptr;
-    // }
 }
 
 void MainWindow::SlotSwitchReg()

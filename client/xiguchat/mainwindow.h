@@ -32,7 +32,7 @@ public slots:
 
 private:
     Ui::MainWindow *ui;
-    LoginDialog *_login_dlg;
-    RegisterDialog *_reg_dlg;
+    LoginDialog *_login_dlg; //登录界面
+    RegisterDialog *_reg_dlg; //注册界面
 };
 #endif // MAINWINDOW_H

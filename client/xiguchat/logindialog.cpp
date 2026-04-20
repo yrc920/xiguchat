@@ -6,7 +6,8 @@ LoginDialog::LoginDialog(QWidget *parent)
     , ui(new Ui::LoginDialog)
 {
     ui->setupUi(this);
-    connect(ui->reg_btn, &QPushButton::clicked, this, &LoginDialog::switchRegister); //点击注册按钮触发切换信号
+    //点击注册按钮触发切换信号
+    connect(ui->reg_btn, &QPushButton::clicked, this, &LoginDialog::switchRegister);
 }
 
 LoginDialog::~LoginDialog()
