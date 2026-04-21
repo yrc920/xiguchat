@@ -14,10 +14,47 @@ LogicSystem::LogicSystem() {
 			beast::ostream(connection->_response.body()) << ", " << " value is " << elem.second << std::endl;
 		}
     });
+
+	//注册发送验证码的POST请求的URL和对应的处理函数
+	RegPost("/get_verifycode", [](std::shared_ptr<HttpConnection> connection) {
+		//将请求体中的数据转换为字符串
+		auto body_str = beast::buffers_to_string(connection->_request.body().data());
+		std::cout << "receive body is " << body_str << std::endl;
+		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+
+		Json::Value root; //用于构建响应的JSON数据
+		Json::Reader reader; //用于解析请求体中的JSON数据
+		Json::Value src_root; //用于存储解析后的JSON数据
+		//解析请求体中的JSON数据, 将解析结果存储到src_root中 
+		bool parse_success = reader.parse(body_str, src_root);
+		//如果解析失败或者请求体中没有email字段, 则返回错误信息
+		if (!parse_success || !src_root.isMember("email")) {
+			std::cout << "Failed to parse JSON data!" << std::endl;
+			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
+			//将JSON数据转换为字符串, 并写入响应内容中
+			std::string jsonstr = root.toStyledString();
+			beast::ostream(connection->_response.body()) << jsonstr;
+			return true;
+		}
+
+		//如果解析成功, 则从src_root中提取email字段的值
+		auto email = src_root["email"].asString();
+		std::cout << "email is " << email << std::endl;
+		root["error"] = 0; //设置错误码为0, 表示成功
+		root["email"] = src_root["email"]; //将请求中的email字段原样返回到响应中
+		//将JSON数据转换为字符串, 并写入响应内容中
+		std::string jsonstr = root.toStyledString();
+		beast::ostream(connection->_response.body()) << jsonstr;
+		return true;
+	});
 }
 
 void LogicSystem::RegGet(std::string url, HttpHandler handler) {
 	_get_handlers.insert(make_pair(url, handler)); //将URL和处理函数插入到GET请求的处理器映射中
+}
+
+void LogicSystem::RegPost(std::string url, HttpHandler handler) {
+	_post_handlers.insert(make_pair(url, handler)); //将URL和处理函数插入到POST请求的处理器映射中
 }
 
 bool LogicSystem::HandleGet(std::string path, std::shared_ptr<HttpConnection> con) {
@@ -27,4 +64,14 @@ bool LogicSystem::HandleGet(std::string path, std::shared_ptr<HttpConnection> co
     }
 	_get_handlers[path](con); //调用对应URL的处理函数, 处理请求
     return true;
-} 
+}
+
+bool LogicSystem::HandlePost(std::string path, std::shared_ptr<HttpConnection> con) {
+	//如果没有找到对应URL的处理函数, 返回false, 让网络层返回404错误
+	if (_post_handlers.find(path) == _post_handlers.end()) {
+		return false;
+	}
+
+	_post_handlers[path](con); //调用对应URL的处理函数, 处理请求
+	return true;
+}

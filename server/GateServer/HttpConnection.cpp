@@ -154,6 +154,25 @@ void HttpConnection::HandleReq() {
 		WriteResponse(); //发送响应
 		return;
 	}
+
+	//如果是POST方法
+	if (_request.method() == http::verb::post) {
+		//调用LogicSystem处理POST请求, 传入URL
+		bool success = LogicSystem::GetInstance()->HandlePost(_request.target(), shared_from_this());
+		//如果LogicSystem没有处理这个URL, 则返回404错误
+		if (!success) {
+			_response.result(http::status::not_found); //设置响应状态码为404 Not Found
+			_response.set(http::field::content_type, "text/plain"); //设置响应内容类型为纯文本
+			beast::ostream(_response.body()) << "url not found\r\n"; //设置响应内容为错误信息
+			WriteResponse(); //发送响应
+			return;
+		}
+
+		_response.result(http::status::ok); //设置响应状态码为200 OK
+		_response.set(http::field::server, "GateServer"); //设置响应头中的服务器信息
+		WriteResponse(); //发送响应
+		return;
+	}
 }
 
 void HttpConnection::WriteResponse() {

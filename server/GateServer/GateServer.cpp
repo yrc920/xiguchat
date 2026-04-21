@@ -1,7 +1,4 @@
-﻿#include <json/json.h>
-#include <json/value.h>
-#include <json/reader.h>
-#include "CServer.h"
+﻿#include "CServer.h"
 
 int main()
 {
@@ -21,6 +18,7 @@ int main()
 
 		//创建服务器实例, 开始监听端口, 接受连接
         std::make_shared<CServer>(ioc, port)->Start();
+		std::cout << "Server is listening on port " << port << std::endl;
 		ioc.run(); //运行io_context, 处理异步事件
     }
     catch (std::exception const& e)

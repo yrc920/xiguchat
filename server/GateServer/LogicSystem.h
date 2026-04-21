@@ -12,7 +12,9 @@ class LogicSystem :public Singleton<LogicSystem>
 public:
     ~LogicSystem() {} //使基类析构时可以访问派生类的析构函数
 	bool HandleGet(std::string, std::shared_ptr<HttpConnection>); //处理GET请求
+	bool HandlePost(std::string, std::shared_ptr<HttpConnection>); //处理POST请求
 	void RegGet(std::string, HttpHandler handler); //注册GET请求的URL和对应的处理函数
+	void RegPost(std::string, HttpHandler handler); //注册POST请求的URL和对应的处理函数
 
 private:
     LogicSystem();
