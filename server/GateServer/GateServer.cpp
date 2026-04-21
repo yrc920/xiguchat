@@ -17,7 +17,7 @@ int main()
                 return;
             }
             ioc.stop();
-            });
+        });
 
 		//创建服务器实例, 开始监听端口, 接受连接
         std::make_shared<CServer>(ioc, port)->Start();

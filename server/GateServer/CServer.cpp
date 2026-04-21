@@ -24,5 +24,5 @@ void CServer::Start() {
 		catch (std::exception& exp) {
 			std::cout << "exception is " << exp.what() << std::endl;
 		}
-		});
+	});
 }
