@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="GateServer.vcxproj" />
+  <Project Path="GateServer.vcxproj" Id="5669fe49-70b8-496c-baf4-2bd92fb5700d" />
 </Solution>
