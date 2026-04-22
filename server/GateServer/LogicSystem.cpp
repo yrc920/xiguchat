@@ -1,5 +1,6 @@
 #include "LogicSystem.h"
 #include "HttpConnection.h"
+#include "VerifyGrpcClient.h"
 
 LogicSystem::LogicSystem() {
 	//注册一个GET请求的URL和对应的处理函数
@@ -39,8 +40,10 @@ LogicSystem::LogicSystem() {
 
 		//如果解析成功, 则从src_root中提取email字段的值
 		auto email = src_root["email"].asString();
+		//给验证服务发送RPC请求, 获取验证码, 将RPC调用的结果存储在rsp中
+		GetVerifyRsp rsp = VerifyGrpcClient::GetInstance()->GetVerifyCode(email);
 		std::cout << "email is " << email << std::endl;
-		root["error"] = 0; //设置错误码为0, 表示成功
+		root["error"] = rsp.error(); //将RPC调用结果中的error字段设置到响应的JSON数据中
 		root["email"] = src_root["email"]; //将请求中的email字段原样返回到响应中
 		//将JSON数据转换为字符串, 并写入响应内容中
 		std::string jsonstr = root.toStyledString();
