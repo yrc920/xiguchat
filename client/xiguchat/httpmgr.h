@@ -26,13 +26,13 @@ class HttpMgr : public QObject, public Singleton<HttpMgr>,
 
 public:
     ~HttpMgr(); //使基类析构时可以访问派生类的析构函数
+    //发送http请求
+    void PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod);
 
 private:
     friend class Singleton<HttpMgr>; //使基类创建实例时可以访问私有构造函数
     HttpMgr();
     QNetworkAccessManager _manager; //网络访问管理器，用于发送http请求
-    //发送http请求
-    void PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod);
 
 private slots:
     //http请求完成的槽函数,根据模块分发到对应的模块处理(解耦合)

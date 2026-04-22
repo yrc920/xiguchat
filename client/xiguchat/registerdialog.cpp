@@ -29,10 +29,14 @@ void RegisterDialog::on_get_code_clicked()
 {
     auto email = ui->email_edit->text(); //获取邮箱输入框的文本
     //不要创建临时的QRegularExpression对象(邮箱正则表达式)
-    static QRegularExpression regex(R"((\w+)(\.|_)?(\w*)@(\W+)(\.(\w+))+)");
+    static QRegularExpression regex(R"((\w+)(\.|_)?(\w*)@(\w+)(\.(\w+))+)");
     bool match = regex.match(email).hasMatch(); //使用正则表达式验证邮箱格式是否正确
     if(match){
-        //发送http验证码
+        //发送http请求获取验证码
+        QJsonObject json_obj;
+        json_obj["email"] = email;
+        HttpMgr::GetInstance()->PostHttpReq(QUrl("http://localhost:8080/get_verifycode"),
+            json_obj, ReqId::ID_GET_VERIFY_CODE, Modules::REGISTERMOD);
     }else{
         showTip(tr("邮箱地址不正确"), false);
     }
@@ -66,7 +70,7 @@ void RegisterDialog::slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err)
 void RegisterDialog::initHttpHandlers()
 {
     //注册获取验证码回包的逻辑
-    _handlers.insert(ReqId::ID_GET_VARIFY_CODE, [this](const QJsonObject& jsonObj){
+    _handlers.insert(ReqId::ID_GET_VERIFY_CODE, [this](const QJsonObject& jsonObj){
         int error = jsonObj["error"].toInt();
         if(error != ErrorCodes::SUCCESS){
             showTip(tr("参数错误"), false);

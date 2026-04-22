@@ -10,6 +10,7 @@
 #include <mutex>
 #include <QByteArray>
 #include <QNetworkReply>
+#include <QJsonObject>
 /******************************************************************************
  *
  * @file       global.h
@@ -27,7 +28,7 @@ extern std::function<void(QWidget*)> repolish;
 
 //功能的id
 enum ReqId{
-    ID_GET_VARIFY_CODE = 1001, //获取验证码
+    ID_GET_VERIFY_CODE = 1001, //获取验证码
     ID_REG_USER = 1002, //注册用户
 };
 
