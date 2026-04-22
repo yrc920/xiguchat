@@ -11,6 +11,8 @@
 #include <QByteArray>
 #include <QNetworkReply>
 #include <QJsonObject>
+#include <QDir>
+#include <QSettings>
 /******************************************************************************
  *
  * @file       global.h
@@ -43,5 +45,7 @@ enum ErrorCodes{
     ERR_JSON = 1, //json 解析失败
     ERR_NETWORK = 2, //网络错误
 };
+
+extern QString gate_url_prefix; //网关服务器的URL前缀,从配置文件中读取
 
 #endif // GLOBAL_H
