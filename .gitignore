@@ -4,3 +4,6 @@ Debug/
 x64/
 .vs/
 *.vcxproj.user
+node_modules/
+config.ini
+config.json
