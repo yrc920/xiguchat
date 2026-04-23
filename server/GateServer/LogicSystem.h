@@ -6,7 +6,7 @@
 class HttpConnection; //防止互引用
 typedef std::function<void(std::shared_ptr<HttpConnection>)> HttpHandler; //函数处理器
 
-class LogicSystem :public Singleton<LogicSystem>
+class LogicSystem : public Singleton<LogicSystem>
 {
     friend class Singleton<LogicSystem>; //使基类创建实例时可以访问私有构造函数
 public:
