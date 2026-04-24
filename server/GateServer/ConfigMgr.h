@@ -3,34 +3,13 @@
 //
 
 #include "const.h"
-
-//用于存储每个section中的key-value对
-struct SectionInfo {
-	SectionInfo() {}
-	//拷贝构造函数和赋值操作符, 用于正确复制_section_datas
-	SectionInfo(const SectionInfo& src) { _section_datas = src._section_datas; }
-	SectionInfo& operator = (const SectionInfo& src) {
-		if (&src == this)
-			return *this;
-		this->_section_datas = src._section_datas;
-	}
-	~SectionInfo() { _section_datas.clear(); }
-
-	//重载[]运算符, 通过key获取对应的value, 如果key不存在则返回空字符串
-	std::string  operator[](const std::string& key) {
-		if (_section_datas.find(key) == _section_datas.end()) {
-			return "";
-		} 
-		return _section_datas[key];
-	}
-	std::map<std::string, std::string> _section_datas; //存储section中的key-value对
-};
+struct SectionInfo; //前置声明
 
 //用于管理配置文件中的所有section和对应的key-value对
 class ConfigMgr
 {
 public:
-	~ConfigMgr() { _config_map.clear(); } //析构函数, 清空配置数据
+	~ConfigMgr();
 	//禁止拷贝构造和赋值操作
 	ConfigMgr(const ConfigMgr&) = delete;
 	ConfigMgr& operator=(const ConfigMgr&) = delete;
@@ -48,4 +27,27 @@ private:
 
 	// 存储section和key-value对的map  
 	std::map<std::string, SectionInfo> _config_map;
+};
+
+//用于存储每个section中的key-value对
+struct SectionInfo {
+	SectionInfo() {}
+	//拷贝构造函数和赋值操作符, 用于正确复制_section_datas
+	SectionInfo(const SectionInfo& src) { _section_datas = src._section_datas; }
+	SectionInfo& operator = (const SectionInfo& src) {
+		if (&src == this)
+			return *this;
+		this->_section_datas = src._section_datas;
+		return *this;
+	}
+	~SectionInfo() { _section_datas.clear(); }
+
+	//重载[]运算符, 通过key获取对应的value, 如果key不存在则返回空字符串
+	std::string  operator[](const std::string& key) {
+		if (_section_datas.find(key) == _section_datas.end()) {
+			return "";
+		} 
+		return _section_datas[key];
+	}
+	std::map<std::string, std::string> _section_datas; //存储section中的key-value对
 };

@@ -42,6 +42,11 @@ ConfigMgr::ConfigMgr() {
 
 }
 
+ConfigMgr::~ConfigMgr()
+{
+	_config_map.clear(); //清空配置数据, 释放内存
+}
+
 SectionInfo ConfigMgr::operator[](const std::string& section)
 {
 	//如果请求的section不存在, 返回一个空的SectionInfo对象, 以避免访问不存在的section导致的错误
