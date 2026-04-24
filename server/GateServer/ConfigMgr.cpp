@@ -1,4 +1,5 @@
 #include "ConfigMgr.h"
+
 ConfigMgr::ConfigMgr() {
 	// 获取当前工作目录  
 	boost::filesystem::path current_path = boost::filesystem::current_path();
@@ -39,4 +40,13 @@ ConfigMgr::ConfigMgr() {
 		}
 	}
 
+}
+
+SectionInfo ConfigMgr::operator[](const std::string& section)
+{
+	//如果请求的section不存在, 返回一个空的SectionInfo对象, 以避免访问不存在的section导致的错误
+	if (_config_map.find(section) == _config_map.end()) {
+		return SectionInfo();
+	}
+	return _config_map[section];
 }

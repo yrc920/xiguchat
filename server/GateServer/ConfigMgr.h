@@ -1,6 +1,7 @@
 #pragma once
 // 配置管理类, 用于读取和存储配置文件中的数据
 //
+
 #include "const.h"
 
 //用于存储每个section中的key-value对
@@ -29,25 +30,22 @@ struct SectionInfo {
 class ConfigMgr
 {
 public:
-	ConfigMgr();
-	//拷贝构造函数和赋值操作符, 用于正确复制_config_map
-	ConfigMgr& operator=(const ConfigMgr& src) {
-		if (&src == this)
-			return *this;
-
-		this->_config_map = src._config_map;
-	};
-	ConfigMgr(const ConfigMgr& src) { this->_config_map = src._config_map; }
-	~ConfigMgr() { _config_map.clear(); }
+	~ConfigMgr() { _config_map.clear(); } //析构函数, 清空配置数据
+	//禁止拷贝构造和赋值操作
+	ConfigMgr(const ConfigMgr&) = delete;
+	ConfigMgr& operator=(const ConfigMgr&) = delete;
 	
-	//重载[]运算符, 通过section获取对应的SectionInfo对象, 如果section不存在则返回一个空的SectionInfo对象
-	SectionInfo operator[](const std::string& section) {
-		if (_config_map.find(section) == _config_map.end()) {
-			return SectionInfo();
-		}
-		return _config_map[section];
+	//获取配置管理器实例的静态方法, 使用局部静态变量来实现单例模式, 确保全局只有一个配置管理器实例
+	static ConfigMgr& Inst() {
+		static ConfigMgr cfg_mgr;
+		return cfg_mgr;
 	}
+	
+	SectionInfo operator[](const std::string& section); //重载[]运算符
+
 private:
+	ConfigMgr();
+
 	// 存储section和key-value对的map  
 	std::map<std::string, SectionInfo> _config_map;
 };

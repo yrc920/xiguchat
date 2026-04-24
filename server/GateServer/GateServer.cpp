@@ -3,7 +3,7 @@
 
 int main()
 {
-	ConfigMgr gCfgMgr; //创建配置管理器实例, 读取config.ini文件中的配置数据
+	auto& gCfgMgr = ConfigMgr::Inst(); //获取配置管理器实例, 用于读取配置文件中的数据
 	//从配置管理器中获取GateServer的Port配置项, 并将其转换为unsigned short类型
     std::string gate_port_str = gCfgMgr["GateServer"]["Port"];
     unsigned short gate_port = atoi(gate_port_str.c_str());
