@@ -8,8 +8,9 @@ class HttpConnection : public std::enable_shared_from_this<HttpConnection>
 {
 	friend class LogicSystem; //使LogicSystem可以访问HttpConnection的私有成员, 以便在处理请求时设置响应内容
 public:
-	HttpConnection(tcp::socket socket);
+	HttpConnection(boost::asio::io_context& ioc);
 	void Start(); //开始处理连接
+	tcp::socket& GetSocket() { return _socket; } //返回连接套接字, 以便服务器在接受连接时将套接字绑定到连接对象上
 
 private:
 	void CheckDeadline(); //检查连接是否超时, 超时则关闭连接

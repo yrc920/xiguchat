@@ -1,8 +1,8 @@
 #include "HttpConnection.h"
 #include "LogicSystem.h"
 
-HttpConnection::HttpConnection(tcp::socket socket)
-	: _socket(std::move(socket)) {} //将socket移动构造到HttpConnection类中, 转移控制权
+HttpConnection::HttpConnection(boost::asio::io_context& ioc)
+	: _socket(ioc) {} //将io_context绑定到socket中
 
 void HttpConnection::Start() {
 	auto self = shared_from_this();
