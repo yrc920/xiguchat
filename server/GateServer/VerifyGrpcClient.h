@@ -5,7 +5,7 @@
 #include <grpcpp/grpcpp.h>
 #include "message.grpc.pb.h"
 #include "const.h"
-#include "Singleton.h"
+
 class RPConPool; //连接池类, 用于管理Grpc连接(前置声明)
 
 using grpc::Channel;
