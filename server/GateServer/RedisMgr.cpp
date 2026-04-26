@@ -233,8 +233,8 @@ bool RedisMgr::HSet(const char* key, const char* hkey, const char* hvalue, size_
 		return false;
 	}
 	
-	const char* argv[4];
-	size_t argvlen[4];
+	const char* argv[4]; //存储redis命令行的参数数组, 包含命令和参数
+	size_t argvlen[4]; //存储redis命令行的参数长度数组, 与argv数组对应, 用于支持二进制数据
 	argv[0] = "HSET";
 	argvlen[0] = 4;
 	argv[1] = key;
@@ -270,8 +270,8 @@ std::string RedisMgr::HGet(const std::string& key, const std::string& hkey)
 		return "";
 	}
 
-	const char* argv[3];
-	size_t argvlen[3];
+	const char* argv[3]; //存储redis命令行的参数数组, 包含命令和参数
+	size_t argvlen[3]; //存储redis命令行的参数长度数组, 与argv数组对应, 用于支持二进制数据
 	argv[0] = "HGET";
 	argvlen[0] = 4;
 	argv[1] = key.c_str();
@@ -377,7 +377,7 @@ RedisConPool::RedisConPool(size_t poolSize, const char* host, int port, const ch
 		auto reply = (redisReply*)redisCommand(context, "AUTH %s", pwd);
 		//如果返回的类型是错误, 则说明认证失败, 释放连接对象并继续尝试连接下一个
 		if (reply->type == REDIS_REPLY_ERROR) {
-			std::cout << "认证失败" << std::endl;
+			std::cout << "Authentication failure" << std::endl;
 			freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 			redisFree(context); //释放连接对象
 			continue;
@@ -385,51 +385,59 @@ RedisConPool::RedisConPool(size_t poolSize, const char* host, int port, const ch
 
 		//执行成功 释放redisCommand执行后返回的redisReply所占用的内存
 		freeReplyObject(reply);
-		std::cout << "认证成功" << std::endl;
+		std::cout << "Authentication successful" << std::endl;
 		connections_.push(context); //将连接对象加入连接池的连接队列, 使其可供其他线程使用
 	}
 
 }
 
-RedisConPool::~RedisConPool()
-{
-	std::lock_guard<std::mutex> lock(mutex_);
-	while (!connections_.empty()) {
-		redisFree(connections_.front());
-		connections_.pop();
-	}
-}
-
 redisContext* RedisConPool::getConnection()
 {
-	std::unique_lock<std::mutex> lock(mutex_);
+	std::unique_lock<std::mutex> lock(mutex_); //加锁保护连接池的状态
+	//使用条件变量等待连接池中有可用的连接或者连接池被标记为停止
 	cond_.wait(lock, [this] {
+		//如果连接池被标记为停止, 则直接返回true, 保持锁定状态并继续执行
 		if (b_stop_) {
 			return true;
 		}
+		//如果没有可用的连接, 返回false, 解锁并进入等待状态;
+		//如果有可用的连接, 返回true, 保持锁定状态并继续执行
 		return !connections_.empty();
 		});
 	//如果停止则直接返回空指针
 	if (b_stop_) {
 		return  nullptr;
 	}
+	//从连接池中获取一个可用的redisContext对象
 	auto* context = connections_.front();
-	connections_.pop();
+	connections_.pop(); //从连接池中移除获取的redisContext对象
 	return context;
 }
 
 void RedisConPool::returnConnection(redisContext* context)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_); //加锁保护连接池的状态
+	//如果连接池被标记为停止, 则直接返回, 不将连接对象加入连接池
 	if (b_stop_) {
 		return;
 	}
-	connections_.push(context);
-	cond_.notify_one();
+
+	connections_.push(context); //将连接对象加入连接池的连接队列, 使其可供其他线程使用
+	cond_.notify_one(); //通知一个等待的线程, 使其从连接池中获取一个可用的连接对象
 }
 
 void RedisConPool::Close()
 {
-	b_stop_ = true;
-	cond_.notify_all();
+	b_stop_ = true; //设置停止标志, 使连接池进入停止状态
+	cond_.notify_all(); //通知所有等待连接的线程, 使它们能够退出等待状态并检查停止标志
+}
+
+RedisConPool::~RedisConPool()
+{
+	std::lock_guard<std::mutex> lock(mutex_); //加锁保护连接池的状态
+	//释放连接池中的所有连接对象, 直到连接队列为空
+	while (!connections_.empty()) {
+		redisFree(connections_.front()); //释放连接对象
+		connections_.pop();
+	}
 }

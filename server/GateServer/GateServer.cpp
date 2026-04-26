@@ -24,7 +24,7 @@ void TestRedisMgr() {
 
 int main()
 {
-	TestRedisMgr();
+	//TestRedisMgr();
 
 	auto& gCfgMgr = ConfigMgr::Inst(); //获取配置管理器实例, 用于读取配置文件中的数据
 	//从配置管理器中获取GateServer的Port配置项, 并将其转换为unsigned short类型

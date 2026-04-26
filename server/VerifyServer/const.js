@@ -7,6 +7,7 @@ const Errors = {
   Success: 0,
   RedisErr: 1, //redis错误
   Exception: 2, //异常错误
+  SendMailErr: 3, //发送邮件错误
 };
 
 //导出模块
