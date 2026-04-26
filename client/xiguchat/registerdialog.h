@@ -29,6 +29,8 @@ private slots:
     //注册模块http请求完成的槽函数
     void slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err);
 
+    void on_sure_btn_clicked(); //注册按钮的槽函数
+
 private:
     Ui::RegisterDialog *ui;
     //请求id和对应的处理函数的映射表,当http请求完成时,根据请求id找到对应的处理函数进行处理
