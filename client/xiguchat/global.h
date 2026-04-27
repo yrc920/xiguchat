@@ -28,6 +28,8 @@
  */
 extern std::function<void(QWidget*)> repolish;
 
+extern std::function<QString(QString)> xorString;
+
 //功能的id
 enum ReqId{
     ID_GET_VERIFY_CODE = 1001, //获取验证码
@@ -38,6 +40,17 @@ enum ReqId{
 enum Modules{
     REGISTERMOD = 0, //注册模块
     };
+
+//错误提示
+enum TipErr{
+    TIP_SUCCESS = 0, //成功
+    TIP_EMAIL_ERR = 1, //邮箱错误
+    TIP_PWD_ERR = 2, //密码错误
+    TIP_CONFIRM_ERR = 3, //确认密码错误
+    TIP_PWD_CONFIRM = 4, //密码和确认密码不匹配
+    TIP_VARIFY_ERR = 5, //验证码错误
+    TIP_USER_ERR = 6 //用户名错误
+};
 
 //错误码
 enum ErrorCodes{

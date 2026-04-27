@@ -41,7 +41,7 @@ enum ErrorCodes {
 	PasswdInvalid = 1009, //密码更新失败
 };
 
-//Defer类
+//Defer类(go语言风格的延迟执行)
 class Defer {
 public:
 	//接受一个lambda表达式或者函数指针

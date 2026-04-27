@@ -118,18 +118,17 @@ LogicSystem::LogicSystem() {
             return true;
         }
 
-        
-        
 		//查找数据库判断用户是否存在
 		int uid = MysqlMgr::GetInstance()->RegUser(name, email, pwd);
+		//如果uid为0或者-1, 则说明用户已经存在, 返回错误信息
 		if (uid == 0 || uid == -1) {
 			std::cout << " user or email exist" << std::endl;
-			root["error"] = ErrorCodes::UserExist;
+			root["error"] = ErrorCodes::UserExist; //设置错误码为用户已经存在
+			//将JSON数据转换为字符串, 并写入响应内容中
 			std::string jsonstr = root.toStyledString();
 			beast::ostream(connection->_response.body()) << jsonstr;
 			return true;
 		}
-
 
 		//如果用户不存在, 则将用户信息写入数据库, 返回注册成功的响应
         root["error"] = 0;
@@ -143,7 +142,7 @@ LogicSystem::LogicSystem() {
         std::string jsonstr = root.toStyledString();
         beast::ostream(connection->_response.body()) << jsonstr;
         return true;
-        });
+    });
 }
 
 void LogicSystem::RegGet(std::string url, HttpHandler handler) {

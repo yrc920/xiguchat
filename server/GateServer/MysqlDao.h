@@ -1,4 +1,7 @@
 #pragma once
+// 数据库访问对象类, 用于封装对MySQL数据库的操作
+//
+
 #include "const.h"
 #include <thread>
 #include <jdbc/mysql_driver.h>
@@ -7,144 +10,50 @@
 #include <jdbc/cppconn/resultset.h>
 #include <jdbc/cppconn/statement.h>
 #include <jdbc/cppconn/exception.h>
-
-
-class SqlConnection {
-public:
-	SqlConnection(sql::Connection* con, int64_t lasttime) :_con(con), _last_oper_time(lasttime) {}
-	std::unique_ptr<sql::Connection> _con;
-	int64_t _last_oper_time;
-};
-
-class MySqlPool {
-public:
-	MySqlPool(const std::string& url, const std::string& user, const std::string& pass, const std::string& schema, int poolSize)
-		: url_(url), user_(user), pass_(pass), schema_(schema), poolSize_(poolSize), b_stop_(false) {
-		try {
-			for (int i = 0; i < poolSize_; ++i) {
-				sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-				auto* con = driver->connect(url_, user_, pass_);
-				con->setSchema(schema_);
-				// 获取当前时间戳
-				auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-				// 将时间戳转换为秒
-				long long timestamp = std::chrono::duration_cast<std::chrono::seconds>(currentTime).count();
-				pool_.push(std::make_unique<SqlConnection>(con, timestamp));
-			}
-
-			_check_thread = std::thread([this]() {
-				while (!b_stop_) {
-					checkConnection();
-					std::this_thread::sleep_for(std::chrono::seconds(60));
-				}
-				});
-
-			_check_thread.detach();
-		}
-		catch (sql::SQLException& e) {
-			// 处理异常
-			std::cout << "mysql pool init failed, error is " << e.what() << std::endl;
-		}
-	}
-
-	void checkConnection() {
-		std::lock_guard<std::mutex> guard(mutex_);
-		int poolsize = pool_.size();
-		// 获取当前时间戳
-		auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-		// 将时间戳转换为秒
-		long long timestamp = std::chrono::duration_cast<std::chrono::seconds>(currentTime).count();
-		for (int i = 0; i < poolsize; i++) {
-			auto con = std::move(pool_.front());
-			pool_.pop();
-			Defer defer([this, &con]() {
-				pool_.push(std::move(con));
-				});
-
-			if (timestamp - con->_last_oper_time < 5) {
-				continue;
-			}
-
-			try {
-				std::unique_ptr<sql::Statement> stmt(con->_con->createStatement());
-				stmt->executeQuery("SELECT 1");
-				con->_last_oper_time = timestamp;
-				//std::cout << "execute timer alive query , cur is " << timestamp << std::endl;
-			}
-			catch (sql::SQLException& e) {
-				std::cout << "Error keeping connection alive: " << e.what() << std::endl;
-				// 重新创建连接并替换旧的连接
-				sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-				auto* newcon = driver->connect(url_, user_, pass_);
-				newcon->setSchema(schema_);
-				con->_con.reset(newcon);
-				con->_last_oper_time = timestamp;
-			}
-		}
-	}
-
-	std::unique_ptr<SqlConnection> getConnection() {
-		std::unique_lock<std::mutex> lock(mutex_);
-		cond_.wait(lock, [this] {
-			if (b_stop_) {
-				return true;
-			}
-			return !pool_.empty(); });
-		if (b_stop_) {
-			return nullptr;
-		}
-		std::unique_ptr<SqlConnection> con(std::move(pool_.front()));
-		pool_.pop();
-		return con;
-	}
-
-	void returnConnection(std::unique_ptr<SqlConnection> con) {
-		std::unique_lock<std::mutex> lock(mutex_);
-		if (b_stop_) {
-			return;
-		}
-		pool_.push(std::move(con));
-		cond_.notify_one();
-	}
-
-	void Close() {
-		b_stop_ = true;
-		cond_.notify_all();
-	}
-
-	~MySqlPool() {
-		std::unique_lock<std::mutex> lock(mutex_);
-		while (!pool_.empty()) {
-			pool_.pop();
-		}
-	}
-
-private:
-	std::string url_;
-	std::string user_;
-	std::string pass_;
-	std::string schema_;
-	int poolSize_;
-	std::queue<std::unique_ptr<SqlConnection>> pool_;
-	std::mutex mutex_;
-	std::condition_variable cond_;
-	std::atomic<bool> b_stop_;
-	std::thread _check_thread;
-};
-
-struct UserInfo {
-	std::string name;
-	std::string pwd;
-	int uid;
-	std::string email;
-};
+class SqlConnection; //封装MySQL连接对象, 包含连接对象和上次操作时间(前置声明)
+class MySqlPool; //MySQL连接池, 提供获取和归还连接的接口(前置声明)
 
 class MysqlDao
 {
 public:
-	MysqlDao();
-	~MysqlDao();
+	MysqlDao(); //初始化MySQL连接池
+	//注册用户, 返回用户ID, 如果注册失败则返回-1
 	int RegUser(const std::string& name, const std::string& email, const std::string& pwd);
+	~MysqlDao();
+
 private:
-	std::unique_ptr<MySqlPool> pool_;
+	//MySQL连接池对象, 用于管理MySQL连接, 提供线程安全的获取和归还连接的接口
+	std::unique_ptr<MySqlPool> pool_; 
+};
+
+class SqlConnection {
+public:
+	SqlConnection(sql::Connection* con, int64_t lasttime) :_con(con), _last_oper_time(lasttime) {}
+	std::unique_ptr<sql::Connection> _con; //MySQL连接对象, 使用智能指针管理资源
+	int64_t _last_oper_time; //上次操作时间
+};
+
+class MySqlPool {
+public:
+	MySqlPool(const std::string& url, const std::string& user, const std::string& pass, 
+		const std::string& schema, int poolSize);
+
+	void checkConnection(); //检查连接的有效性
+	std::unique_ptr<SqlConnection> getConnection(); //获取连接
+	void returnConnection(std::unique_ptr<SqlConnection> con); //归还连接
+	void Close(); //关闭连接池
+	~MySqlPool();
+
+private:
+	std::string url_; //MySQL服务器的URL地址, 包含主机地址和端口号
+	std::string user_; //MySQL用户名
+	std::string pass_; //MySQL密码
+	std::string schema_; //MySQL数据库名
+	int poolSize_; //连接池大小
+
+	std::queue<std::unique_ptr<SqlConnection>> pool_; //连接池队列
+	std::mutex mutex_; //用于保护连接队列的互斥锁
+	std::condition_variable cond_; //用于线程间的条件变量, 当连接池为空时等待, 当有连接可用时通知
+	std::atomic<bool> b_stop_; //连接池是否停止, 用于控制连接池的生命周期
+	std::thread _check_thread; //检测线程, 定期检查连接的状态并保持连接的活跃性(心跳机制)
 };

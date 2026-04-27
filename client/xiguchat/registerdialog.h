@@ -32,12 +32,21 @@ private slots:
     void on_sure_btn_clicked(); //注册按钮的槽函数
 
 private:
+    void initHttpHandlers(); //初始化http响应处理函数
+    void showTip(QString str, bool bo_k); //显示提示信息
+
+    void AddTipErr(TipErr te, QString tips);
+    void DelTipErr(TipErr te);
+    bool checkUserValid();
+    bool checkEmailValid();
+    bool checkPassValid();
+    bool checkConfirmValid();
+    bool checkVerifyValid();
+
     Ui::RegisterDialog *ui;
     //请求id和对应的处理函数的映射表,当http请求完成时,根据请求id找到对应的处理函数进行处理
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;
-
-    void showTip(QString str, bool bo_k); //显示提示信息
-    void initHttpHandlers(); //初始化http响应处理函数
+    QMap<TipErr, QString> _tip_errs;
 };
 
 #endif // REGISTERDIALOG_H
