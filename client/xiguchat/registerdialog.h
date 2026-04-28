@@ -35,18 +35,18 @@ private:
     void initHttpHandlers(); //初始化http响应处理函数
     void showTip(QString str, bool bo_k); //显示提示信息
 
-    void AddTipErr(TipErr te, QString tips);
-    void DelTipErr(TipErr te);
-    bool checkUserValid();
-    bool checkEmailValid();
-    bool checkPassValid();
-    bool checkConfirmValid();
-    bool checkVerifyValid();
+    void AddTipErr(TipErr te, QString tips); //添加错误提示信息
+    void DelTipErr(TipErr te); //删除错误提示信息
+    bool checkUserValid(); //检查用户名是否合法
+    bool checkEmailValid(); //检查邮箱是否合法
+    bool checkPassValid(); //检查密码是否合法
+    bool checkConfirmValid(); //检查确认密码是否合法
+    bool checkVerifyValid(); //检查验证码是否合法
 
     Ui::RegisterDialog *ui;
     //请求id和对应的处理函数的映射表,当http请求完成时,根据请求id找到对应的处理函数进行处理
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;
-    QMap<TipErr, QString> _tip_errs;
+    QMap<TipErr, QString> _tip_errs; //错误类型和对应的提示信息的映射表
 };
 
 #endif // REGISTERDIALOG_H
