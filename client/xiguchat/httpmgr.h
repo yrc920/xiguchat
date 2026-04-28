@@ -20,7 +20,7 @@
 
 //CRTP技术
 class HttpMgr : public QObject, public Singleton<HttpMgr>,
-                public std::enable_shared_from_this<HttpMgr>
+    public std::enable_shared_from_this<HttpMgr>
 {
     Q_OBJECT //使得HttpMgr可以使用Qt的信号和槽机制
 

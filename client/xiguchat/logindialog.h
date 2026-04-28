@@ -17,7 +17,7 @@ class LoginDialog;
 
 class LoginDialog : public QDialog
 {
-    Q_OBJECT
+    Q_OBJECT //使得LoginDialog可以使用Qt的信号和槽机制
 
 public:
     explicit LoginDialog(QWidget *parent = nullptr);

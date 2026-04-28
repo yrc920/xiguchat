@@ -29,6 +29,7 @@ public:
 
 public slots:
     void SlotSwitchReg(); //切换到注册界面槽函数
+    void SlotSwitchLogin(); //切换到登录界面槽函数
 
 private:
     Ui::MainWindow *ui;

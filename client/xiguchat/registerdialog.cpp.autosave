@@ -59,18 +59,20 @@ RegisterDialog::RegisterDialog(QWidget *parent)
         qDebug() << "Label was clicked!";
     });
 
-    // 创建定时器
-    _countdown_timer = new QTimer(this);
-    // 连接信号和槽
+    
+    _countdown_timer = new QTimer(this); //创建定时器
+    //设置定时器的槽函数,每当定时器超时时,就执行这个槽函数
     connect(_countdown_timer, &QTimer::timeout, [this](){
+        //如果倒计时结束
         if(_countdown==0){
-            _countdown_timer->stop();
-            emit sigSwitchLogin();
+            _countdown_timer->stop(); //停止定时器
+            emit sigSwitchLogin(); //发出切换到登录界面的信号，返回登录界面
             return;
         }
+        //每次定时器超时, 就将倒计时的秒数减1
         _countdown--;
         auto str = QString("注册成功，%1 s后返回登录").arg(_countdown);
-        ui->tip_lb->setText(str);
+        ui->tip_lb->setText(str); //设置提示信息显示剩余的秒数
     });
 }
 
@@ -131,7 +133,8 @@ void RegisterDialog::initHttpHandlers()
         showTip(tr("用户注册成功"), true);
         qDebug() << "user uid is " << jsonObj["uid"].toInt();
         qDebug() << "email is " << email;
-        ChangeTipPage();
+        
+        ChangeTipPage(); //切换到提示页面，显示注册成功，5秒后返回登录界面
     });
 }
 
@@ -200,10 +203,10 @@ void RegisterDialog::on_sure_btn_clicked()
 
 void RegisterDialog::ChangeTipPage()
 {
-    _countdown_timer->stop();
-    ui->stackedWidget->setCurrentWidget(ui->page_2);
+    _countdown_timer->stop(); //停止倒计时定时器，防止之前的定时器还在运行
+    ui->stackedWidget->setCurrentWidget(ui->page_2); //切换到提示页面
 
-    // 启动定时器，设置间隔为1000毫秒（1秒）
+    //启动定时器，设置间隔为1000毫秒(1秒)
     _countdown_timer->start(1000);
 }
 
@@ -303,7 +306,7 @@ bool RegisterDialog::checkVerifyValid()
 
 void RegisterDialog::on_return_btn_clicked()
 {
-    _countdown_timer->stop();
-    emit sigSwitchLogin();
+    _countdown_timer->stop(); //停止倒计时定时器
+    emit sigSwitchLogin(); //发出切换到登录界面的信号，返回登录界面
 }
 

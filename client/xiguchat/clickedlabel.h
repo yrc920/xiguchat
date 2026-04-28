@@ -13,9 +13,10 @@
  * @history
  *****************************************************/
 
-class ClickedLabel:public QLabel
+class ClickedLabel : public QLabel
 {
-    Q_OBJECT
+    Q_OBJECT //使得ClickedLabel可以使用Qt的信号和槽机制
+
 public:
     ClickedLabel(QWidget* parent);
     virtual void mousePressEvent(QMouseEvent *ev) override; //处理鼠标点击事件

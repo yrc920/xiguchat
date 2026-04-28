@@ -19,6 +19,7 @@ protected:
     Singleton(const Singleton<T>&) = delete;
     Singleton& operator = (const Singleton<T>& st) = delete;
     static std::shared_ptr<T> _instance; //单例类的唯一实例
+
 public:
     //返回单例实例的静态方法
     static std::shared_ptr<T> GetInstance(){
