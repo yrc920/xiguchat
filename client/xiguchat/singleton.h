@@ -11,6 +11,7 @@
  * @date       2026/04/20
  * @history
  *****************************************************************************/
+
 template <typename T>
 class Singleton{
 protected:

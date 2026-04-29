@@ -57,6 +57,69 @@ int MysqlDao::RegUser(const std::string& name, const std::string& email, const s
 	}
 }
 
+bool MysqlDao::CheckEmail(const std::string& name, const std::string& email) {
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	try {
+		//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+		if (con == nullptr)
+			return false;
+
+		//准备查询语句(查询指定用户名的邮箱地址)
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
+			prepareStatement("SELECT email FROM user WHERE name = ?"));
+		pstmt->setString(1, name); //绑定参数
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery()); //执行查询
+
+		//遍历结果集
+		while (res->next()) {
+			std::cout << "Check Email: " << res->getString("email") << std::endl;
+			//如果查询结果中的email与输入的email不匹配, 则说明用户名和邮箱不匹配, 返回false
+			if (email != res->getString("email")) {
+				pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+				return false;
+			}
+			pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+			return true;
+		}
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+bool MysqlDao::UpdatePwd(const std::string& name, const std::string& newpwd) {
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	try {
+		//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+		if (con == nullptr)
+			return false;
+
+		//准备查询语句(更新指定用户名的密码)
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
+			prepareStatement("UPDATE user SET pwd = ? WHERE name = ?"));
+		//绑定参数
+		pstmt->setString(2, name);
+		pstmt->setString(1, newpwd);
+		int updateCount = pstmt->executeUpdate(); //执行更新
+
+		std::cout << "Updated rows: " << updateCount << std::endl;
+		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
 MySqlPool::MySqlPool(const std::string& url, const std::string& user, const std::string& pass, 
 	const std::string& schema, int poolSize)
 		: url_(url), user_(user), pass_(pass), schema_(schema), poolSize_(poolSize), b_stop_(false)

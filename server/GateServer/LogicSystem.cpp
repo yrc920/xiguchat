@@ -98,7 +98,6 @@ LogicSystem::LogicSystem() {
         std::string  verify_code;
         bool b_get_verify = RedisMgr::GetInstance()->
             Get(CODEPREFIX + email, verify_code);
-
 		//如果没有找到验证码或者验证码过期了, 则返回错误信息
         if (!b_get_verify) {
             std::cout << " get verify code expired" << std::endl;
@@ -143,6 +142,93 @@ LogicSystem::LogicSystem() {
         beast::ostream(connection->_response.body()) << jsonstr;
         return true;
     });
+
+	//注册用户重置密码的POST请求的URL和对应的处理函数
+    RegPost("/reset_pwd", [](std::shared_ptr<HttpConnection> connection) {
+        //将请求体中的数据转化为字符串
+        auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+        std::cout << "receive body is " << body_str << std::endl;
+		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+
+		Json::Value root; //用于构建响应的JSON数据
+		Json::Reader reader; //用于解析请求体中的JSON数据
+		Json::Value src_root; //用于存储解析后的JSON数据
+		//解析请求体中的JSON数据, 将解析结果存储到src_root中
+        bool parse_success = reader.parse(body_str, src_root);
+		//如果解析失败或者请求体中没有email、user、passwd和verifycode字段, 则返回错误信息
+        if (!parse_success) {
+            std::cout << "Failed to parse JSON data!" << std::endl;
+			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+		//如果解析成功, 则从src_root中提取email、user、passwd和verifycode字段的值
+        auto email = src_root["email"].asString();
+        auto name = src_root["user"].asString();
+        auto pwd = src_root["passwd"].asString();
+
+        //先查找redis中email对应的验证码是否合理
+        std::string verify_code;
+        bool b_get_verify = RedisMgr::GetInstance()->
+			Get(CODEPREFIX + src_root["email"].asString(), verify_code);
+		//如果没有找到验证码或者验证码过期了, 则返回错误信息
+        if (!b_get_verify) {
+            std::cout << " get verify code expired" << std::endl;
+			root["error"] = ErrorCodes::VerifyExpired; //设置错误码为验证码过期
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+		//如果找到了验证码, 则将请求中的验证码和redis中获取到的验证码进行比较, 如果不一致则返回错误信息
+        if (verify_code != src_root["verifycode"].asString()) {
+            std::cout << " verify code error" << std::endl;
+			root["error"] = ErrorCodes::VerifyCodeErr; //设置错误码为验证码错误
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+        //查询数据库判断用户名和邮箱是否匹配
+        bool email_valid = MysqlMgr::GetInstance()->CheckEmail(name, email);
+		//如果用户名和邮箱不匹配, 则返回错误信息
+        if (!email_valid) {
+            std::cout << " user email not match" << std::endl;
+			root["error"] = ErrorCodes::EmailNotMatch; //设置错误码为用户名和邮箱不匹配
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+        //更新密码为最新密码
+        bool b_up = MysqlMgr::GetInstance()->UpdatePwd(name, pwd);
+		//如果更新密码失败, 则返回错误信息
+        if (!b_up) {
+            std::cout << " update pwd failed" << std::endl;
+			root["error"] = ErrorCodes::PasswdUpFailed; //设置错误码为更新密码失败
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+		//如果更新密码成功, 则返回更新密码成功的响应
+        std::cout << "succeed to update password" << pwd << std::endl;
+        root["error"] = 0;
+        root["email"] = email;
+        root["user"] = name;
+        root["passwd"] = pwd;
+        root["verifycode"] = src_root["verifycode"].asString();
+		//将JSON数据转换为字符串, 并写入响应内容中
+		std::string jsonstr = root.toStyledString();
+        beast::ostream(connection->_response.body()) << jsonstr;
+        return true;
+        });
 }
 
 void LogicSystem::RegGet(std::string url, HttpHandler handler) {

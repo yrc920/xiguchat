@@ -13,9 +13,11 @@ public:
 
 	//注册用户, 返回用户ID, 如果注册失败则返回-1
 	int RegUser(const std::string& name, const std::string& email, const std::string& pwd);
+	bool CheckEmail(const std::string& name, const std::string& email); //检查用户名和邮箱是否匹配
+	bool UpdatePwd(const std::string& name, const std::string& pwd); //更新密码
 
 private:
 	MysqlMgr();
 
-	MysqlDao  _dao; //数据库访问对象
+	MysqlDao _dao; //数据库访问对象
 };

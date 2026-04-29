@@ -35,11 +35,17 @@ extern std::function<QString(QString)> xorString;
 enum ReqId{
     ID_GET_VERIFY_CODE = 1001, //获取验证码
     ID_REG_USER = 1002, //注册用户
+    ID_RESET_PWD = 1003, //重置密码
+    ID_LOGIN_USER = 1004, //用户登录
+    ID_CHAT_LOGIN = 1005, //登陆聊天服务器
+    ID_CHAT_LOGIN_RSP = 1006, //登陆聊天服务器回包
 };
 
 //模块
 enum Modules{
     REGISTERMOD = 0, //注册模块
+    RESETMOD = 1, //重置密码模块
+    LOGINMOD = 2, //登录模块
 };
 
 //错误提示
@@ -49,7 +55,7 @@ enum TipErr{
     TIP_PWD_ERR = 2, //密码错误
     TIP_CONFIRM_ERR = 3, //确认密码错误
     TIP_PWD_CONFIRM = 4, //密码和确认密码不匹配
-    TIP_VARIFY_ERR = 5, //验证码错误
+    TIP_VERIFY_ERR = 5, //验证码错误
     TIP_USER_ERR = 6 //用户名错误
 };
 

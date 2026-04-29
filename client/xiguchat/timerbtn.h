@@ -23,8 +23,8 @@ public:
     virtual void mouseReleaseEvent(QMouseEvent *e) override;
 
 private:
-    QTimer  *_timer;
-    int _counter;
+    QTimer  *_timer; //定时器对象，用于控制倒计时
+    int _counter; //倒计时的初始值，表示倒计时的秒数
 };
 
 #endif // TIMERBTN_H

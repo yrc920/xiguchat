@@ -12,6 +12,7 @@
  * @date       2026/04/20
  * @history
  *****************************************************************************/
+
 namespace Ui {
 class RegisterDialog;
 }
@@ -35,25 +36,25 @@ private:
     bool checkPassValid(); //检查密码是否合法
     bool checkConfirmValid(); //检查确认密码是否合法
     bool checkVerifyValid(); //检查验证码是否合法
-    void ChangeTipPage();
+    void ChangeTipPage(); //切换到提示信息页面
 
     Ui::RegisterDialog *ui;
-    //请求id和对应的处理函数的映射表,当http请求完成时,根据请求id找到对应的处理函数进行处理
+    //请求id和对应的处理函数的映射表, 当http请求完成时, 根据请求id找到对应的处理函数进行处理
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;
     QMap<TipErr, QString> _tip_errs; //错误类型和对应的提示信息的映射表
 
-    QTimer* _countdown_timer;
-    int _countdown;
+    QTimer* _countdown_timer; //倒计时定时器
+    int _countdown; //倒计时的秒数
 
 private slots:
     void on_get_code_clicked(); //获取验证码按钮的槽函数
     void slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err); //注册模块http请求完成的槽函数
     void on_sure_btn_clicked(); //注册按钮的槽函数
-
-    void on_return_btn_clicked();
+    void on_return_btn_clicked(); //返回登录按钮的槽函数
+    void on_cancel_btn_clicked(); //取消按钮的槽函数
 
 signals:
-    void sigSwitchLogin();
+    void sigSwitchLogin(); //切换到登录界面的信号
 };
 
 #endif // REGISTERDIALOG_H

@@ -10,28 +10,21 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     //设置密码输入框的显示模式为密码模式
     ui->pass_edit->setEchoMode(QLineEdit::Password);
     ui->confirm_edit->setEchoMode(QLineEdit::Password);
-    ui->err_tip->setProperty("state", "normal"); //设置初始状态为正常(告诉qss有这个状态)
-    repolish(ui->err_tip); //刷新样式表，使得状态生效
+    ui->err_tip->clear(); //清空提示信息显示区域
 
     //连接http管理者的注册模块完成信号到对应的槽函数
     connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_reg_mod_finish,
-            this, &RegisterDialog::slot_reg_mod_finish);
+        this, &RegisterDialog::slot_reg_mod_finish);
 
-    initHttpHandlers(); //初始化http响应处理函数,将请求id和对应的处理函数的映射表插入到_handlers中
-
-    ui->err_tip->clear(); //清空提示信息显示区域
+    initHttpHandlers(); //初始化http响应处理函数, 将请求id和对应的处理函数的映射表插入到_handlers中
 
     //连接输入框的editingFinished信号到对应的槽函数,
     //当用户完成输入后, 检查输入是否合法, 如果不合法就显示对应的错误提示信息
-    connect(ui->user_edit,&QLineEdit::editingFinished,this,[this](){ checkUserValid(); });
+    connect(ui->user_edit, &QLineEdit::editingFinished, this, [this](){ checkUserValid(); });
     connect(ui->email_edit, &QLineEdit::editingFinished, this, [this](){ checkEmailValid(); });
     connect(ui->pass_edit, &QLineEdit::editingFinished, this, [this](){ checkPassValid(); });
     connect(ui->confirm_edit, &QLineEdit::editingFinished, this, [this](){ checkConfirmValid(); });
     connect(ui->verify_edit, &QLineEdit::editingFinished, this, [this](){ checkVerifyValid(); });
-
-    //设置浮动显示手形状
-    ui->pass_visible->setCursor(Qt::PointingHandCursor);
-    ui->confirm_visible->setCursor(Qt::PointingHandCursor);
 
     //设置状态的样式名称
     ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
@@ -59,18 +52,19 @@ RegisterDialog::RegisterDialog(QWidget *parent)
         qDebug() << "Label was clicked!";
     });
 
-    // 创建定时器
-    _countdown_timer = new QTimer(this);
-    // 连接信号和槽
+    _countdown_timer = new QTimer(this); //创建定时器
+    //设置定时器的槽函数,每当定时器超时时,就执行这个槽函数
     connect(_countdown_timer, &QTimer::timeout, [this](){
+        //如果倒计时结束
         if(_countdown==0){
-            _countdown_timer->stop();
-            emit sigSwitchLogin();
+            _countdown_timer->stop(); //停止定时器
+            emit sigSwitchLogin(); //发出切换到登录界面的信号，返回登录界面
             return;
         }
+        //每次定时器超时, 就将倒计时的秒数减1
         _countdown--;
         auto str = QString("注册成功，%1 s后返回登录").arg(_countdown);
-        ui->tip_lb->setText(str);
+        ui->tip_lb->setText(str); //设置提示信息显示剩余的秒数
     });
 }
 
@@ -87,7 +81,7 @@ void RegisterDialog::slot_reg_mod_finish(ReqId id, QString res, ErrorCodes err)
         return;
     }
 
-    //解析JSON字符串,res转化为QByteArray
+    //解析JSON字符串, res转化为QByteArray
     QJsonDocument jsonDoc = QJsonDocument::fromJson(res.toUtf8());
     //转换过程中如果失败
     if(jsonDoc.isNull()){
@@ -120,7 +114,7 @@ void RegisterDialog::initHttpHandlers()
         qDebug() << "email is " << email;
     });
 
-    //注册注册用户回包逻辑
+    //注册注册用户回包的逻辑
     _handlers.insert(ReqId::ID_REG_USER, [this](QJsonObject jsonObj){
         int error = jsonObj["error"].toInt();
         if(error != ErrorCodes::SUCCESS){
@@ -131,7 +125,8 @@ void RegisterDialog::initHttpHandlers()
         showTip(tr("用户注册成功"), true);
         qDebug() << "user uid is " << jsonObj["uid"].toInt();
         qDebug() << "email is " << email;
-        ChangeTipPage();
+
+        ChangeTipPage(); //切换到提示页面，显示注册成功，5秒后返回登录界面
     });
 }
 
@@ -200,10 +195,10 @@ void RegisterDialog::on_sure_btn_clicked()
 
 void RegisterDialog::ChangeTipPage()
 {
-    _countdown_timer->stop();
-    ui->stackedWidget->setCurrentWidget(ui->page_2);
+    _countdown_timer->stop(); //停止倒计时定时器，防止之前的定时器还在运行
+    ui->stackedWidget->setCurrentWidget(ui->page_2); //切换到提示页面
 
-    // 启动定时器，设置间隔为1000毫秒（1秒）
+    //启动定时器，设置间隔为1000毫秒(1秒)
     _countdown_timer->start(1000);
 }
 
@@ -235,7 +230,6 @@ bool RegisterDialog::checkUserValid()
     DelTipErr(TipErr::TIP_USER_ERR); //如果用户名合法，就从_tip_errs中删除用户名错误提示信息
     return true;
 }
-
 
 bool RegisterDialog::checkPassValid()
 {
@@ -293,17 +287,23 @@ bool RegisterDialog::checkVerifyValid()
 {
     auto pass = ui->verify_edit->text(); //获取验证码输入框的文本
     if(pass.isEmpty()){
-        AddTipErr(TipErr::TIP_VARIFY_ERR, tr("验证码不能为空"));
+        AddTipErr(TipErr::TIP_VERIFY_ERR, tr("验证码不能为空"));
         return false;
     }
 
-    DelTipErr(TipErr::TIP_VARIFY_ERR); //如果验证码合法，就从_tip_errs中删除验证码错误提示信息
+    DelTipErr(TipErr::TIP_VERIFY_ERR); //如果验证码合法，就从_tip_errs中删除验证码错误提示信息
     return true;
 }
 
 void RegisterDialog::on_return_btn_clicked()
 {
-    _countdown_timer->stop();
-    emit sigSwitchLogin();
+    _countdown_timer->stop(); //停止倒计时定时器
+    emit sigSwitchLogin(); //发出切换到登录界面的信号，返回登录界面
+}
+
+void RegisterDialog::on_cancel_btn_clicked()
+{
+    _countdown_timer->stop(); //停止倒计时定时器
+    emit sigSwitchLogin(); //发出切换到登录界面的信号，返回登录界面
 }
 

@@ -1,7 +1,10 @@
 #include "clickedlabel.h"
 #include <QMouseEvent>
 
-ClickedLabel::ClickedLabel(QWidget* parent):QLabel (parent), _curstate(ClickLbState::Normal) {}
+ClickedLabel::ClickedLabel(QWidget* parent):QLabel (parent), _curstate(ClickLbState::Normal)
+{
+    this->setCursor(Qt::PointingHandCursor); //设置鼠标悬停时显示手形光标，提示用户这个标签是可点击的
+}
 
 void ClickedLabel::mousePressEvent(QMouseEvent* event)  {
     if (event->button() == Qt::LeftButton) {

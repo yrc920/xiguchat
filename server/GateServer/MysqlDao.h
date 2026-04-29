@@ -19,6 +19,8 @@ public:
 	MysqlDao(); //初始化MySQL连接池
 	//注册用户, 返回用户ID, 如果注册失败则返回-1
 	int RegUser(const std::string& name, const std::string& email, const std::string& pwd);
+	bool UpdatePwd(const std::string& name, const std::string& newpwd); //更新密码
+	bool CheckEmail(const std::string& name, const std::string& email); //检查用户名和邮箱是否匹配
 	~MysqlDao();
 
 private:
