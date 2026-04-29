@@ -3,6 +3,7 @@
 #include "VerifyGrpcClient.h"
 #include "RedisMgr.h"
 #include "MysqlMgr.h"
+#include "StatusGrpcClient.h"
 
 LogicSystem::LogicSystem() {
 	//注册一个GET请求的URL和对应的处理函数
@@ -155,7 +156,7 @@ LogicSystem::LogicSystem() {
 		Json::Value src_root; //用于存储解析后的JSON数据
 		//解析请求体中的JSON数据, 将解析结果存储到src_root中
         bool parse_success = reader.parse(body_str, src_root);
-		//如果解析失败或者请求体中没有email、user、passwd和verifycode字段, 则返回错误信息
+		//如果解析失败, 则返回错误信息
         if (!parse_success) {
             std::cout << "Failed to parse JSON data!" << std::endl;
 			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
@@ -226,6 +227,71 @@ LogicSystem::LogicSystem() {
         root["verifycode"] = src_root["verifycode"].asString();
 		//将JSON数据转换为字符串, 并写入响应内容中
 		std::string jsonstr = root.toStyledString();
+        beast::ostream(connection->_response.body()) << jsonstr;
+        return true;
+        });
+
+	//注册用户登录的POST请求的URL和对应的处理函数
+    RegPost("/user_login", [](std::shared_ptr<HttpConnection> connection) {
+		//将请求体中的数据转换为字符串
+        auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
+        std::cout << "receive body is " << body_str << std::endl;
+		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+
+		Json::Value root; //用于构建响应的JSON数据
+		Json::Reader reader; //用于解析请求体中的JSON数据
+		Json::Value src_root; //用于存储解析后的JSON数据
+		//解析请求体中的JSON数据, 将解析结果存储到src_root中
+        bool parse_success = reader.parse(body_str, src_root);
+		//如果解析失败, 则返回错误信息
+        if (!parse_success) {
+            std::cout << "Failed to parse JSON data!" << std::endl;
+			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+		//如果解析成功, 则从src_root中提取email和passwd字段的值
+        auto email = src_root["email"].asString();
+        auto pwd = src_root["passwd"].asString();
+		UserInfo userInfo; //用于存储用户信息的结构体对象
+
+        //查询数据库判断邮箱和密码是否匹配
+        bool pwd_valid = MysqlMgr::GetInstance()->CheckPwd(email, pwd, userInfo);
+		//如果邮箱和密码不匹配, 则返回错误信息
+        if (!pwd_valid) {
+            std::cout << " user pwd not match" << std::endl;
+			root["error"] = ErrorCodes::PasswdInvalid; //设置错误码为邮箱和密码不匹配
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+        //查询StatusServer找到合适的连接
+        auto reply = StatusGrpcClient::GetInstance()->GetChatServer(userInfo.uid);
+		//如果查询StatusServer失败, 则返回错误信息
+        if (reply.error()) {
+            std::cout << " grpc get chat server failed, error is " << reply.error() << std::endl;
+			root["error"] = ErrorCodes::RPCFailed; //设置错误码为RPC调用失败
+			//将JSON数据转换为字符串, 并写入响应内容中
+            std::string jsonstr = root.toStyledString();
+            beast::ostream(connection->_response.body()) << jsonstr;
+            return true;
+        }
+
+		//如果查询StatusServer成功, 则返回登录成功的响应, 包含用户信息和StatusServer的连接信息
+        std::cout << "succeed to load userinfo uid is " << userInfo.uid << std::endl;
+        root["error"] = 0;
+        root["email"] = email;
+        root["uid"] = userInfo.uid;
+        root["token"] = reply.token();
+        root["host"] = reply.host();
+		root["port"] = reply.port();
+		//将JSON数据转换为字符串, 并写入响应内容中
+        std::string jsonstr = root.toStyledString();
         beast::ostream(connection->_response.body()) << jsonstr;
         return true;
         });

@@ -9,6 +9,7 @@
 #include <boost/property_tree/ini_parser.hpp>
 #include <memory>
 #include <iostream>
+#include <string>
 #include <functional>
 #include "Singleton.h"
 #include <map>

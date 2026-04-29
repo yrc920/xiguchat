@@ -12,11 +12,11 @@ RegisterDialog::RegisterDialog(QWidget *parent)
     ui->confirm_edit->setEchoMode(QLineEdit::Password);
     ui->err_tip->clear(); //清空提示信息显示区域
 
+    initHttpHandlers(); //初始化http响应处理函数, 将请求id和对应的处理函数的映射表插入到_handlers中
+
     //连接http管理者的注册模块完成信号到对应的槽函数
     connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_reg_mod_finish,
         this, &RegisterDialog::slot_reg_mod_finish);
-
-    initHttpHandlers(); //初始化http响应处理函数, 将请求id和对应的处理函数的映射表插入到_handlers中
 
     //连接输入框的editingFinished信号到对应的槽函数,
     //当用户完成输入后, 检查输入是否合法, 如果不合法就显示对应的错误提示信息

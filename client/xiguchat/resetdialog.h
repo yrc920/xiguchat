@@ -19,7 +19,7 @@ class ResetDialog;
 
 class ResetDialog : public QDialog
 {
-    Q_OBJECT
+    Q_OBJECT //使得ResetDialog可以使用Qt的信号和槽机制
 
 public:
     explicit ResetDialog(QWidget *parent = nullptr);

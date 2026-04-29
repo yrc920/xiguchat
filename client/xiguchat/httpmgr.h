@@ -45,6 +45,8 @@ signals:
     void sig_reg_mod_finish(ReqId id, QString res, ErrorCodes err);
     //重置密码模块http请求完成的信号
     void sig_reset_mod_finish(ReqId id, QString res, ErrorCodes err);
+    //登录模块http请求完成的信号
+    void sig_login_mod_finish(ReqId id, QString res, ErrorCodes err);
 };
 
 #endif // HTTPMGR_H

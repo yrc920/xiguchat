@@ -50,8 +50,14 @@ void HttpMgr::slot_http_finished(ReqId id, QString res, ErrorCodes err, Modules 
     }
 
      //如果是重置密码模块
-    else if(mod == Modules::RESETMOD){
+    if(mod == Modules::RESETMOD){
         //发送信号通知指定模块http的响应结束了
         emit sig_reset_mod_finish(id, res, err);
+    }
+
+    //如果是登录模块
+    if(mod == Modules::LOGINMOD){
+        //发送信号通知指定模块http的响应结束了
+        emit sig_login_mod_finish(id, res, err);
     }
 }

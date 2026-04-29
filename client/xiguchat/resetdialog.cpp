@@ -78,7 +78,7 @@ void ResetDialog::slot_reset_mod_finish(ReqId id, QString res, ErrorCodes err)
 
 void ResetDialog::initHandlers()
 {
-    //注册获取验证码回包的逻辑
+    //注册获取验证码回包的逻辑(和注册模块使用一样的接口)
     _handlers.insert(ReqId::ID_GET_VERIFY_CODE, [this](QJsonObject jsonObj){
         int error = jsonObj["error"].toInt();
         if(error != ErrorCodes::SUCCESS){
@@ -107,9 +107,9 @@ void ResetDialog::initHandlers()
 void ResetDialog::showTip(QString str, bool b_ok)
 {
     if(b_ok){
-        ui->err_tip->setProperty("state","normal"); //设置状态为正常
+        ui->err_tip->setProperty("state", "normal"); //设置状态为正常
     }else{
-        ui->err_tip->setProperty("state","err"); //设置状态为错误
+        ui->err_tip->setProperty("state", "err"); //设置状态为错误
     }
     ui->err_tip->setText(str); //设置提示信息
     repolish(ui->err_tip); //刷新样式表，使得状态生效
@@ -154,7 +154,7 @@ void ResetDialog::on_sure_btn_clicked()
     QJsonObject json_obj;
     json_obj["user"] = ui->user_edit->text();
     json_obj["email"] = ui->email_edit->text();
-    json_obj["passwd"] = xorString(ui->pwd_lb->text()); //对密码进行异或加密
+    json_obj["passwd"] = xorString(ui->pwd_edit->text()); //对密码进行异或加密
     json_obj["verifycode"] = ui->verify_edit->text();
 
     HttpMgr::GetInstance()->PostHttpReq(QUrl(gate_url_prefix + "/reset_pwd"),
@@ -211,7 +211,6 @@ bool ResetDialog::checkPassValid()
     }
 
     DelTipErr(TipErr::TIP_PWD_ERR); //如果密码合法，就从_tip_errs中删除密码错误提示信息
-
     return true;
 }
 

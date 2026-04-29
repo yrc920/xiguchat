@@ -1,4 +1,4 @@
-QDialog#LoginDialog, #RegisterDialog{
+QDialog#LoginDialog, #RegisterDialog, #ResetDialog{
 background-color:rgb(255,255,255)
 }
 

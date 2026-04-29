@@ -74,4 +74,11 @@ enum ClickLbState{
 
 extern QString gate_url_prefix; //网关服务器的URL前缀,从配置文件中读取
 
+struct ServerInfo{
+    QString Host;
+    QString Port;
+    QString Token;
+    int Uid;
+};
+
 #endif // GLOBAL_H
