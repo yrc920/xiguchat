@@ -20,6 +20,7 @@
 #include <atomic>
 #include <queue>
 #include <mutex>
+#include <thread>
 #include <condition_variable>
 #include <hiredis/hiredis.h>
 #include <cassert>
