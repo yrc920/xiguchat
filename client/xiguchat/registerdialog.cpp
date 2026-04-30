@@ -235,7 +235,7 @@ bool RegisterDialog::checkPassValid()
 {
     auto pass = ui->pass_edit->text(); //获取密码输入框的文本
 
-    if(pass.length() < 6 || pass.length()>15){
+    if(pass.length() < 6 || pass.length() > 15){
         //提示长度不准确
         AddTipErr(TipErr::TIP_PWD_ERR, tr("密码长度应为6~15"));
         return false;

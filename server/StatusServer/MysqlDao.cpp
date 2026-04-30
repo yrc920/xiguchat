@@ -120,22 +120,23 @@ bool MysqlDao::UpdatePwd(const std::string& name, const std::string& newpwd) {
 	}
 }
 
-bool MysqlDao::CheckPwd(const std::string& name, const std::string& pwd, UserInfo& userInfo) {
+bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo) {
 	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
-	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
-	if (con == nullptr)
-		return false;
-
+	
 	//使用RAII机制确保无论函数如何退出, 都能正确归还MySQL连接对象给连接池, 避免资源泄漏
 	Defer defer([this, &con]() {
 		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
 		});
 
 	try {
-		//准备查询语句(查询指定用户名的用户信息, 包含密码、邮箱等字段)
+		//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+		if (con == nullptr)
+			return false;
+
+		//准备查询语句(查询指定邮箱的用户信息, 包含密码、邮箱等字段)
 		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
-			prepareStatement("SELECT * FROM user WHERE name = ?"));
-		pstmt->setString(1, name); //绑定参数
+			prepareStatement("SELECT * FROM user WHERE email = ?"));
+		pstmt->setString(1, email); //绑定参数
 		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery()); //执行查询
 
 		std::string origin_pwd = "";
@@ -146,13 +147,13 @@ bool MysqlDao::CheckPwd(const std::string& name, const std::string& pwd, UserInf
 			break;
 		}
 
-		//如果查询结果中的密码与输入的密码不匹配, 则说明用户名和密码不匹配, 返回false
+		//如果查询结果中的密码与输入的密码不匹配, 则说明邮箱和密码不匹配, 返回false
 		if (pwd != origin_pwd)
 			return false;
 
-		//如果用户名和密码匹配, 则将查询结果中的用户信息存储在userInfo中, 返回true
-		userInfo.name = name;
-		userInfo.email = res->getString("email");
+		//如果邮箱和密码匹配, 则将查询结果中的用户信息存储在userInfo中, 返回true
+		userInfo.name = res->getString("name");
+		userInfo.email = email;
 		userInfo.uid = res->getInt("uid");
 		userInfo.pwd = origin_pwd;
 		return true;

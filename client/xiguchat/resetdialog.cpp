@@ -1,6 +1,5 @@
 #include "resetdialog.h"
 #include "ui_resetdialog.h"
-#include <QDebug>
 #include "httpmgr.h"
 
 ResetDialog::ResetDialog(QWidget *parent) :
@@ -47,7 +46,7 @@ ResetDialog::~ResetDialog()
 void ResetDialog::on_return_btn_clicked()
 {
     qDebug() << "sure btn clicked ";
-    emit switchLogin();
+    emit switchLogin(); //发出切换到登录界面的信号，返回登录界面
 }
 
 void ResetDialog::slot_reset_mod_finish(ReqId id, QString res, ErrorCodes err)
@@ -71,7 +70,7 @@ void ResetDialog::slot_reset_mod_finish(ReqId id, QString res, ErrorCodes err)
         return;
     }
 
-    //调用对应的逻辑,根据id回调。
+    //调用对应的逻辑,根据id回调
     _handlers[id](jsonDoc.object());
     return;
 }

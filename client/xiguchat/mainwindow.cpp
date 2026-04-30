@@ -68,7 +68,7 @@ void MainWindow::SlotSwitchReset()
 void MainWindow::SlotSwitchLoginFromReset()
 {
     _login_dlg = new LoginDialog(this); //创建登录页面的实例
-     //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+    //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
     _login_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
     setCentralWidget(_login_dlg); //将登录页面设置为主窗口的中心组件
     _reset_dlg->hide(); //隐藏重置密码页面

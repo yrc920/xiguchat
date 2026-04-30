@@ -40,13 +40,15 @@ private:
     //请求id和对应的处理函数的映射表, 当http请求完成时, 根据请求id找到对应的处理函数进行处理
     QMap<ReqId, std::function<void(const QJsonObject&)>> _handlers;
     QMap<TipErr, QString> _tip_errs; //错误类型和对应的提示信息的映射表
-    int _uid;
-    QString _token;
+    int _uid; //用户ID
+    QString _token; //用户令牌
 
 private slots:
     void slot_forget_pwd(); //忘记密码的槽函数
     void on_login_btn_clicked(); //登录按钮的槽函数
     void slot_login_mod_finish(ReqId id, QString res, ErrorCodes err); //登录模块http请求完成的槽函数
+    void slot_tcp_con_finish(bool bsuccess); //tcp连接完成的槽函数，参数表示连接是否成功
+    void slot_login_failed(int err); //登录失败的槽函数，参数为错误码
 
 signals:
     void switchRegister(); //切换到注册界面的信号

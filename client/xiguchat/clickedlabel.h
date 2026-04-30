@@ -40,7 +40,7 @@ private:
     ClickLbState _curstate; //当前状态
 
 signals:
-    void clicked(void);
+    void clicked(void); //标签被点击的信号
 
 };
 

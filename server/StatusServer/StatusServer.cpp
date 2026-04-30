@@ -4,7 +4,6 @@
 #include "RedisMgr.h"
 #include "MysqlMgr.h"
 #include "IOContextPool.h"
-#include <string>
 #include <thread>
 #include "StatusServiceImpl.h"
 

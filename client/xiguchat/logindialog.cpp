@@ -1,9 +1,9 @@
 #include "logindialog.h"
 #include "ui_logindialog.h"
-#include <QDebug>
 #include <QPainter>
 #include <QPainterPath>
 #include "httpmgr.h"
+#include "tcpmgr.h"
 
 LoginDialog::LoginDialog(QWidget *parent)
     : QDialog(parent)
@@ -26,6 +26,13 @@ LoginDialog::LoginDialog(QWidget *parent)
     //连接http管理者的登录模块完成信号到对应的槽函数
     connect(HttpMgr::GetInstance().get(), &HttpMgr::sig_login_mod_finish, this,
         &LoginDialog::slot_login_mod_finish);
+
+    //连接tcp连接请求的信号和槽函数
+    connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
+    //连接tcp管理者发出的连接成功信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
+    //连接tcp管理者发出的登陆失败信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_login_failed, this, &LoginDialog::slot_login_failed);
 
     //设置状态的样式名称
     ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
@@ -67,11 +74,11 @@ void LoginDialog::initHttpHandlers()
         si.Port = jsonObj["port"].toString();
         si.Token = jsonObj["token"].toString();
 
-        _uid = si.Uid;
-        _token = si.Token;
+        _uid = si.Uid; //保存用户ID
+        _token = si.Token; //保存用户令牌
         qDebug() << "email is " << email << " uid is " << si.Uid << " host is "
             << si.Host << " Port is " << si.Port << " Token is " << si.Token;
-        emit sig_connect_tcp(si);
+        emit sig_connect_tcp(si); //发出连接聊天服务器的信号，参数是服务器信息结构体
     });
 }
 
@@ -231,3 +238,31 @@ bool LoginDialog::enableBtn(bool enabled)
     return true;
 }
 
+void LoginDialog::slot_tcp_con_finish(bool bsuccess)
+{
+    //如果连接成功，就发送登录请求给聊天服务器
+    if(bsuccess){
+        showTip(tr("聊天服务连接成功，正在登录..."), true);
+        QJsonObject jsonObj; //创建一个JSON对象，用于存储登录请求的数据
+        jsonObj["uid"] = _uid; //将用户ID添加到JSON对象中
+        jsonObj["token"] = _token; //将用户令牌添加到JSON对象中
+
+        QJsonDocument doc(jsonObj); //将JSON对象转换为JSON文档，以便后续转换为字符串
+        QString jsonString = doc.toJson(QJsonDocument::Indented);
+
+        //发送tcp请求给chat server
+        TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonString);
+    }else
+    {
+        showTip(tr("网络异常"),false);
+        enableBtn(true); //连接失败后重新启用登录和注册按钮
+    }
+
+}
+
+void LoginDialog::slot_login_failed(int err)
+{
+    QString result = QString("登录失败, err is %1").arg(err);
+    showTip(result, false);
+    enableBtn(true); //登录失败后重新启用登录和注册按钮
+}

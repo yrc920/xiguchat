@@ -8,6 +8,7 @@
 #include <memory>
 #include <iostream>
 #include <mutex>
+#include <QDebug>
 #include <QByteArray>
 #include <QNetworkReply>
 #include <QJsonObject>
@@ -62,7 +63,7 @@ enum TipErr{
 //错误码
 enum ErrorCodes{
     SUCCESS = 0, //成功
-    ERR_JSON = 1, //json 解析失败
+    ERR_JSON = 1, //json解析失败
     ERR_NETWORK = 2, //网络错误
 };
 
@@ -74,11 +75,12 @@ enum ClickLbState{
 
 extern QString gate_url_prefix; //网关服务器的URL前缀,从配置文件中读取
 
+//服务器信息结构体
 struct ServerInfo{
-    QString Host;
-    QString Port;
-    QString Token;
-    int Uid;
+    QString Host; //服务器地址
+    QString Port; //服务器端口
+    QString Token; //用户令牌
+    int Uid; //用户ID
 };
 
 #endif // GLOBAL_H

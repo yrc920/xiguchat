@@ -23,7 +23,7 @@ public:
 	bool UpdatePwd(const std::string& name, const std::string& newpwd); //更新密码
 	bool CheckEmail(const std::string& name, const std::string& email); //检查用户名和邮箱是否匹配
 	//检查用户名和密码是否匹配, 如果匹配则将用户信息存储在userInfo中
-	bool CheckPwd(const std::string& name, const std::string& pwd, UserInfo& userInfo);
+	bool CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo);
 	~MysqlDao();
 
 private:
@@ -32,10 +32,10 @@ private:
 };
 
 struct UserInfo {
-	std::string name; //用户名
-	std::string pwd; //密码
 	int uid; //用户ID
+	std::string name; //用户名
 	std::string email; //邮箱
+	std::string pwd; //密码
 };
 
 class SqlConnection {
