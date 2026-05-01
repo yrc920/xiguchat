@@ -3,6 +3,11 @@
 //
 
 #include "const.h"
+#include <hiredis/hiredis.h>
+#include <queue>
+#include <atomic>
+#include <mutex>
+#include "Singleton.h"
 class RedisConPool; //连接池类, 用于管理Redis连接(前置声明)
 
 class RedisMgr : public Singleton<RedisMgr>,

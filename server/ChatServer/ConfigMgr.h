@@ -2,7 +2,12 @@
 // 配置管理类, 用于读取和存储配置文件中的数据
 //
 
-#include "const.h"
+#include <fstream>  
+#include <boost/property_tree/ptree.hpp>  
+#include <boost/property_tree/ini_parser.hpp>  
+#include <boost/filesystem.hpp>    
+#include <map>
+#include <iostream>
 struct SectionInfo; //前置声明
 
 //用于管理配置文件中的所有section和对应的key-value对

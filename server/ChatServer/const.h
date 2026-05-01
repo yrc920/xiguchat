@@ -1,34 +1,7 @@
 #pragma once
 // 这个头文件包含了所有的公共头文件, 以及一些公共的定义
 
-#include <boost/beast/http.hpp>
-#include <boost/beast.hpp>
-#include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
-#include <memory>
-#include <iostream>
-#include <string>
 #include <functional>
-#include "Singleton.h"
-#include <map>
-#include <unordered_map>
-#include <json/json.h>
-#include <json/value.h>
-#include <json/reader.h>
-#include <atomic>
-#include <queue>
-#include <mutex>
-#include <thread>
-#include <condition_variable>
-#include <hiredis/hiredis.h>
-#include <cassert>
-
-namespace beast = boost::beast;         // from <boost/beast.hpp>
-namespace http = beast::http;           // from <boost/beast/http.hpp>
-namespace net = boost::asio;            // from <boost/asio.hpp>
-using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 enum ErrorCodes {
 	Success = 0,
@@ -41,6 +14,8 @@ enum ErrorCodes {
 	EmailNotMatch = 1007, //邮箱不匹配
 	PasswdUpFailed = 1008, //更新密码失败
 	PasswdInvalid = 1009, //密码更新失败
+	TokenInvalid = 1010,   //Token失效
+	UidInvalid = 1011,  //uid无效
 };
 
 //Defer类(go语言风格的延迟执行)
@@ -58,4 +33,18 @@ private:
 	std::function<void()> func_;
 };
 
-#define CODEPREFIX "code_"
+#define MAX_LENGTH  1024*2
+//头部总长度
+#define HEAD_TOTAL_LEN 4
+//头部id长度
+#define HEAD_ID_LEN 2
+//头部数据长度
+#define HEAD_DATA_LEN 2
+#define MAX_RECVQUE  10000
+#define MAX_SENDQUE 1000
+
+
+enum MSG_IDS {
+	MSG_CHAT_LOGIN = 1005, //用户登陆
+	MSG_CHAT_LOGIN_RSP = 1006, //用户登陆回包
+};

@@ -1,5 +1,7 @@
 #include "MysqlDao.h"
 #include "ConfigMgr.h"
+#include <iostream>
+#include <chrono>
 
 MysqlDao::MysqlDao()
 {
@@ -287,5 +289,43 @@ MySqlPool::~MySqlPool()
 	//清空连接池队列
 	while (!pool_.empty()) {
 		pool_.pop();
+	}
+}
+
+std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
+{
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return nullptr;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+		});
+
+	try {
+		// 准备SQL语句
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("SELECT * FROM user WHERE uid = ?"));
+		pstmt->setInt(1, uid); // 将uid替换为你要查询的uid
+
+		// 执行查询
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		std::shared_ptr<UserInfo> user_ptr = nullptr;
+		// 遍历结果集
+		while (res->next()) {
+			user_ptr.reset(new UserInfo);
+			user_ptr->pwd = res->getString("pwd");
+			user_ptr->email = res->getString("email");
+			user_ptr->name = res->getString("name");
+			user_ptr->uid = uid;
+			break;
+		}
+		return user_ptr;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return nullptr;
 	}
 }

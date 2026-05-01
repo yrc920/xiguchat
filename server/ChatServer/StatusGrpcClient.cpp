@@ -35,6 +35,28 @@ GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
 	}
 }
 
+LoginRsp StatusGrpcClient::Login(int uid, std::string token)
+{
+	ClientContext context;
+	LoginRsp reply;
+	LoginReq request;
+	request.set_uid(uid);
+	request.set_token(token);
+
+	auto stub = pool_->getConnection();
+	Status status = stub->Login(&context, request, &reply);
+	Defer defer([&stub, this]() {
+		pool_->returnConnection(std::move(stub));
+		});
+	if (status.ok()) {
+		return reply;
+	}
+	else {
+		reply.set_error(ErrorCodes::RPCFailed);
+		return reply;
+	}
+}
+
 
 StatusConPool::StatusConPool(size_t poolSize, std::string host, std::string port)
 	: poolSize_(poolSize), host_(host), port_(port), b_stop_(false)

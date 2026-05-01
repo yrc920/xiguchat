@@ -1,10 +1,5 @@
-#include <iostream>
 #include "const.h"
 #include "ConfigMgr.h"
-#include "RedisMgr.h"
-#include "MysqlMgr.h"
-#include "IOContextPool.h"
-#include <thread>
 #include "StatusServiceImpl.h"
 
 int main(int argc, char** argv) {

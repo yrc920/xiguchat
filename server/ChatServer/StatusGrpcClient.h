@@ -7,6 +7,8 @@
 #include <grpcpp/grpcpp.h>
 #include "message.grpc.pb.h"
 #include "message.pb.h"
+#include <queue>
+#include <condition_variable>
 
 class StatusConPool; //连接池类, 用于管理Grpc连接(前置声明)
 
@@ -25,6 +27,7 @@ class StatusGrpcClient : public Singleton<StatusGrpcClient>
 public:
 	~StatusGrpcClient() {} //允许Singleton类访问StatusGrpcClient的析构函数
 	GetChatServerRsp GetChatServer(int uid); //通过RPC调用Grpc服务器获取聊天服务器信息
+	LoginRsp Login(int uid, std::string token);
 
 private:
 	StatusGrpcClient();

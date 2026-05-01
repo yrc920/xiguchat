@@ -1,6 +1,7 @@
 #include "IOContextPool.h"
+#include <iostream>
 
-IOContextPool::IOContextPool(std::size_t size) :_ioContexts(size),
+IOContextPool::IOContextPool(std::size_t size) : _ioContexts(size),
 _works(size), _nextIOContext(0) {
 	for (std::size_t i = 0; i < size; ++i) {
 		//取出每个io_context的执行器，创建一个work对象，并把它放入works数组中

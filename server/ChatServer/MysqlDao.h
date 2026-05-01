@@ -10,9 +10,13 @@
 #include <jdbc/cppconn/resultset.h>
 #include <jdbc/cppconn/statement.h>
 #include <jdbc/cppconn/exception.h>
+#include "data.h"
+#include <memory>
+#include <queue>
+#include <mutex>
+#include <atomic>
 class SqlConnection; //封装MySQL连接对象, 包含连接对象和上次操作时间(前置声明)
 class MySqlPool; //MySQL连接池, 提供获取和归还连接的接口(前置声明)
-struct UserInfo; //用户信息结构体, 包含用户名、密码、用户ID和邮箱(前置声明)
 
 class MysqlDao
 {
@@ -24,18 +28,12 @@ public:
 	bool CheckEmail(const std::string& name, const std::string& email); //检查用户名和邮箱是否匹配
 	//检查用户名和密码是否匹配, 如果匹配则将用户信息存储在userInfo中
 	bool CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo);
+	std::shared_ptr<UserInfo> GetUser(int uid);
 	~MysqlDao();
 
 private:
 	//MySQL连接池对象, 用于管理MySQL连接, 提供线程安全的获取和归还连接的接口
 	std::unique_ptr<MySqlPool> pool_;
-};
-
-struct UserInfo {
-	int uid; //用户ID
-	std::string name; //用户名
-	std::string email; //邮箱
-	std::string pwd; //密码
 };
 
 class SqlConnection {

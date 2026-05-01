@@ -1,23 +1,37 @@
 #pragma once
-// 逻辑系统, 用于处理HTTP请求, 根据URL调用对应的处理函数
-//
-
+#include "Singleton.h"
+#include <queue>
+#include <thread>
+#include "CSession.h"
+#include <queue>
+#include <map>
+#include <functional>
 #include "const.h"
-class HttpConnection; //防止互引用
-typedef std::function<void(std::shared_ptr<HttpConnection>)> HttpHandler; //函数处理器
+#include <json/json.h>
+#include <json/value.h>
+#include <json/reader.h>
+#include <unordered_map>
+#include "data.h"
 
-class LogicSystem : public Singleton<LogicSystem>
+typedef std::function<void(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data)> FunCallBack;
+class LogicSystem :public Singleton<LogicSystem>
 {
-    friend class Singleton<LogicSystem>; //使基类创建实例时可以访问私有构造函数
+	friend class Singleton<LogicSystem>;
 public:
-    ~LogicSystem() {} //使基类析构时可以访问派生类的析构函数
-	bool HandleGet(std::string, std::shared_ptr<HttpConnection>); //处理GET请求
-	bool HandlePost(std::string, std::shared_ptr<HttpConnection>); //处理POST请求
-	void RegGet(std::string, HttpHandler handler); //注册GET请求的URL和对应的处理函数
-	void RegPost(std::string, HttpHandler handler); //注册POST请求的URL和对应的处理函数
+	~LogicSystem();
+	void PostMsgToQue(std::shared_ptr<LogicNode> msg);
 
 private:
-    LogicSystem();
-	std::map<std::string, HttpHandler> _post_handlers; //处理POST请求的URL和对应的处理函数
-	std::map<std::string, HttpHandler> _get_handlers; //处理GET请求的URL和对应的处理函数
+	LogicSystem();
+	void DealMsg();
+	void RegisterCallBacks();
+	void LoginHandler(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
+
+	std::thread _worker_thread;
+	std::queue<std::shared_ptr<LogicNode>> _msg_que;
+	std::mutex _mutex;
+	std::condition_variable _consume;
+	bool _b_stop;
+	std::map<short, FunCallBack> _fun_callbacks;
+	std::unordered_map<int, std::shared_ptr<UserInfo>> _users;
 };

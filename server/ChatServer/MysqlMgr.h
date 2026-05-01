@@ -2,8 +2,8 @@
 // 用于管理MySQL连接池并提供MySQL操作接口
 //
 
-#include "const.h"
 #include "MysqlDao.h"
+#include "Singleton.h"
 
 class MysqlMgr : public Singleton<MysqlMgr>
 {
@@ -17,6 +17,7 @@ public:
 	bool UpdatePwd(const std::string& name, const std::string& pwd); //更新密码
 	//检查邮箱和密码是否匹配, 如果匹配则将用户信息存储在userInfo中
 	bool CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo);
+	std::shared_ptr<UserInfo> GetUser(int uid);
 
 private:
 	MysqlMgr();

@@ -1,35 +1,42 @@
 #include "CServer.h"
-#include "HttpConnection.h"
+#include <iostream>
 #include "IOContextPool.h"
 
-CServer::CServer(net::io_context& ioc, unsigned short& port)
-	: _acceptor(ioc, tcp::endpoint(tcp::v4(), port)), _ioc(ioc) {
-	//acceptor:监听服务器所有地址对应端口的连接
+CServer::CServer(boost::asio::io_context& io_context, short port) : _io_context(io_context),
+_port(port), _acceptor(io_context, tcp::endpoint(tcp::v4(), port))
+{
+	std::cout << "Server start success, listen on port : " << _port << std::endl;
+	StartAccept();
 }
 
-void CServer::Start() {
-	auto self = shared_from_this();
-	//从IOContextPool中获取一个io_context对象
+CServer::~CServer() {
+	std::cout << "Server destruct listen on port : " << _port << std::endl;
+}
+
+void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::system::error_code& error)
+{
+	if (!error) {
+		new_session->Start();
+		std::lock_guard<std::mutex> lock(_mutex);
+		_sessions.insert(std::make_pair(new_session->GetUuid(), new_session));
+	}
+	else {
+		std::cout << "session accept failed, error is " << error.what() << std::endl;
+	}
+
+	StartAccept();
+}
+
+void CServer::StartAccept()
+{
 	auto& io_context = IOContextPool::GetInstance()->GetIOContext();
-	//创建一个新的HttpConnection对象, 用于监听和管理
-	std::shared_ptr<HttpConnection> new_con = std::make_shared<HttpConnection>(io_context);
+	std::shared_ptr<CSession> new_session = std::make_shared<CSession>(io_context, this);
+	_acceptor.async_accept(new_session->GetSocket(),
+		std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1));
+}
 
-	//异步接受连接, 先用HttpConnection的socket来监听连接, 
-	_acceptor.async_accept(new_con->GetSocket(), [self, new_con](beast::error_code ec) {
-		try {
-			//出错放弃这链接, 继续监听其他链接
-			if (ec) {
-				self->Start();
-				return;
-			}
-
-			//成功接受连接后, 由HttpConnection对象来管理这个连接, 开始处理连接
-			new_con->Start();
-
-			self->Start(); //继续监听
-		}
-		catch (std::exception& exp) {
-			std::cout << "exception is " << exp.what() << std::endl;
-		}
-	});
+void CServer::ClearSession(std::string uuid)
+{
+	std::lock_guard<std::mutex> lock(_mutex);
+	_sessions.erase(uuid);
 }
