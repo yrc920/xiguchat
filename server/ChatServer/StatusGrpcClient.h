@@ -27,7 +27,7 @@ class StatusGrpcClient : public Singleton<StatusGrpcClient>
 public:
 	~StatusGrpcClient() {} //允许Singleton类访问StatusGrpcClient的析构函数
 	GetChatServerRsp GetChatServer(int uid); //通过RPC调用Grpc服务器获取聊天服务器信息
-	LoginRsp Login(int uid, std::string token);
+	LoginRsp Login(int uid, std::string token); //通过RPC调用Grpc服务器进行登录验证, 获取登录结果
 
 private:
 	StatusGrpcClient();

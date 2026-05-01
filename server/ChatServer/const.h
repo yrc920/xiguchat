@@ -1,5 +1,6 @@
 #pragma once
-// 这个头文件包含了所有的公共头文件, 以及一些公共的定义
+// 常量定义和工具类
+//
 
 #include <functional>
 
@@ -33,16 +34,14 @@ private:
 	std::function<void()> func_;
 };
 
-#define MAX_LENGTH  1024*2
-//头部总长度
-#define HEAD_TOTAL_LEN 4
-//头部id长度
-#define HEAD_ID_LEN 2
-//头部数据长度
-#define HEAD_DATA_LEN 2
-#define MAX_RECVQUE  10000
-#define MAX_SENDQUE 1000
+#define MAX_LENGTH  1024*2 //消息最大长度, 包括头部和数据, 以便于分配内存
+#define HEAD_TOTAL_LEN 4 //头部总长度
+#define HEAD_ID_LEN 2 //头部id长度
+#define HEAD_DATA_LEN 2 //头部数据长度
 
+#define MAX_RECVQUE 10000 //最大接收队列长度
+#define MAX_SENDQUE 1000 //最大发送队列长度
+#define MAX_LOGICQUE 10000 //最大逻辑队列长度
 
 enum MSG_IDS {
 	MSG_CHAT_LOGIN = 1005, //用户登陆

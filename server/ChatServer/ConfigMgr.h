@@ -54,5 +54,6 @@ struct SectionInfo {
 		} 
 		return _section_datas[key];
 	}
+
 	std::map<std::string, std::string> _section_datas; //存储section中的key-value对
 };

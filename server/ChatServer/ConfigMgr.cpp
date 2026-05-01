@@ -11,7 +11,6 @@ ConfigMgr::ConfigMgr() {
 	boost::property_tree::ptree pt;
 	boost::property_tree::read_ini(config_path.string(), pt);
 
-
 	// 遍历INI文件中的所有section  
 	for (const auto& section_pair : pt) {
 		const std::string& section_name = section_pair.first;

@@ -6,10 +6,6 @@
 #include "CServer.h"
 #include "ConfigMgr.h"
 
-bool bstop = false;
-std::condition_variable cond_quit;
-std::mutex mutex_quit;
-
 int main()
 {
 	try {
@@ -26,12 +22,11 @@ int main()
 			pool->Stop();
 			});
 		
-		CServer s(io_context, atoi(port_str.c_str()));
-		io_context.run();
+		CServer s(io_context, atoi(port_str.c_str())); //创建服务器对象，传入io_context和端口号
+		io_context.run(); //运行io_context，开始处理事件循环，直到接收到停止信号
 	}
 	catch (std::exception& e) {
 		std::cerr << "Exception: " << e.what() << std::endl;
 	}
-
 }
 

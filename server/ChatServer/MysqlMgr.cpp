@@ -29,5 +29,6 @@ bool MysqlMgr::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 
 std::shared_ptr<UserInfo> MysqlMgr::GetUser(int uid)
 {
+	//调用数据库访问对象的GetUser方法, 将根据用户ID获取用户信息的请求转发给数据库访问对象处理
 	return _dao.GetUser(uid);
 }

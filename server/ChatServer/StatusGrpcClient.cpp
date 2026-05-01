@@ -37,21 +37,25 @@ GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
 
 LoginRsp StatusGrpcClient::Login(int uid, std::string token)
 {
-	ClientContext context;
-	LoginRsp reply;
-	LoginReq request;
-	request.set_uid(uid);
-	request.set_token(token);
+	ClientContext context; //创建Grpc客户端上下文对象
+	LoginRsp reply; //RPC调用结果的响应对象
+	LoginReq request; //RPC调用的请求对象
+	request.set_uid(uid); //设置请求对象的uid字段为传入的参数uid
+	request.set_token(token); //设置请求对象的token字段为传入的参数token
 
-	auto stub = pool_->getConnection();
+	auto stub = pool_->getConnection(); //从连接池中获取一个Grpc连接对象(Stub)
+	//使用Grpc连接对象发起RPC调用, 将请求对象和响应对象传入, 获取调用结果的状态
 	Status status = stub->Login(&context, request, &reply);
+
 	Defer defer([&stub, this]() {
-		pool_->returnConnection(std::move(stub));
+		pool_->returnConnection(std::move(stub)); //将使用完的Grpc连接对象归还给连接池
 		});
+
 	if (status.ok()) {
 		return reply;
 	}
 	else {
+		//如果RPC调用失败，设置响应对象的error字段为RPCFailed错误码
 		reply.set_error(ErrorCodes::RPCFailed);
 		return reply;
 	}

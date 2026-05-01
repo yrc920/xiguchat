@@ -1,46 +1,43 @@
 #pragma once
+// 消息节点类, 用于存储和处理消息数据
+//
+
+#include <boost/asio.hpp>
 #include <string>
 #include "const.h"
-#include <iostream>
-#include <boost/asio.hpp>
 
 using boost::asio::ip::tcp;
 class LogicSystem;
+
+//消息节点类(主要用于解析头部)
 class MsgNode
 {
 public:
-	MsgNode(short max_len) :_total_len(max_len), _cur_len(0) {
-		_data = new char[_total_len + 1]();
-		_data[_total_len] = '\0';
-	}
+	MsgNode(short max_len);
+	~MsgNode();
+	void Clear();
 
-	~MsgNode() {
-		std::cout << "destruct MsgNode" << std::endl;
-		delete[] _data;
-	}
-
-	void Clear() {
-		::memset(_data, 0, _total_len);
-		_cur_len = 0;
-	}
-
-	short _cur_len;
-	short _total_len;
-	char* _data;
+	short _cur_len; //当前已经接收的长度
+	short _total_len; //消息的总长度, 由外部传入, 以便于分配内存
+	char* _data; //消息数据
 };
 
+//接收消息节点类(储存完整消息)
 class RecvNode :public MsgNode {
 	friend class LogicSystem;
 public:
 	RecvNode(short max_len, short msg_id);
+
 private:
-	short _msg_id;
+	short _msg_id; //消息id, 由外部传入, 以便于逻辑系统根据id分发消息
 };
 
+//发送消息节点类
 class SendNode :public MsgNode {
 	friend class LogicSystem;
 public:
 	SendNode(const char* msg, short max_len, short msg_id);
+
 private:
-	short _msg_id;
+	short _msg_id; //消息id, 由外部传入, 以便于逻辑系统根据id分发消息
 };
