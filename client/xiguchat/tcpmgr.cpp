@@ -1,7 +1,7 @@
 #include "tcpmgr.h"
 #include <QAbstractSocket>
 #include <QJsonDocument>
-//#include "usermgr.h"
+#include "usermgr.h"
 
 TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), _message_len(0)
 {
@@ -105,10 +105,11 @@ void TcpMgr::initHandlers()
             return;
         }
 
-        // UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
-        // UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
-        // UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
-        emit sig_swich_chatdlg(); //发出切换到聊天界面的信号，表示登录成功，可以进入聊天界面
+        //登录成功，保存用户信息
+        UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
+        UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
+        UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
+        emit sig_swich_chatdlg(); //发出切换到聊天界面的信号，进入聊天界面
     });
 }
 

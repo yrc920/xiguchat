@@ -28,11 +28,14 @@ LoginDialog::LoginDialog(QWidget *parent)
         &LoginDialog::slot_login_mod_finish);
 
     //连接tcp连接请求的信号和槽函数
-    connect(this, &LoginDialog::sig_connect_tcp, TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
+    connect(this, &LoginDialog::sig_connect_tcp,
+        TcpMgr::GetInstance().get(), &TcpMgr::slot_tcp_connect);
     //连接tcp管理者发出的连接成功信号
-    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success, this, &LoginDialog::slot_tcp_con_finish);
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_con_success,
+        this, &LoginDialog::slot_tcp_con_finish);
     //连接tcp管理者发出的登陆失败信号
-    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_login_failed, this, &LoginDialog::slot_login_failed);
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_login_failed,
+        this, &LoginDialog::slot_login_failed);
 
     //设置状态的样式名称
     ui->pass_visible->SetState("unvisible", "unvisible_hover", "", "visible", "visible_hover", "");
@@ -251,7 +254,7 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
         QString jsonString = doc.toJson(QJsonDocument::Indented);
 
         //发送tcp请求给chat server
-        TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonString);
+        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonString);
     }else
     {
         showTip(tr("网络异常"),false);
