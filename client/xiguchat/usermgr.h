@@ -1,5 +1,6 @@
 #ifndef USERMGR_H
 #define USERMGR_H
+
 #include <QObject>
 #include <memory>
 #include <singleton.h>
@@ -12,6 +13,7 @@
  * @date       2026/05/03
  * @history
  *****************************************************************************/
+
 class UserMgr : public QObject,public Singleton<UserMgr>,
     public std::enable_shared_from_this<UserMgr>
 {

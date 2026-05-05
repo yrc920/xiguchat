@@ -48,9 +48,23 @@ background-color:rgb(255,255,255)
 }
 
 #forget_label[state='normal'], #forget_label[state='selected']{
-    color: black;
+   color: black;
 }
 
 #forget_label[state='hover'], #forget_label[state='selected_hover']{
-    color: blue;
+   color: blue;
+}
+
+#side_bar{
+  background-color:rgb(46,46,46);
+}
+
+#add_btn[state='normal']{
+   border-image: url(:/res/add_friend_normal.png);
+}
+#add_btn[state='hover']{
+   border-image: url(:/res/add_friend_hover.png);
+}
+#add_btn[state='press']{
+   border-image: url(:/res/add_friend_hover.png);
 }

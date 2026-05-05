@@ -6,6 +6,7 @@ ChatDialog::ChatDialog(QWidget *parent)
     , ui(new Ui::ChatDialog)
 {
     ui->setupUi(this);
+    ui->add_btn->SetState("normal", "hover", "press"); //设置添加好友按钮的状态样式
 }
 
 ChatDialog::~ChatDialog()
