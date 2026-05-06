@@ -2,6 +2,7 @@
 #define CHATDIALOG_H
 
 #include <QDialog>
+#include "global.h"
 /******************************************************************************
  *
  * @file       chatdialog.h
@@ -23,9 +24,15 @@ class ChatDialog : public QDialog
 public:
     explicit ChatDialog(QWidget *parent = nullptr);
     ~ChatDialog();
+    void addChatUserList(); //添加聊天用户列表项(测试用例)
 
 private:
+    void ShowSearch(bool bsearch); //显示或隐藏搜索框
+
     Ui::ChatDialog *ui;
+    ChatUIMode _mode; //当前界面模式
+    ChatUIMode _state; //当前界面状态
+    bool _b_loading; //是否正在加载更多聊天用户
 };
 
 #endif // CHATDIALOG_H
