@@ -126,14 +126,14 @@
     <widget class="QWidget" name="time_wid" native="true">
      <property name="minimumSize">
       <size>
-       <width>70</width>
-       <height>70</height>
+       <width>100</width>
+       <height>100</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>70</width>
-       <height>70</height>
+       <width>100</width>
+       <height>100</height>
       </size>
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_3">

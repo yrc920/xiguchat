@@ -33,6 +33,9 @@ private:
     ChatUIMode _mode; //当前界面模式
     ChatUIMode _state; //当前界面状态
     bool _b_loading; //是否正在加载更多聊天用户
+
+private slots:
+    void slot_loading_chat_user(); //加载更多聊天用户的槽函数
 };
 
 #endif // CHATDIALOG_H

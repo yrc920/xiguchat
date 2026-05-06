@@ -23,6 +23,9 @@ public:
 
     ListItemType GetItemType(); //获取列表项的类型
 
+protected:
+    void paintEvent(QPaintEvent *event);
+
 private:
     ListItemType _itemType; //列表项的类型
 
