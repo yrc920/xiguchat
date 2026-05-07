@@ -90,6 +90,19 @@ enum ChatUIMode{
     ContactMode //联系人模式
 };
 
+//聊天项的角色
+enum class ChatRole
+{
+    Self, //自己
+    Other //别人
+};
+
+struct MsgInfo{
+    QString msgFlag; //"text, image, file"
+    QString content; //表示文件和图像的url, 文本信息
+    QPixmap pixmap; //文件和图片的缩略图
+};
+
 //自定义QListWidgetItem的几种类型
 enum ListItemType{
     CHAT_USER_ITEM, //聊天用户

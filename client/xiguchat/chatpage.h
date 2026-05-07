@@ -28,6 +28,9 @@ protected:
     //重写paintEvent函数, 使得这个widget能够正确地绘制自己的背景和边框等基本元素
     virtual void paintEvent(QPaintEvent *event) override;
 
+private slots:
+    void on_send_btn_clicked(); //点击发送按钮时触发的槽函数
+
 private:
     Ui::ChatPage *ui;
 };
