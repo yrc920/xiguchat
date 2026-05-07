@@ -59,20 +59,20 @@ ChatDialog::~ChatDialog()
 
 void ChatDialog::slot_loading_chat_user()
 {
-    if(_b_loading){
+    //如果正在加载更多聊天用户, 则直接返回, 避免重复加载
+    if(_b_loading)
         return;
-    }
 
-    _b_loading = true;
-    LoadingDlg *loadingDialog = new LoadingDlg(this);
-    loadingDialog->setModal(true);
-    loadingDialog->show();
+    _b_loading = true; //设置正在加载的标志为true
+    LoadingDlg *loadingDialog = new LoadingDlg(this); //创建一个加载对话框的实例
+    loadingDialog->setModal(true); //设置对话框为模态, 阻止用户与其他窗口交互
+    loadingDialog->show(); //显示加载对话框
     qDebug() << "add new data to list.....";
     addChatUserList();
-    // 加载完成后关闭对话框
+    //加载完成后关闭对话框
     loadingDialog->deleteLater();
 
-    _b_loading = false;
+    _b_loading = false; //设置正在加载的标志为false, 允许再次加载更多聊天用户
 }
 
 void ChatDialog::ShowSearch(bool bsearch)

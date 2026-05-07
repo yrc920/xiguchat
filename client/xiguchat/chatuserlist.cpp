@@ -5,8 +5,8 @@ ChatUserList::ChatUserList(QWidget *parent):QListWidget(parent)
     Q_UNUSED(parent);
     this->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff); //水平滚动条始终隐藏
     this->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff); //垂直滚动条始终隐藏
-    //安装事件过滤器
-    this->viewport()->installEventFilter(this);
+
+    this->viewport()->installEventFilter(this); //安装事件过滤器
 }
 
 bool ChatUserList::eventFilter(QObject *watched, QEvent *event)

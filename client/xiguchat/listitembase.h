@@ -24,7 +24,8 @@ public:
     ListItemType GetItemType(); //获取列表项的类型
 
 protected:
-    void paintEvent(QPaintEvent *event);
+    //重写paintEvent函数, 使得这个widget能够正确地绘制自己的背景和边框等基本元素
+    virtual void paintEvent(QPaintEvent *event) override;
 
 private:
     ListItemType _itemType; //列表项的类型
