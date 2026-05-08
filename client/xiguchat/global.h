@@ -97,6 +97,7 @@ enum class ChatRole
     Other //别人
 };
 
+//消息信息结构体, 用于存储用户输入的文本、图片和文件等消息内容
 struct MsgInfo{
     QString msgFlag; //"text, image, file"
     QString content; //表示文件和图像的url, 文本信息

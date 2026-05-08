@@ -100,7 +100,7 @@
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="side_chat_lb">
+          <widget class="StateWidget" name="side_chat_lb" native="true">
            <property name="minimumSize">
             <size>
              <width>40</width>
@@ -112,14 +112,11 @@
              <width>40</width>
              <height>40</height>
             </size>
-           </property>
-           <property name="text">
-            <string/>
            </property>
           </widget>
          </item>
          <item>
-          <widget class="QLabel" name="side_contact_lb">
+          <widget class="StateWidget" name="side_contact_lb" native="true">
            <property name="minimumSize">
             <size>
              <width>40</width>
@@ -131,9 +128,6 @@
              <width>40</width>
              <height>40</height>
             </size>
-           </property>
-           <property name="text">
-            <string/>
            </property>
           </widget>
          </item>
@@ -279,6 +273,12 @@
    <class>ChatPage</class>
    <extends>QWidget</extends>
    <header location="global">chatpage.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>StateWidget</class>
+   <extends>QWidget</extends>
+   <header location="global">statewidget.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -9,9 +9,6 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
     //初始化显示用户名的标签
     m_pNameLabel = new QLabel();
     m_pNameLabel->setObjectName("chat_user_name");
-    QFont font("Microsoft YaHei");
-    font.setPointSize(8);
-    m_pNameLabel->setFont(font);
     m_pNameLabel->setFixedHeight(30); //设置用户名标签的高度
 
     //初始化显示用户头像的标签
