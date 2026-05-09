@@ -62,8 +62,8 @@ ChatDialog::ChatDialog(QWidget *parent)
         "selected_normal" ,"selected_hover" ,"selected_pressed");
     ui->side_contact_lb->SetState("normal", "hover", "pressed",
         "selected_normal" ,"selected_hover", "selected_pressed");
-    ui->side_chat_lb->setProperty("state", "selected_normal"); //初始状态设置为聊天选中状态
-    ui->side_chat_lb->SetSelected(true); //设置聊天标签为选中状态
+    ui->side_chat_lb->SetSelected(true); //初始状态将聊天标签设置为选中状态
+
     //将侧边栏的聊天和联系人标签添加到标签组列表中, 以便后续管理它们的状态
     AddLBGroup(ui->side_chat_lb);
     AddLBGroup(ui->side_contact_lb);
@@ -74,6 +74,9 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     //链接搜索框输入变化
     connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::slot_text_changed);
+
+    //检测鼠标点击位置判断是否要清空搜索框
+    this->installEventFilter(this); //安装事件过滤器
 }
 
 ChatDialog::~ChatDialog()
@@ -163,6 +166,34 @@ void ChatDialog::slot_text_changed(const QString &str)
         ShowSearch(true);
     }
 }
+
+bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
+{
+    if (event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+        handleGlobalMousePress(mouseEvent);
+    }
+    return QDialog::eventFilter(watched, event);
+}
+
+void ChatDialog::handleGlobalMousePress(QMouseEvent *event)
+{
+    //实现点击位置的判断和处理逻辑
+    // 先判断是否处于搜索模式，如果不处于搜索模式则直接返回
+    if( _mode != ChatUIMode::SearchMode){
+        return;
+    }
+
+    // 将鼠标点击位置转换为搜索列表坐标系中的位置
+    QPoint posInSearchList = ui->search_list->mapFromGlobal(event->globalPos());
+    // 判断点击位置是否在聊天列表的范围内
+    if (!ui->search_list->rect().contains(posInSearchList)) {
+        // 如果不在聊天列表内，清空输入框
+        ui->search_edit->clear();
+        ShowSearch(false);
+    }
+}
+
 
 //测试用例: 添加一些随机生成的聊天用户列表项
 std::vector<QString>  strs ={"hello world !",

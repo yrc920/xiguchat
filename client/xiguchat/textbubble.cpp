@@ -18,7 +18,7 @@ TextBubble::TextBubble(ChatRole role, const QString &text, QWidget *parent)
     m_pTextEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_pTextEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_pTextEdit->installEventFilter(this);
-    //设置文本编辑区的字体为微软雅黑, 字体大小为12
+    //设置文本编辑区的字体为微软雅黑, 字体大小为10
     QFont font("Microsoft YaHei");
     font.setPointSize(10);
     m_pTextEdit->setFont(font);

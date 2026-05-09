@@ -27,6 +27,10 @@ public:
     ~ChatDialog();
     void addChatUserList(); //添加聊天用户列表项(测试用例)
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override; //事件过滤器
+    void handleGlobalMousePress(QMouseEvent *event); //处理全局鼠标点击事件的函数
+
 private:
     void ShowSearch(bool bsearch); //显示或隐藏搜索框
     void AddLBGroup(StateWidget* lb); //将状态控件添加到状态控件列表中, 以便进行状态管理

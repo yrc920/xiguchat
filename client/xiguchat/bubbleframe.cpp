@@ -7,15 +7,15 @@ const int WIDTH_SANJIAO  = 12;  //三角宽
 BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent)
     : QFrame(parent)
     ,m_role(role)
-    ,m_margin(7)
+    ,m_margin(12)
 {
     m_pHLayout = new QHBoxLayout(); //创建一个水平布局管理器
     if(m_role == ChatRole::Self)
         //设置水平布局的内边距, 如果消息的发送者是自己, 则设置右边距为三角宽加上默认边距, 其他边距为默认边距
-        m_pHLayout->setContentsMargins(m_margin, m_margin, WIDTH_SANJIAO + m_margin, m_margin);
+        m_pHLayout->setContentsMargins(m_margin, m_margin-3, WIDTH_SANJIAO + m_margin, m_margin-3);
     else
         //设置水平布局的内边距, 如果消息的发送者是对方, 则设置左边距为三角宽加上默认边距, 其他边距为默认边距
-        m_pHLayout->setContentsMargins(WIDTH_SANJIAO + m_margin, m_margin, m_margin, m_margin);
+        m_pHLayout->setContentsMargins(WIDTH_SANJIAO + m_margin-3, m_margin, m_margin, m_margin-3);
 
     this->setLayout(m_pHLayout); //将当前气泡组件的布局设置为水平布局
 }

@@ -8,7 +8,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     _login_dlg = new LoginDialog(this); //创建登录页面的实例
-    //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+    //设置登录页面和注册页面为无边框窗口, 相当于将它们嵌入到主窗口中
     _login_dlg->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     setCentralWidget(_login_dlg); //将登录页面设置为主窗口的中心组件
 
@@ -33,7 +33,7 @@ MainWindow::~MainWindow()
 void MainWindow::SlotSwitchReg()
 {
     _reg_dlg = new RegisterDialog(this); //创建注册页面的实例
-    //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+    //设置登录页面和注册页面为无边框窗口, 相当于将它们嵌入到主窗口中
     _reg_dlg->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     setCentralWidget(_reg_dlg); //将注册页面设置为主窗口的中心组件
     _login_dlg->hide(); //隐藏登录页面
@@ -46,7 +46,7 @@ void MainWindow::SlotSwitchReg()
 void MainWindow::SlotSwitchLogin()
 {
     _login_dlg = new LoginDialog(this); //创建登录页面的实例
-     //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+     //设置登录页面和注册页面为无边框窗口, 相当于将它们嵌入到主窗口中
     _login_dlg->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
     setCentralWidget(_login_dlg); //将登录页面设置为主窗口的中心组件
     _reg_dlg->hide(); //隐藏注册页面
@@ -61,7 +61,7 @@ void MainWindow::SlotSwitchLogin()
 void MainWindow::SlotSwitchReset()
 {
     _reset_dlg = new ResetDialog(this); //创建重置密码页面的实例
-     //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+     //设置登录页面和注册页面为无边框窗口, 相当于将它们嵌入到主窗口中
     _reset_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
     setCentralWidget(_reset_dlg); //将重置密码页面设置为主窗口的中心组件
     _login_dlg->hide(); //隐藏登录页面
@@ -75,7 +75,7 @@ void MainWindow::SlotSwitchReset()
 void MainWindow::SlotSwitchLoginFromReset()
 {
     _login_dlg = new LoginDialog(this); //创建登录页面的实例
-    //设置登录页面和注册页面为无边框窗口,相当于将它们嵌入到主窗口中
+    //设置登录页面和注册页面为无边框窗口, 相当于将它们嵌入到主窗口中
     _login_dlg->setWindowFlags(Qt::CustomizeWindowHint|Qt::FramelessWindowHint);
     setCentralWidget(_login_dlg); //将登录页面设置为主窗口的中心组件
     _reset_dlg->hide(); //隐藏重置密码页面
@@ -89,11 +89,13 @@ void MainWindow::SlotSwitchLoginFromReset()
 
 void MainWindow::SlotSwitchChat()
 {
-    _chat_dlg = new ChatDialog();
+    _chat_dlg = new ChatDialog(); //创建聊天页面的实例
+     //设置聊天页面为无边框窗口, 相当于将它嵌入到主窗口中
     _chat_dlg->setWindowFlags(Qt::CustomizeWindowHint | Qt::FramelessWindowHint);
-    setCentralWidget(_chat_dlg);
-    _chat_dlg->show();
-    _login_dlg->hide();
-    this->setMinimumSize(QSize(1700, 1200));
+    setCentralWidget(_chat_dlg); //将聊天页面设置为主窗口的中心组件
+    _chat_dlg->show(); //显示聊天页面
+    _login_dlg->hide(); //隐藏登录页面
+    this->setMinimumSize(QSize(1700, 1400));
+    //设置窗口的最大尺寸为系统允许的最大值，允许窗口被放大到全屏
     this->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 }

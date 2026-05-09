@@ -26,7 +26,7 @@ public:
     ~ChatUserWid();
 
     QSize sizeHint() const override {
-        return QSize(350, 112); //返回自定义的尺寸
+        return QSize(350, 110); //返回自定义的尺寸
     }
 
     void SetInfo(QString name, QString head, QString msg); //设置用户信息

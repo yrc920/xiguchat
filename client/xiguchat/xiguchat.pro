@@ -25,6 +25,7 @@ SOURCES += \
     clickedbtn.cpp \
     clickedlabel.cpp \
     customizeedit.cpp \
+    findsuccessdlg.cpp \
     global.cpp \
     httpmgr.cpp \
     listitembase.cpp \
@@ -56,6 +57,7 @@ HEADERS += \
     clickedbtn.h \
     clickedlabel.h \
     customizeedit.h \
+    findsuccessdlg.h \
     global.h \
     httpmgr.h \
     listitembase.h \
@@ -80,6 +82,7 @@ FORMS += \
     chatdialog.ui \
     chatpage.ui \
     chatuserwid.ui \
+    findsuccessdlg.ui \
     loadingdlg.ui \
     logindialog.ui \
     mainwindow.ui \
