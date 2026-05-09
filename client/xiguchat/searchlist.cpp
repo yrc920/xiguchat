@@ -6,8 +6,10 @@
 #include "tcpmgr.h"
 #include "customizeedit.h"
 //#include "findfaildlg.h"
+#include "findsuccessdlg.h"
 
-SearchList::SearchList(QWidget *parent):QListWidget(parent),_find_dlg(nullptr), _search_edit(nullptr), _send_pending(false)
+SearchList::SearchList(QWidget *parent) : QListWidget(parent),
+    _find_dlg(nullptr), _search_edit(nullptr), _send_pending(false)
 {
     Q_UNUSED(parent);
     //默认隐藏滚动条
@@ -57,10 +59,8 @@ bool SearchList::eventFilter(QObject *watched, QEvent *event)
 
         //设置滚动幅度
         this->verticalScrollBar()->setValue(this->verticalScrollBar()->value() - numSteps);
-
         return true; //停止事件传递
     }
-
     return QListWidget::eventFilter(watched, event); //调用基类的事件过滤器以确保正常的事件处理
 }
 
@@ -101,47 +101,53 @@ void SearchList::addTipItem()
 
 void SearchList::slot_item_clicked(QListWidgetItem *item)
 {
-    // QWidget *widget = this->itemWidget(item); // 获取自定义widget对象
-    // if(!widget){
-    //     qDebug()<< "slot item clicked widget is nullptr";
-    //     return;
-    // }
+    QWidget *widget = this->itemWidget(item); // 获取自定义widget对象
+    if(!widget){
+        qDebug()<< "slot item clicked widget is nullptr";
+        return;
+    }
 
-    // // 对自定义widget进行操作， 将item 转化为基类ListItemBase
-    // ListItemBase *customItem = qobject_cast<ListItemBase*>(widget);
-    // if(!customItem){
-    //     qDebug()<< "slot item clicked widget is nullptr";
-    //     return;
-    // }
+    // 对自定义widget进行操作， 将item 转化为基类ListItemBase
+    ListItemBase *customItem = qobject_cast<ListItemBase*>(widget);
+    if(!customItem){
+        qDebug()<< "slot item clicked widget is nullptr";
+        return;
+    }
 
-    // auto itemType = customItem->GetItemType();
-    // if(itemType == ListItemType::INVALID_ITEM){
-    //     qDebug()<< "slot invalid item clicked ";
-    //     return;
-    // }
+    auto itemType = customItem->GetItemType();
+    if(itemType == ListItemType::INVALID_ITEM){
+        qDebug()<< "slot invalid item clicked ";
+        return;
+    }
 
-    // if(itemType == ListItemType::ADD_USER_TIP_ITEM){
+    if(itemType == ListItemType::ADD_USER_TIP_ITEM)
+    {
+        //todo ...
+        _find_dlg = std::make_shared<FindSuccessDlg>(this);
+        auto si = std::make_shared<SearchInfo>(0, "llfc", "llfc", "hello , my friend!", 0);
+        std::dynamic_pointer_cast<FindSuccessDlg>(_find_dlg)->SetSearchInfo(si); //设置搜索信息
+        _find_dlg->show();
 
-    //     if (_send_pending) {
-    //         return;
-    //     }
-    //     waitPending(true);
-    //     auto search_edit = dynamic_cast<CustomizeEdit*>(_search_edit);
-    //     auto uid_str = search_edit->text();
-    //     //此处发送请求给server
-    //     QJsonObject jsonObj;
-    //     jsonObj["uid"] = uid_str;
+        // if (_send_pending) {
+        //     return;
+        // }
+        // waitPending(true);
+        // auto search_edit = dynamic_cast<CustomizeEdit*>(_search_edit);
+        // auto uid_str = search_edit->text();
+        // //此处发送请求给server
+        // QJsonObject jsonObj;
+        // jsonObj["uid"] = uid_str;
 
-    //     QJsonDocument doc(jsonObj);
-    //     QString jsonString = doc.toJson(QJsonDocument::Indented);
+        // QJsonDocument doc(jsonObj);
+        // QString jsonString = doc.toJson(QJsonDocument::Indented);
 
-    //     //发送tcp请求给chat server
-    //     emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_SEARCH_USER_REQ, jsonString);
-    //     return;
-    // }
+        // //发送tcp请求给chat server
+        // emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_SEARCH_USER_REQ, jsonString);
+        return;
+    }
 
-    // //清除弹出框
-    // CloseFindDlg();
+    //清除弹出框
+    CloseFindDlg();
 }
 
 void SearchList::slot_user_search(std::shared_ptr<SearchInfo> si)

@@ -169,28 +169,29 @@ void ChatDialog::slot_text_changed(const QString &str)
 
 bool ChatDialog::eventFilter(QObject *watched, QEvent *event)
 {
+    //如果事件类型是鼠标按下事件
     if (event->type() == QEvent::MouseButtonPress) {
+        //将事件转换为鼠标事件以获取鼠标点击的信息
         QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
-        handleGlobalMousePress(mouseEvent);
+        handleGlobalMousePress(mouseEvent); //调用处理全局鼠标点击事件的函数, 用于判断是否需要清空搜索框
     }
-    return QDialog::eventFilter(watched, event);
+    return QDialog::eventFilter(watched, event); //调用基类的事件过滤器以确保正常的事件处理
 }
 
 void ChatDialog::handleGlobalMousePress(QMouseEvent *event)
 {
     //实现点击位置的判断和处理逻辑
-    // 先判断是否处于搜索模式，如果不处于搜索模式则直接返回
+    //先判断是否处于搜索模式，如果不处于搜索模式则直接返回
     if( _mode != ChatUIMode::SearchMode){
         return;
     }
 
-    // 将鼠标点击位置转换为搜索列表坐标系中的位置
+    //将鼠标点击位置转换为搜索列表坐标系中的位置
     QPoint posInSearchList = ui->search_list->mapFromGlobal(event->globalPos());
-    // 判断点击位置是否在聊天列表的范围内
+    //判断点击位置是否在聊天列表的范围内
     if (!ui->search_list->rect().contains(posInSearchList)) {
-        // 如果不在聊天列表内，清空输入框
-        ui->search_edit->clear();
-        ShowSearch(false);
+        ui->search_edit->clear(); //如果不在聊天列表内，清空输入框
+        ShowSearch(false); //不显示搜索框
     }
 }
 

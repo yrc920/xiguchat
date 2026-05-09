@@ -26,18 +26,19 @@ class SearchList: public QListWidget
 
 public:
     SearchList(QWidget *parent = nullptr);
-    void CloseFindDlg();
-    void SetSearchEdit(QWidget* edit);
+    void CloseFindDlg(); //关闭搜索结果对话框
+    void SetSearchEdit(QWidget* edit); //设置搜索框的指针, 用于在搜索结果列表中操作搜索框, 如清空文本等
 
 protected:
-    bool eventFilter(QObject *watched, QEvent *event) override;
+    bool eventFilter(QObject *watched, QEvent *event) override; //事件过滤器
 
 private:
     void waitPending(bool pending = true);
-    bool _send_pending;
-    void addTipItem();
-    std::shared_ptr<QDialog> _find_dlg;
-    QWidget* _search_edit;
+    void addTipItem(); //添加搜索提示项, 用于在搜索结果列表中显示搜索提示信息, 如"没有找到相关用户"等
+
+    bool _send_pending; //是否正在发送搜索请求的标志, 用于防止重复发送搜索请求
+    std::shared_ptr<QDialog> _find_dlg; //搜索结果对话框的智能指针, 用于在搜索结果列表中操作搜索结果对话框
+    QWidget* _search_edit; //搜索框的指针, 用于在搜索结果列表中操作搜索框, 如清空文本等
     LoadingDlg * _loadingDialog;
 
 private slots:
