@@ -5,6 +5,7 @@
 #include "singleton.h"
 #include "global.h"
 #include <QObject>
+#include "userdata.h"
 /******************************************************************************
  *
  * @file       tcpmgr.h
@@ -48,6 +49,7 @@ signals:
     void sig_send_data(ReqId reqId, QString data); //发送数据的信号
     void sig_swich_chatdlg(); //切换到聊天界面的信号
     void sig_login_failed(int); //登录失败的信号，参数为错误码
+    void sig_user_search(std::shared_ptr<SearchInfo>); //用户搜索结果的信号
 };
 
 #endif // TCPMGR_H

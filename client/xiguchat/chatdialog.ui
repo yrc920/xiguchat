@@ -51,7 +51,7 @@
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
       <property name="leftMargin">
-       <number>20</number>
+       <number>10</number>
       </property>
       <property name="topMargin">
        <number>50</number>
@@ -63,16 +63,38 @@
        <number>0</number>
       </property>
       <item>
+       <widget class="QLabel" name="side_head_lb">
+        <property name="minimumSize">
+         <size>
+          <width>60</width>
+          <height>60</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>60</width>
+          <height>60</height>
+         </size>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+      <item>
        <widget class="QWidget" name="widget" native="true">
+        <property name="layoutDirection">
+         <enum>Qt::LeftToRight</enum>
+        </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <property name="spacing">
           <number>40</number>
          </property>
          <property name="leftMargin">
-          <number>0</number>
+          <number>10</number>
          </property>
          <property name="topMargin">
-          <number>0</number>
+          <number>30</number>
          </property>
          <property name="rightMargin">
           <number>0</number>
@@ -80,25 +102,6 @@
          <property name="bottomMargin">
           <number>0</number>
          </property>
-         <item>
-          <widget class="QLabel" name="side_head_lb">
-           <property name="minimumSize">
-            <size>
-             <width>40</width>
-             <height>40</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>40</width>
-             <height>40</height>
-            </size>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-          </widget>
-         </item>
          <item>
           <widget class="StateWidget" name="side_chat_lb" native="true">
            <property name="minimumSize">
@@ -237,7 +240,7 @@
        <widget class="ChatUserList" name="chat_user_list"/>
       </item>
       <item>
-       <widget class="QListWidget" name="search_list"/>
+       <widget class="SearchList" name="search_list"/>
       </item>
       <item>
        <widget class="QListWidget" name="con_user_list"/>
@@ -280,6 +283,11 @@
    <extends>QWidget</extends>
    <header location="global">statewidget.h</header>
    <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>SearchList</class>
+   <extends>QListWidget</extends>
+   <header>searchlist.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

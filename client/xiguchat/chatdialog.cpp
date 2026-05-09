@@ -50,6 +50,30 @@ ChatDialog::ChatDialog(QWidget *parent)
         this, &ChatDialog::slot_loading_chat_user);
 
     addChatUserList(); //添加一些随机生成的聊天用户列表项作为测试用例
+
+    //加载图片并缩放到label的大小
+    QPixmap pixmap(":/res/head_1.jpg");
+    QPixmap scaledPixmap = pixmap.scaled(ui->side_head_lb->size(), Qt::KeepAspectRatio);
+    ui->side_head_lb->setPixmap(scaledPixmap); //将缩放后的图片设置到QLabel上
+    ui->side_head_lb->setScaledContents(true); //设置QLabel自动缩放图片内容以适应大小
+
+    //设置侧边栏聊天和联系人的状态样式, 包括正常、悬浮、按下和选中状态的样式
+    ui->side_chat_lb->SetState("normal", "hover", "pressed",
+        "selected_normal" ,"selected_hover" ,"selected_pressed");
+    ui->side_contact_lb->SetState("normal", "hover", "pressed",
+        "selected_normal" ,"selected_hover", "selected_pressed");
+    ui->side_chat_lb->setProperty("state", "selected_normal"); //初始状态设置为聊天选中状态
+    ui->side_chat_lb->SetSelected(true); //设置聊天标签为选中状态
+    //将侧边栏的聊天和联系人标签添加到标签组列表中, 以便后续管理它们的状态
+    AddLBGroup(ui->side_chat_lb);
+    AddLBGroup(ui->side_contact_lb);
+
+    //连接侧边栏聊天和联系人的点击信号到槽函数, 用于切换界面状态
+    connect(ui->side_chat_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_chat);
+    connect(ui->side_contact_lb, &StateWidget::clicked, this, &ChatDialog::slot_side_contact);
+
+    //链接搜索框输入变化
+    connect(ui->search_edit, &QLineEdit::textChanged, this, &ChatDialog::slot_text_changed);
 }
 
 ChatDialog::~ChatDialog()
@@ -96,6 +120,47 @@ void ChatDialog::ShowSearch(bool bsearch)
         ui->search_list->hide();
         ui->con_user_list->show();
         _mode = ChatUIMode::ContactMode;
+    }
+}
+
+void ChatDialog::AddLBGroup(StateWidget *lb)
+{
+    _lb_list.push_back(lb);
+}
+
+void ChatDialog::slot_side_chat()
+{
+    qDebug() << "receive side chat clicked";
+    ClearLabelState(ui->side_chat_lb); //设置聊天标签的状态, 将其他标签的状态清除
+    ui->stackedWidget->setCurrentWidget(ui->chat_page); //切换到聊天页面
+    _state = ChatUIMode::ChatMode; //设置界面状态为聊天模式
+    ShowSearch(false); //不显示搜索框
+}
+
+void ChatDialog::slot_side_contact(){
+    qDebug() << "receive side contact clicked";
+    ClearLabelState(ui->side_contact_lb); //设置联系标签的状态, 将其他标签的状态清除
+    ui->stackedWidget->setCurrentWidget(ui->friend_apply_page); //切换到联系人页面
+    _state = ChatUIMode::ContactMode; //设置界面状态为联系人模式
+    ShowSearch(false); //不显示搜索框
+}
+
+void ChatDialog::ClearLabelState(StateWidget *lb)
+{
+    //遍历标签列表, 跳过传入的标签
+    for(auto & ele: _lb_list){
+        if(ele == lb)
+            continue;
+
+        ele->ClearState(); //清除其他标签的状态, 只保留当前点击的标签的状态
+    }
+}
+
+void ChatDialog::slot_text_changed(const QString &str)
+{
+    //如果搜索框文本不为空, 则显示搜索框
+    if (!str.isEmpty()) {
+        ShowSearch(true);
     }
 }
 
