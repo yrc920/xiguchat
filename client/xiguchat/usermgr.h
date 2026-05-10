@@ -25,6 +25,8 @@ public:
     void SetName(QString name); //设置用户名
     void SetUid(int uid); //设置用户ID
     void SetToken(QString token); //设置用户令牌
+    int GetUid();
+    QString GetName();
 
 private:
     UserMgr();

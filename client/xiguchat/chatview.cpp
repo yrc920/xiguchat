@@ -14,12 +14,12 @@ ChatView::ChatView(QWidget *parent)
     this->setLayout(pMainLayout); //将当前窗口的布局设置为垂直布局
     pMainLayout->setMargin(0); //设置布局管理器的边距为0, 这样布局中的组件就会紧贴窗口边缘
     m_pScrollArea = new QScrollArea(); //创建一个滚动区域组件
-    m_pScrollArea->setObjectName("chat_area"); //设置滚动区域的对象名称为"chat_area"
+    m_pScrollArea->setObjectName("chat_area");
     pMainLayout->addWidget(m_pScrollArea); //将滚动区域添加到主布局中, 这样滚动区域就会显示在窗口中
 
     /* 滚动区域的内容为一个widget, 布局为垂直布局, 用于排列聊天项 */
     QWidget *w = new QWidget(this); //创建一个widget作为滚动区域的内容
-    w->setObjectName("chat_bg"); //设置这个widget的对象名称为"chat_bg"
+    w->setObjectName("chat_bg");
     w->setAutoFillBackground(true); //设置这个widget自动填充背景, 这样它就会显示背景颜色或背景图片等样式
     QVBoxLayout *pHLayout_1 = new QVBoxLayout(); //创建一个垂直布局管理器, 用于排列聊天项
     //添加一个占位widget, 用于将聊天项推到顶部, 这样新添加的聊天项就会显示在底部

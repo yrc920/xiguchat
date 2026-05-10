@@ -4,6 +4,7 @@
 ClickedBtn::ClickedBtn(QWidget *parent) : QPushButton (parent)
 {
     setCursor(Qt::PointingHandCursor); //设置光标为小手
+    setFocusPolicy(Qt::NoFocus); //设置按钮不接受焦点，避免抢占键盘输入
 }
 
 ClickedBtn::~ClickedBtn() {}
