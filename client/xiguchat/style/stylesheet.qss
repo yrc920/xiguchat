@@ -393,7 +393,7 @@ LoadingDlg{
 
 #ApplyFriend{
     border: 2px solid #f1f1f1;
-    font-size: 14px;
+    font-size: 23px;
     background: #f7f7f8;
 }
 
@@ -408,26 +408,26 @@ LoadingDlg{
 
 #scrollcontent #apply_lb{
     font-family: "Microsoft YaHei";
-    font-size: 16px;
+    font-size: 28px;
     font-weight: normal;
 }
 
 #apply_wid QLabel{
     color:rgb(140,140,140);
-    font-size: 14px;
+    font-size: 23px;
     font-family: "Microsoft YaHei";
-    height: 25px;
+    height: 50px;
 }
 
 #apply_wid #name_ed, #apply_wid #back_ed{
-    border: 1px solid #f7f7f8;
-    font-size: 14px;
+    border: 3px solid #f7f7f8;
+    font-size: 23px;
     font-family: "Microsoft YaHei";
 }
 
 #apply_wid #lb_ed {
        border: none;
-       font-size: 14px;
+       font-size: 23px;
        font-family: "Microsoft YaHei";
 }
 
@@ -490,7 +490,7 @@ LoadingDlg{
 #apply_wid #tip_lb {
     padding-left: 2px;
     color:rgb(153,153,153);
-    font-size: 14px;
+    font-size: 23px;
     font-family: "Microsoft YaHei";
 }
 
@@ -525,47 +525,47 @@ LoadingDlg{
 #apply_sure_wid #sure_btn[state='normal']  {
     background: #f0f0f0;
     color: #2cb46e;
-    font-size: 16px; /* 设置字体大小 */
+    font-size: 28px; /* 设置字体大小 */
     font-family: "Microsoft YaHei"; /* 设置字体 */
-    border-radius: 20px; /* 设置圆角 */
+    border-radius: 10px; /* 设置圆角 */
 }
 
 #apply_sure_wid #sure_btn[state='hover'] {
     background: #d2d2d2;
     color: #2cb46e;
-    font-size: 16px; /* 设置字体大小 */
+    font-size: 28px; /* 设置字体大小 */
     font-family: "Microsoft YaHei"; /* 设置字体 */
-    border-radius: 20px; /* 设置圆角 */
+    border-radius: 10px; /* 设置圆角 */
 }
 
 #apply_sure_wid #sure_btn[state='press'] {
     background: #c6c6c6;
     color: #2cb46e;
-    font-size: 16px; /* 设置字体大小 */
+    font-size: 28px; /* 设置字体大小 */
     font-family: "Microsoft YaHei"; /* 设置字体 */
-    border-radius: 20px; /* 设置圆角 */
+    border-radius: 10px; /* 设置圆角 */
 }
 
 #apply_sure_wid #cancel_btn[state='normal']  {
     background: #f0f0f0;
     color: #2e2f30;
-    font-size: 16px; /* 设置字体大小 */
+    font-size: 28px; /* 设置字体大小 */
     font-family: "Microsoft YaHei"; /* 设置字体 */
-    border-radius: 20px; /* 设置圆角 */
+    border-radius: 10px; /* 设置圆角 */
 }
 
 #apply_sure_wid #cancel_btn[state='hover'] {
     background: #d2d2d2;
     color: #2e2f30;
-    font-size: 16px; /* 设置字体大小 */
+    font-size: 28px; /* 设置字体大小 */
     font-family: "Microsoft YaHei"; /* 设置字体 */
-    border-radius: 20px; /* 设置圆角 */
+    border-radius: 10px; /* 设置圆角 */
 }
 
 #apply_sure_wid #cancel_btn[state='press'] {
     background: #c6c6c6;
     color: #2e2f30;
-    font-size: 16px; /* 设置字体大小 */
+    font-size: 28px; /* 设置字体大小 */
     font-family: "Microsoft YaHei"; /* 设置字体 */
-    border-radius: 20px; /* 设置圆角 */
+    border-radius: 10px; /* 设置圆角 */
 }

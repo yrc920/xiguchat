@@ -15,7 +15,7 @@ FindSuccessDlg::FindSuccessDlg(QWidget *parent) :
 
     QString app_path = QCoreApplication::applicationDirPath(); //获取当前应用程序的路径
     QString pix_path = QDir::toNativeSeparators(app_path +
-        QDir::separator() + "static"+QDir::separator() + "head_1.jpg"); //构建图片的完整路径
+        QDir::separator() + "static" + QDir::separator() + "head_1.jpg"); //构建图片的完整路径
     QPixmap head_pix(pix_path); //加载图片
     //缩放图片到label的大小，保持宽高比，并使用平滑变换以获得更好的图像质量
     head_pix = head_pix.scaled(ui->head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
@@ -37,10 +37,10 @@ void FindSuccessDlg::SetSearchInfo(std::shared_ptr<SearchInfo> si)
 
 void FindSuccessDlg::on_add_friend_btn_clicked()
 {
-    this->hide();
+    this->hide(); //隐藏当前的搜索成功对话框
     //弹出加好友界面
     auto applyFriend = new ApplyFriend(_parent);
-    applyFriend->SetSearchInfo(_si);
-    applyFriend->setModal(true);
-    applyFriend->show();
+    applyFriend->SetSearchInfo(_si); //将搜索信息传递给加好友界面, 以便在加好友界面中显示用户信息
+    applyFriend->setModal(true); //设置加好友界面为模态, 阻止用户与其他窗口交互, 直到加好友界面被关闭
+    applyFriend->show(); //显示加好友界面
 }

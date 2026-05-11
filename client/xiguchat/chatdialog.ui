@@ -250,6 +250,9 @@
    </item>
    <item>
     <widget class="QStackedWidget" name="stackedWidget">
+     <property name="currentIndex">
+      <number>0</number>
+     </property>
      <widget class="ChatPage" name="chat_page"/>
      <widget class="QWidget" name="friend_apply_page"/>
     </widget>

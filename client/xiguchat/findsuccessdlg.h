@@ -27,13 +27,14 @@ public:
     ~FindSuccessDlg();
     void SetSearchInfo(std::shared_ptr<SearchInfo> si); //设置搜索信息, 用于在对话框中显示用户信息
 
-private slots:
-    void on_add_friend_btn_clicked(); //添加好友按钮点击的槽函数
-
 private:
     Ui::FindSuccessDlg *ui;
     QWidget * _parent; //父窗口指针, 用于在添加好友按钮点击时弹出加好友界面
-    std::shared_ptr<SearchInfo> _si; //搜索信息的智能指针
+    std::shared_ptr<SearchInfo> _si; //搜索到的用户信息
+
+private slots:
+    void on_add_friend_btn_clicked(); //添加好友按钮点击的槽函数
+
 };
 
 #endif // FINDSUCCESSDLG_H

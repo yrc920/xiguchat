@@ -10,15 +10,16 @@ void ClickedLabel::mousePressEvent(QMouseEvent* event)  {
     if (event->button() == Qt::LeftButton) {
         //如果当前状态是正常状态
         if(_curstate == ClickLbState::Normal){
-            qDebug()<<"clicked , change to selected hover: "<< _selected_hover;
+            qDebug() << "clicked , change to selected hover: " << _selected_hover;
             _curstate = ClickLbState::Selected; //切换到选中状态
             //设置状态属性为选中悬停状态的样式名称(用于qss根据状态属性选择样式)
             setProperty("state", _selected_press);
             repolish(this); //刷新样式表，使得状态生效
             update(); //更新界面
-
-        }else{
-            qDebug()<<"clicked , change to normal hover: "<< _normal_hover;
+        }
+        //如果当前状态是选中状态
+        else{
+            qDebug() << "clicked , change to normal hover: " << _normal_hover;
             _curstate = ClickLbState::Normal; //切换到正常状态
             //设置状态属性为正常悬停状态的样式名称(用于qss根据状态属性选择样式)
             setProperty("state", _normal_press);
@@ -34,22 +35,24 @@ void ClickedLabel::mousePressEvent(QMouseEvent* event)  {
 void ClickedLabel::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        //如果当前状态是正常状态
         if(_curstate == ClickLbState::Normal){
-            // qDebug()<<"ReleaseEvent , change to normal hover: "<< _normal_hover;
-            setProperty("state",_normal_hover);
-            repolish(this);
-            update();
-
-        }else{
-            //  qDebug()<<"ReleaseEvent , change to select hover: "<< _selected_hover;
-            setProperty("state",_selected_hover);
-            repolish(this);
-            update();
+            //设置状态属性为正常悬停状态的样式名称(用于qss根据状态属性选择样式)
+            setProperty("state", _normal_hover);
+            repolish(this); //刷新样式表，使得状态生效
+            update(); //更新界面
         }
-        emit clicked(this->text(), _curstate);
+        //如果当前状态是选中状态
+        else{
+            //设置状态属性为选中悬停状态的样式名称(用于qss根据状态属性选择样式)
+            setProperty("state", _selected_hover);
+            repolish(this); //刷新样式表，使得状态生效
+            update(); //更新界面
+        }
+        emit clicked(this->text(), _curstate); //发出标签被点击的信号, 传递标签的文本和当前状态
         return;
     }
-    // 调用基类的mousePressEvent以保证正常的事件处理
+    //调用基类的mousePressEvent以保证正常的事件处理
     QLabel::mousePressEvent(event);
 }
 
@@ -117,22 +120,23 @@ ClickLbState ClickedLabel::GetCurState(){
 
 bool ClickedLabel::SetCurState(ClickLbState state)
 {
-    _curstate = state;
+    _curstate = state; //设置当前状态
+    //如果当前状态是正常状态
     if (_curstate == ClickLbState::Normal) {
-        setProperty("state", _normal);
-        repolish(this);
+        setProperty("state", _normal); //设置状态属性为正常状态的样式名称(用于qss根据状态属性选择样式)
+        repolish(this); //刷新样式表，使得状态生效
     }
+    //如果当前状态是选中状态
     else if (_curstate == ClickLbState::Selected) {
-        setProperty("state", _selected);
-        repolish(this);
+        setProperty("state", _selected); //设置状态属性为选中状态的样式名称(用于qss根据状态属性选择样式)
+        repolish(this); //刷新样式表，使得状态生效
     }
-
     return true;
 }
 
 void ClickedLabel::ResetNormalState()
 {
-    _curstate = ClickLbState::Normal;
-    setProperty("state", _normal);
-    repolish(this);
+    _curstate = ClickLbState::Normal; //将当前状态重置为正常状态
+    setProperty("state", _normal); //设置状态属性为正常状态的样式名称(用于qss根据状态属性选择样式)
+    repolish(this); //刷新样式表，使得状态生效
 }

@@ -52,17 +52,17 @@
     <widget class="QWidget" name="close_wid" native="true">
      <property name="minimumSize">
       <size>
-       <width>50</width>
-       <height>50</height>
+       <width>30</width>
+       <height>30</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>50</width>
-       <height>50</height>
+       <width>30</width>
+       <height>30</height>
       </size>
      </property>
-     <layout class="QHBoxLayout" name="horizontalLayout_2">
+     <layout class="QVBoxLayout" name="verticalLayout">
       <property name="spacing">
        <number>0</number>
       </property>
@@ -82,14 +82,14 @@
        <widget class="ClickedLabel" name="close_lb">
         <property name="minimumSize">
          <size>
-          <width>40</width>
-          <height>40</height>
+          <width>30</width>
+          <height>30</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>40</width>
-          <height>40</height>
+          <width>30</width>
+          <height>30</height>
          </size>
         </property>
         <property name="text">

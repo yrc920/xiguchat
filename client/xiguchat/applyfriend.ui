@@ -6,20 +6,20 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>500</width>
-    <height>800</height>
+    <width>600</width>
+    <height>1000</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>500</width>
-    <height>800</height>
+    <width>600</width>
+    <height>1000</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>500</width>
-    <height>800</height>
+    <width>600</width>
+    <height>1000</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -46,7 +46,13 @@
      <property name="minimumSize">
       <size>
        <width>0</width>
-       <height>600</height>
+       <height>750</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>750</height>
       </size>
      </property>
      <property name="widgetResizable">
@@ -57,23 +63,32 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>498</width>
-        <height>598</height>
+        <width>598</width>
+        <height>748</height>
        </rect>
       </property>
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>0</height>
+       </size>
+      </property>
       <layout class="QVBoxLayout" name="verticalLayout_2">
+       <property name="spacing">
+        <number>6</number>
+       </property>
        <item>
-        <widget class="QLabel" name="apply_ib">
+        <widget class="QLabel" name="apply_lb">
          <property name="minimumSize">
           <size>
            <width>0</width>
-           <height>40</height>
+           <height>70</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
            <width>16777215</width>
-           <height>40</height>
+           <height>70</height>
           </size>
          </property>
          <property name="text">
@@ -87,6 +102,12 @@
        <item>
         <widget class="QWidget" name="apply_wid" native="true">
          <layout class="QVBoxLayout" name="verticalLayout_3">
+          <property name="spacing">
+           <number>6</number>
+          </property>
+          <property name="topMargin">
+           <number>9</number>
+          </property>
           <item>
            <widget class="Line" name="line">
             <property name="orientation">
@@ -96,14 +117,20 @@
           </item>
           <item>
            <widget class="QLabel" name="label">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
+            </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>30</height>
+              <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>发送添加朋友申请:</string>
+             <string>发送添加朋友申请 :</string>
             </property>
            </widget>
           </item>
@@ -112,27 +139,33 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>40</height>
+              <height>60</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>40</height>
+              <height>60</height>
              </size>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="label_2">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
+            </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>30</height>
+              <height>16777215</height>
              </size>
             </property>
             <property name="text">
-             <string>备注名</string>
+             <string>备注名 :</string>
             </property>
            </widget>
           </item>
@@ -141,23 +174,29 @@
             <property name="minimumSize">
              <size>
               <width>0</width>
-              <height>40</height>
+              <height>60</height>
              </size>
             </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>40</height>
+              <height>60</height>
              </size>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QLabel" name="label_3">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>50</height>
+             </size>
+            </property>
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>30</height>
+              <height>16777215</height>
              </size>
             </property>
             <property name="text">
@@ -188,21 +227,21 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>40</height>
+                 <height>80</height>
                 </size>
                </property>
                <property name="maximumSize">
                 <size>
                  <width>16777215</width>
-                 <height>40</height>
+                 <height>16777215</height>
                 </size>
                </property>
                <widget class="CustomizeEdit" name="lb_ed">
                 <property name="geometry">
                  <rect>
-                  <x>5</x>
-                  <y>5</y>
-                  <width>113</width>
+                  <x>0</x>
+                  <y>0</y>
+                  <width>271</width>
                   <height>30</height>
                  </rect>
                 </property>
@@ -211,19 +250,46 @@
              </item>
              <item>
               <widget class="QWidget" name="input_tip_wid" native="true">
+               <property name="minimumSize">
+                <size>
+                 <width>0</width>
+                 <height>50</height>
+                </size>
+               </property>
+               <property name="maximumSize">
+                <size>
+                 <width>16777215</width>
+                 <height>16777215</height>
+                </size>
+               </property>
                <layout class="QVBoxLayout" name="verticalLayout_5">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
+                <property name="leftMargin">
+                 <number>0</number>
+                </property>
+                <property name="topMargin">
+                 <number>0</number>
+                </property>
+                <property name="rightMargin">
+                 <number>0</number>
+                </property>
+                <property name="bottomMargin">
+                 <number>0</number>
+                </property>
                 <item>
                  <widget class="ClickedOnceLabel" name="tip_lb">
                   <property name="minimumSize">
                    <size>
                     <width>0</width>
-                    <height>40</height>
+                    <height>0</height>
                    </size>
                   </property>
                   <property name="maximumSize">
                    <size>
                     <width>16777215</width>
-                    <height>40</height>
+                    <height>16777215</height>
                    </size>
                   </property>
                   <property name="text">
@@ -386,7 +452,7 @@
        <widget class="ClickedBtn" name="sure_btn">
         <property name="minimumSize">
          <size>
-          <width>120</width>
+          <width>180</width>
           <height>50</height>
          </size>
         </property>
@@ -412,7 +478,7 @@
        <widget class="ClickedBtn" name="cancel_btn">
         <property name="minimumSize">
          <size>
-          <width>120</width>
+          <width>180</width>
           <height>50</height>
          </size>
         </property>

@@ -28,8 +28,8 @@ public:
         QString select = "", QString select_hover = "", QString select_press = "");
 
     ClickLbState GetCurState(); //获取当前状态
-    bool SetCurState(ClickLbState state);
-    void ResetNormalState();
+    bool SetCurState(ClickLbState state); //设置当前状态并根据状态切换样式
+    void ResetNormalState(); //将当前状态重置为正常状态
 
 private:
     QString _normal; //正常状态的样式名称
@@ -43,7 +43,7 @@ private:
     ClickLbState _curstate; //当前状态
 
 signals:
-    void clicked(QString, ClickLbState); //标签被点击的信号
+    void clicked(QString, ClickLbState); //标签被点击的信号, 传递标签的文本和当前状态
 
 };
 
