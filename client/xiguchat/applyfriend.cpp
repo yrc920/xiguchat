@@ -18,7 +18,7 @@ ApplyFriend::ApplyFriend(QWidget *parent) :
     ui->lb_ed->setPlaceholderText("搜索、添加标签"); //设置标签输入框的占位文本
     ui->back_ed->setPlaceholderText("燃烧的胸毛"); //设置好友备注输入框的占位文本
 
-    ui->lb_ed->move(2, 2); //设置标签输入框的初始位置
+    ui->lb_ed->move(5, 5); //设置标签输入框的初始位置
     ui->lb_ed->setFixedHeight(40); //设置标签输入框的固定高度
     ui->lb_ed->setMaxLength(20); //设置标签输入框的最大输入长度为20个字符, 超过后将无法继续输入
     ui->input_tip_wid->hide(); //初始隐藏输入提示框
@@ -38,8 +38,6 @@ ApplyFriend::ApplyFriend(QWidget *parent) :
     connect(ui->lb_ed, &CustomizeEdit::returnPressed, this, &ApplyFriend::SlotLabelEnter);
     //连接输入标签文本变化事件到槽函数, 用于根据输入的文本显示不同的输入提示
     connect(ui->lb_ed, &CustomizeEdit::textChanged, this, &ApplyFriend::SlotLabelTextChange);
-    //连接输入标签输入完成事件到槽函数, 用于在输入完成后隐藏输入提示框
-    connect(ui->lb_ed, &CustomizeEdit::editingFinished, this, &ApplyFriend::SlotLabelEditFinished);
     //连接提示标签点击事件到槽函数, 通过点击提示标签的内容来添加好友便签
     connect(ui->tip_lb, &ClickedOnceLabel::clicked, this, &ApplyFriend::SlotAddFirendLabelByClickTip);
 
@@ -273,7 +271,7 @@ void ApplyFriend::addLabel(QString name)
     {
         //换行后第一个标签的y坐标增加标签高度和间距值
         _label_point.setY(_label_point.y() + tmplabel->height() + 6);
-        _label_point.setX(2); //换行后第一个标签的x坐标重置为初始值
+        _label_point.setX(5); //换行后第一个标签的x坐标重置为初始值
     }
 
     tmplabel->move(_label_point); //将标签移动到当前坐标位置
@@ -291,7 +289,7 @@ void ApplyFriend::addLabel(QString name)
     if (_label_point.x() + MIN_APPLY_LABEL_ED_LEN > ui->gridWidget->width())
     {
         //换行后标签输入框的x坐标重置为初始值, y坐标增加标签高度和间距值
-        ui->lb_ed->move(5, _label_point.y() + tmplabel->height() + 2);
+        ui->lb_ed->move(5, _label_point.y() + tmplabel->height() + 4);
     }
     else {
         ui->lb_ed->move(_label_point); //将标签输入框移动到当前标签的下一个位置显示
@@ -300,12 +298,12 @@ void ApplyFriend::addLabel(QString name)
     ui->lb_ed->clear(); //清空标签输入框的文本
 
     //如果标签展示区的高度不足以显示当前标签和标签输入框, 则增加标签展示区的高度以适应新的标签
-    if (ui->gridWidget->height() < _label_point.y() + tmplabel->height() + 2)
+    if (ui->gridWidget->height() < _label_point.y() + tmplabel->height() + 4)
     {
         //增加标签展示区的高度为当前标签的y坐标加上标签高度的两倍和一些间距值
-        ui->gridWidget->setFixedHeight(_label_point.y() + tmplabel->height() * 2 + 2);
+        ui->gridWidget->setFixedHeight(_label_point.y() + tmplabel->height() * 2 + 4);
         //增加滚动区域内容的高度以适应新的标签显示
-        ui->scrollcontent->setFixedHeight(ui->scrollcontent->height() + tmplabel->height() * 2 + 2);
+        ui->scrollcontent->setFixedHeight(ui->scrollcontent->height() + tmplabel->height() * 2 + 4);
     }
 }
 
@@ -460,11 +458,6 @@ void ApplyFriend::SlotLabelTextChange(const QString& text)
     ui->input_tip_wid->show(); //显示输入提示框
 }
 
-void ApplyFriend::SlotLabelEditFinished()
-{
-    ui->input_tip_wid->hide(); //输入完成后隐藏输入提示框
-}
-
 void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
 {
     int index = text.indexOf(add_prefix); //判断点击的提示标签文本是否包含前缀
@@ -473,6 +466,7 @@ void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
         text = text.mid(index + add_prefix.length());
     }
     addLabel(text); //添加标签到标签展示区
+    ui->input_tip_wid->hide(); //隐藏输入提示框
 
     //判断输入的标签文本是否在预设的标签数据中存在
     auto find_it = std::find(_tip_data.begin(), _tip_data.end(), text);
@@ -507,7 +501,7 @@ void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
     qDebug() << "textWidth is " << textWidth;
 
     //如果当前标签的x坐标加上文本宽度和间距超过标签展示区的宽度, 则换行显示
-    if (_tip_cur_point.x() + textWidth+ tip_offset+3 > ui->lb_list->width())
+    if (_tip_cur_point.x() + textWidth + tip_offset + 3 > ui->lb_list->width())
     {
         _tip_cur_point.setX(5); //换行后第一个标签的x坐标重置为初始值
         //换行后第一个标签的y坐标增加文本高度和间距值

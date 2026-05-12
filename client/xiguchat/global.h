@@ -112,10 +112,37 @@ enum ListItemType{
     ADD_USER_TIP_ITEM, //提示添加用户
     INVALID_ITEM,  //不可点击条目
     GROUP_TIP_ITEM, //分组提示条目
+    LINK_ITEM, //分割线
+    APPLY_FRIEND_ITEM, //好友申请
 };
 
-const int MIN_APPLY_LABEL_ED_LEN = 120; //申请好友标签输入框最低长度
+const int MIN_APPLY_LABEL_ED_LEN = 50; //申请好友标签输入框最低长度
 const QString add_prefix = "添加标签 ";
 const int tip_offset = 5; //标签之间的间距
+
+const std::vector<QString>  strs ={"hello world !",
+                                   "nice to meet u",
+                                   "New year，new life",
+                                   "You have to love yourself",
+                                   "My love is written in the wind ever since the whole world is you"};
+
+const std::vector<QString> heads = {
+    ":/res/head_1.jpg",
+    ":/res/head_2.jpg",
+    ":/res/head_3.jpg",
+    ":/res/head_4.jpg",
+    ":/res/head_5.jpg"
+};
+
+const std::vector<QString> names = {
+    "HanMeiMei",
+    "Lily",
+    "Ben",
+    "Androw",
+    "Max",
+    "Summer",
+    "Candy",
+    "Hunter"
+};
 
 #endif // GLOBAL_H

@@ -227,7 +227,7 @@
                <property name="minimumSize">
                 <size>
                  <width>0</width>
-                 <height>80</height>
+                 <height>90</height>
                 </size>
                </property>
                <property name="maximumSize">
@@ -239,8 +239,8 @@
                <widget class="CustomizeEdit" name="lb_ed">
                 <property name="geometry">
                  <rect>
-                  <x>0</x>
-                  <y>0</y>
+                  <x>5</x>
+                  <y>5</y>
                   <width>271</width>
                   <height>30</height>
                  </rect>

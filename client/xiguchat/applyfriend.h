@@ -53,7 +53,6 @@ public slots:
     void SlotRemoveFriendLabel(QString); //点击关闭, 移除展示栏好友便签
     void SlotChangeFriendLabelByTip(QString, ClickLbState); //通过点击tip实现增加和减少好友便签
     void SlotLabelTextChange(const QString& text); //输入框文本变化显示不同提示
-    void SlotLabelEditFinished(); //输入框输入完成
     void SlotAddFirendLabelByClickTip(QString text); //输入标签显示提示框，点击提示框内容后添加好友便签
     void SlotApplySure(); //处理确认回调
     void SlotApplyCancel(); //处理取消回调
