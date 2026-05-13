@@ -29,11 +29,11 @@ public:
     void SetToken(QString token); //设置用户令牌
     int GetUid(); //获取用户ID
     QString GetName(); //获取用户名
-    std::vector<std::shared_ptr<ApplyInfo>> GetApplyList();
+    std::vector<std::shared_ptr<ApplyInfo>> GetApplyList(); //获取好友申请列表
 
 private:
     UserMgr();
-    std::vector<std::shared_ptr<ApplyInfo>> _apply_list;
+    std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
     int _uid; //用户ID
     QString _name; //用户名
     QString _token; //用户令牌

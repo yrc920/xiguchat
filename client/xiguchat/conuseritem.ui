@@ -104,6 +104,9 @@
       <property name="text">
        <string/>
       </property>
+      <property name="pixmap">
+       <pixmap resource="rc.qrc">:/res/red_point.png</pixmap>
+      </property>
      </widget>
     </widget>
    </item>
@@ -116,6 +119,8 @@
    </item>
   </layout>
  </widget>
- <resources/>
+ <resources>
+  <include location="rc.qrc"/>
+ </resources>
  <connections/>
 </ui>
