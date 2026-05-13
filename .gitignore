@@ -7,3 +7,4 @@ x64/
 node_modules/
 config.ini
 config.json
+start.bat
