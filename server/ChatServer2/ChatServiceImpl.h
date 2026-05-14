@@ -1,4 +1,7 @@
 #pragma once
+// Grpc服务器实现类，负责处理客户端请求
+//
+
 #include <grpcpp/grpcpp.h>
 #include "message.grpc.pb.h"
 #include "message.pb.h"
@@ -18,22 +21,19 @@ using message::TextChatMsgReq;
 using message::TextChatMsgRsp;
 using message::TextChatData;
 
-
 class ChatServiceImpl final : public ChatService::Service
 {
 public:
 	ChatServiceImpl();
-	Status NotifyAddFriend(ServerContext* context, const AddFriendReq* request,
-		AddFriendRsp* reply) override;
-
+	Status NotifyAddFriend(ServerContext* context,
+		const AddFriendReq* request, AddFriendRsp* reply) override;
 	Status NotifyAuthFriend(ServerContext* context,
 		const AuthFriendReq* request, AuthFriendRsp* response) override;
-
-	Status NotifyTextChatMsg(::grpc::ServerContext* context,
+	Status NotifyTextChatMsg(ServerContext* context,
 		const TextChatMsgReq* request, TextChatMsgRsp* response) override;
-
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
 
 private:
+
 };
 

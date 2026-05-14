@@ -27,6 +27,7 @@ public:
 	
 	SectionInfo operator[](const std::string& section); //重载[]运算符
 
+	//根据section和key获取对应的value
 	std::string GetValue(const std::string& section, const std::string& key);
 
 private:
@@ -57,6 +58,7 @@ struct SectionInfo {
 		return _section_datas[key];
 	}
 
+	//根据key获取对应的value, 如果key不存在则返回空字符串
 	std::string GetValue(const std::string& key) {
 		if (_section_datas.find(key) == _section_datas.end()) {
 			return "";

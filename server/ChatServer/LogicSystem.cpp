@@ -5,6 +5,7 @@
 #include "RedisMgr.h"
 #include "UserMgr.h"
 #include "ChatGrpcClient.h"
+#include "ConfigMgr.h"
 
 LogicSystem::LogicSystem() :_b_stop(false)
 {
@@ -109,7 +110,8 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 
 	Json::Value rtvalue; //创建Json值对象，用于存储返回给客户端的数据
 	Defer defer([this, &rtvalue, session]() {
-		std::string return_str = rtvalue.toStyledString(); //将Json值对象转换为字符串形式，准备发送给客户端
+		//将Json值对象转换为字符串形式，准备发送给客户端
+		std::string return_str = rtvalue.toStyledString();
 		//通过会话对象发送消息给客户端, 消息ID为用户登陆回包
 		session->Send(return_str, MSG_CHAT_LOGIN_RSP);
 		});
@@ -118,12 +120,13 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	std::string uid_str = std::to_string(uid);
 	std::string token_key = USERTOKENPREFIX + uid_str;
 	std::string token_value = "";
-	bool success = RedisMgr::GetInstance()->Get(token_key, token_value);
+	bool success = RedisMgr::GetInstance()->Get(token_key, token_value); //从Redis中获取用户token
+	//如果Redis中没有用户token，说明用户ID无效，返回uid无效错误码
 	if (!success) {
 		rtvalue["error"] = ErrorCodes::UidInvalid;
 		return;
 	}
-
+	//如果Redis中的用户token与客户端提供的token不匹配，说明token无效，返回token无效错误码
 	if (token_value != token) {
 		rtvalue["error"] = ErrorCodes::TokenInvalid;
 		return;
@@ -132,12 +135,14 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	rtvalue["error"] = ErrorCodes::Success;
 
 	std::string base_key = USER_BASE_INFO + uid_str;
-	auto user_info = std::make_shared<UserInfo>();
-	bool b_base = GetBaseInfo(base_key, uid, user_info);
+	auto user_info = std::make_shared<UserInfo>(); //初始化用户信息对象
+	bool b_base = GetBaseInfo(base_key, uid, user_info); //获取用户基本信息
+	//如果获取用户基本信息失败，说明用户ID无效，返回uid无效错误码
 	if (!b_base) {
 		rtvalue["error"] = ErrorCodes::UidInvalid;
 		return;
 	}
+	//将用户基本信息填充到Json值对象中，准备返回给客户端
 	rtvalue["uid"] = uid;
 	rtvalue["pwd"] = user_info->pwd;
 	rtvalue["name"] = user_info->name;
@@ -147,23 +152,24 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	rtvalue["sex"] = user_info->sex;
 	rtvalue["icon"] = user_info->icon;
 
+	//从配置文件中获取自身服务器的名称
 	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
-	//将登录数量增加
+	//从Redis中获取当前服务器的登录数量
 	auto rd_res = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server_name);
 	int count = 0;
+
+	//如果Redis中有登录数量记录
 	if (!rd_res.empty()) {
-		count = std::stoi(rd_res);
+		count = std::stoi(rd_res); //将登录数量字符串转换为整数
 	}
 
-	count++;
+	count++; //登录数量加1
 	auto count_str = std::to_string(count);
-	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, count_str);
-	//session绑定用户uid
-	session->SetUserId(uid);
-	//为用户设置登录ip server的名字
-	std::string  ipkey = USERIPPREFIX + uid_str;
-	RedisMgr::GetInstance()->Set(ipkey, server_name);
-	//uid和session绑定管理,方便以后踢人操作
+	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, count_str); //将更新后的登录数量写回Redis
+	session->SetUserId(uid); //session绑定用户uid
+	std::string ipkey = USERIPPREFIX + uid_str; //为用户设置登录ip server的名字
+	RedisMgr::GetInstance()->Set(ipkey, server_name); //将用户登录ip server的名字写入Redis
+	//uid和session绑定管理, 方便以后踢人操作
 	UserMgr::GetInstance()->SetUserSession(uid, session);
 
 	return;
@@ -173,7 +179,8 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 {
 	//优先查redis中查询用户信息
 	std::string info_str = "";
-	bool b_base = RedisMgr::GetInstance()->Get(base_key, info_str);
+	bool b_base = RedisMgr::GetInstance()->Get(base_key, info_str); //从Redis中获取用户信息
+	//如果Redis中有用户信息，则解析Json字符串并填充用户信息对象
 	if (b_base) {
 		Json::Reader reader;
 		Json::Value root;
@@ -187,18 +194,20 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 		userinfo->sex = root["sex"].asInt();
 		userinfo->icon = root["icon"].asString();
 		std::cout << "user login uid is  " << userinfo->uid << " name  is "
-			<< userinfo->name << " pwd is " << userinfo->pwd << " email is " << userinfo->email << std::endl;
+			<< userinfo->name << " pwd is " << userinfo->pwd << " email is "
+			<< userinfo->email << std::endl;
 	}
 	else {
 		//redis中没有则查询mysql
 		//查询数据库
 		std::shared_ptr<UserInfo> user_info = nullptr;
 		user_info = MysqlMgr::GetInstance()->GetUser(uid);
+		//如果数据库中没有用户信息，则返回false，表示用户ID无效
 		if (user_info == nullptr) {
 			return false;
 		}
 
-		userinfo = user_info;
+		userinfo = user_info; //将数据库查询到的用户信息赋值给传入的用户信息对象
 
 		//将数据库内容写入redis缓存
 		Json::Value redis_root;

@@ -64,8 +64,8 @@ private:
 	std::function<void()> func_;
 };
 
-#define USERIPPREFIX  "uip_"
-#define USERTOKENPREFIX  "utoken_"
-#define IPCOUNTPREFIX  "ipcount_"
-#define USER_BASE_INFO "ubaseinfo_"
-#define LOGIN_COUNT  "logincount"
+#define USERIPPREFIX  "uip_" //用户IP地址前缀
+#define USERTOKENPREFIX  "utoken_" //用户Token前缀
+#define IPCOUNTPREFIX  "ipcount_" //IP计数前缀
+#define USER_BASE_INFO "ubaseinfo_" //用户基础信息前缀
+#define LOGIN_COUNT  "logincount" //登录计数前缀

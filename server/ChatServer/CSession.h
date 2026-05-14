@@ -22,9 +22,9 @@ public:
 	CSession(boost::asio::io_context& io_context, CServer* server);
 	~CSession();
 	tcp::socket& GetSocket(); //返回socket对象的引用，以便服务器可以使用它进行通信
-	std::string& GetSessionId();
-	void SetUserId(int uid);
-	int GetUserId();
+	std::string& GetSessionId(); //返回会话ID的引用，以便服务器可以使用它来标识会话
+	void SetUserId(int uid); //设置用户ID
+	int GetUserId(); //获取用户ID
 
 	void Start(); //启动会话, 开始处理连接
 	void Send(char* msg, short max_length, short msgid); //发送消息
@@ -45,8 +45,8 @@ private:
 	void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);
 
 	tcp::socket _socket; //套接字
-	std::string _session_id;
-	int _user_uid;
+	std::string _session_id; //会话ID, 用于唯一标识一个会话(token)
+	int _user_uid; //用户ID
 	char _data[MAX_LENGTH]; //接收缓冲区
 	CServer* _server; //指向服务器对象的指针
 	bool _b_close; //会话是否关闭

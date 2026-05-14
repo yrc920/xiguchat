@@ -32,8 +32,7 @@ int main(int argc, char** argv) {
 
 		std::thread([&io_context]() { io_context.run(); }).detach(); //在单独的线程中运行io_context
 
-		//等待服务器关闭
-		server->Wait();
+		server->Wait(); //等待服务器关闭
 		io_context.stop(); //停止io_context
 	}
 	catch (std::exception const& e) {

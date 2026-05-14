@@ -55,6 +55,6 @@ private:
 	std::string port_; //Grpc服务器的端口号
 	//连接池中的连接队列, 存储可用的StatusService::Stub对象(用于发起RPC调用, 相当于信使)
 	std::queue<std::unique_ptr<StatusService::Stub>> connections_;
-	std::mutex mutex_; //保护连接队列的互斥锁, 确保多线程环境下对连接池的安全访问
+	std::mutex mutex_; //保护连接队列的互斥锁
 	std::condition_variable cond_; //条件变量, 用于在连接池为空时等待可用连接
 };

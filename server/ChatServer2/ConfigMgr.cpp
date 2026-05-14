@@ -55,10 +55,11 @@ SectionInfo ConfigMgr::operator[](const std::string& section)
 	return _config_map[section];
 }
 
-std::string ConfigMgr::GetValue(const std::string& section, const std::string& key) {
+std::string ConfigMgr::GetValue(const std::string& section, const std::string& key)
+{
+	//如果请求的section不存在, 返回空字符串, 以避免访问不存在的section导致的错误
 	if (_config_map.find(section) == _config_map.end()) {
 		return "";
 	}
-
 	return _config_map[section].GetValue(key);
 }

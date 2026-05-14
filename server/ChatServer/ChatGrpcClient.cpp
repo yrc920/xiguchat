@@ -8,25 +8,28 @@
 
 ChatGrpcClient::ChatGrpcClient()
 {
+	//从配置文件中读取服务器列表
 	auto& cfg = ConfigMgr::Inst();
 	auto server_list = cfg["PeerServer"]["Servers"];
 
-	std::vector<std::string> words;
+	std::vector<std::string> words; //存储服务器列表中的单个服务器地址
+	std::stringstream ss(server_list); //使用字符串流将服务器列表字符串分割成单个服务器地址
+	std::string word; //临时变量用于存储分割出的单个服务器地址
 
-	std::stringstream ss(server_list);
-	std::string word;
-
+	//将服务器列表字符串按照逗号分隔成单个服务器地址，并存储在words向量中
 	while (std::getline(ss, word, ',')) {
 		words.push_back(word);
 	}
 
 	for (auto& word : words) {
+		//如果配置文件中没有该服务器的Name字段，则跳过该服务器地址
 		if (cfg[word]["Name"].empty()) {
 			continue;
 		}
-		_pools[cfg[word]["Name"]] = std::make_unique<ChatConPool>(5, cfg[word]["Host"], cfg[word]["Port"]);
+		//为每个服务器地址创建一个ChatConPool对象，并将其存储在_pools映射表中
+		_pools[cfg[word]["Name"]] = std::make_unique<ChatConPool>(5,
+			cfg[word]["Host"], cfg[word]["Port"]);
 	}
-
 }
 
 AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_ip, const AddFriendReq& req)
@@ -174,56 +177,67 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
 	return rsp;
 }
 
+
 ChatConPool::ChatConPool(size_t poolSize, std::string host, std::string port)
 	: poolSize_(poolSize), host_(host), port_(port), b_stop_(false)
 {
 	for (size_t i = 0; i < poolSize_; ++i)
 	{
+		//创建一个gRPC通道，使用不安全的凭据
 		std::shared_ptr<Channel> channel = grpc::CreateChannel(host + ":" + port,
 			grpc::InsecureChannelCredentials());
+		//创建一个ChatService的Stub对象，并将其添加到连接池中
 		connections_.push(ChatService::NewStub(channel));
-	}
-}
-
-ChatConPool::~ChatConPool()
-{
-	std::lock_guard<std::mutex> lock(mutex_);
-	Close();
-	while (!connections_.empty()) {
-		connections_.pop();
 	}
 }
 
 std::unique_ptr<ChatService::Stub> ChatConPool::getConnection()
 {
-	std::unique_lock<std::mutex> lock(mutex_);
+	std::unique_lock<std::mutex> lock(mutex_); //加锁保护连接池的状态
+	//等待条件变量, 直到连接池中有可用连接或者连接池被标记为停止
 	cond_.wait(lock, [this] {
+		//如果连接池被标记为停止, 则直接返回true, 保持锁定状态并继续执行
 		if (b_stop_) {
 			return true;
 		}
+		//如果没有可用连接, 返回false, 解锁并进入等待状态
+		//如果有可用连接, 返回true, 保持锁定状态并继续执行
 		return !connections_.empty();
 		});
 	//如果停止则直接返回空指针
 	if (b_stop_) {
 		return  nullptr;
 	}
+
+	//从连接池中获取一个可用连接对象(Stub)
 	auto context = std::move(connections_.front());
-	connections_.pop();
+	connections_.pop(); //从连接池中移除获取的连接对象
 	return context;
 }
 
 void ChatConPool::returnConnection(std::unique_ptr<ChatService::Stub> context)
 {
-	std::lock_guard<std::mutex> lock(mutex_);
+	std::lock_guard<std::mutex> lock(mutex_); //加锁保护连接池的状态
+	//如果连接池被标记为停止, 则直接返回, 不将连接对象放回连接池中
 	if (b_stop_) {
 		return;
 	}
-	connections_.push(std::move(context));
-	cond_.notify_one();
+	connections_.push(std::move(context)); //将连接对象放回连接池中
+	cond_.notify_one(); //通知一个等待的线程, 让它能够及时获取到放回连接池中的连接对象
 }
 
 void ChatConPool::Close()
 {
-	b_stop_ = true;
-	cond_.notify_all();
+	b_stop_ = true; //设置停止标志, 使连接池进入停止状态
+	cond_.notify_all(); //通知所有等待的线程, 让它们能够及时退出等待状态
+}
+
+ChatConPool::~ChatConPool()
+{
+	std::lock_guard<std::mutex> lock(mutex_); //加锁保护连接池的状态
+	Close(); //调用Close()方法标记连接池停止, 唤醒所有等待的线程, 使其退出
+	//清空连接池中的连接对象, 释放资源
+	while (!connections_.empty()) {
+		connections_.pop();
+	}
 }

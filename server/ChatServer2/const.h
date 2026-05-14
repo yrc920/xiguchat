@@ -59,9 +59,9 @@ enum MSG_IDS {
 	ID_NOTIFY_TEXT_CHAT_MSG_REQ = 1019, //通知用户文本聊天信息
 };
 
-#define USERIPPREFIX  "uip_"
-#define USERTOKENPREFIX  "utoken_"
-#define IPCOUNTPREFIX  "ipcount_"
-#define USER_BASE_INFO "ubaseinfo_"
-#define LOGIN_COUNT  "logincount"
-#define NAME_INFO "nameinfo_"
+#define USERIPPREFIX  "uip_" //用户登录ip server的名字前缀
+#define USERTOKENPREFIX  "utoken_" //用户token的名字前缀
+#define IPCOUNTPREFIX  "ipcount_" //用户登录ip server的名字前缀
+#define USER_BASE_INFO "ubaseinfo_" //用户基本信息的名字前缀
+#define LOGIN_COUNT  "logincount" //登录数量的名字
+#define NAME_INFO "nameinfo_" //用户名和用户ID的映射关系的名字前缀

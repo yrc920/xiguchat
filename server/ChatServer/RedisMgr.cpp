@@ -299,27 +299,32 @@ std::string RedisMgr::HGet(const std::string& key, const std::string& hkey)
 
 bool RedisMgr::HDel(const std::string& key, const std::string& field)
 {
-	auto connect = _con_pool->getConnection();
+	auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
+	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
 	if (connect == nullptr) {
 		return false;
 	}
 
+	//使用Defer对象确保在函数退出时归还连接对象
 	Defer defer([&connect, this]() {
 		_con_pool->returnConnection(connect);
 		});
 
+	//执行redis命令行, 删除哈希表key中字段field
 	redisReply* reply = (redisReply*)redisCommand(connect, "HDEL %s %s", key.c_str(), field.c_str());
+	//如果返回NULL或者返回的类型不是整数, 则说明执行失败, 释放连接并返回false
 	if (reply == nullptr) {
 		std::cerr << "HDEL command failed" << std::endl;
 		return false;
 	}
 
 	bool success = false;
+	//如果返回的类型是整数, 则说明执行成功, 根据整数值判断是否删除了字段
 	if (reply->type == REDIS_REPLY_INTEGER) {
-		success = reply->integer > 0;
+		success = reply->integer > 0; //如果整数值大于0, 则说明删除了字段, 返回true
 	}
 
-	freeReplyObject(reply);
+	freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 	return success;
 }
 

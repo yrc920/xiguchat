@@ -29,8 +29,9 @@ private:
 	LogicSystem();
 	void DealMsg(); //逻辑处理线程执行的函数，负责从消息队列中取出消息并调用对应的处理函数进行处理
 	void RegisterCallBacks(); //注册消息处理函数
-	//处理用户登录消息的函数，解析消息数据并进行相应的处理
+	//登录处理函数, 处理用户登录请求，验证用户身份并返回登录结果
 	void LoginHandler(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
+	//获取用户基本信息
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
 
 	std::thread _worker_thread; //逻辑处理线程
@@ -41,5 +42,4 @@ private:
 
 	//消息ID到处理函数的映射表，用于根据消息ID分发消息到对应的处理函数
 	std::map<short, FunCallBack> _fun_callbacks;
-
 };
