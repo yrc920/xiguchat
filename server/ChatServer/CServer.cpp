@@ -1,6 +1,7 @@
 #include "CServer.h"
 #include <iostream>
 #include "IOContextPool.h"
+#include "UserMgr.h"
 
 CServer::CServer(boost::asio::io_context& io_context, short port) : _io_context(io_context),
 _port(port), _acceptor(io_context, tcp::endpoint(tcp::v4(), port))
@@ -20,7 +21,7 @@ void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::s
 		new_session->Start(); //启动会话, 开始处理连接
 		std::lock_guard<std::mutex> lock(_mutex); //保护_sessions的互斥锁
 		//将新的会话添加到_sessions中
-		_sessions.insert(std::make_pair(new_session->GetUuid(), new_session));
+		_sessions.insert(std::make_pair(new_session->GetSessionId(), new_session));
 	}
 	else {
 		std::cout << "session accept failed, error is " << error.what() << std::endl;
@@ -40,8 +41,15 @@ void CServer::StartAccept()
 		std::bind(&CServer::HandleAccept, this, new_session, std::placeholders::_1)); 
 }
 
-void CServer::ClearSession(std::string uuid)
+void CServer::ClearSession(std::string session_id)
 {
-	std::lock_guard<std::mutex> lock(_mutex); //保护_sessions的互斥锁
-	_sessions.erase(uuid); //从_sessions中删除指定uuid的会话
+	if (_sessions.find(session_id) != _sessions.end()) {
+		//移除用户和session的关联
+		UserMgr::GetInstance()->RmvUserSession(_sessions[session_id]->GetUserId());
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(_mutex); //保护_sessions的互斥锁
+		_sessions.erase(session_id); //从_sessions中删除指定session_id的会话
+	}
 }

@@ -5,25 +5,52 @@
 #include "IOContextPool.h"
 #include "CServer.h"
 #include "ConfigMgr.h"
+#include "RedisMgr.h"
+#include "ChatServiceImpl.h"
 
 int main()
 {
+	auto& cfg = ConfigMgr::Inst();
+	auto server_name = cfg["SelfServer"]["Name"];
 	try {
-		auto& cfg = ConfigMgr::Inst(); //加载配置文件
-		auto port_str = cfg["SelfServer"]["Port"]; //从配置文件中获取端口号
-
 		auto pool = IOContextPool::GetInstance(); //获取IOContextPool单例实例
+		//将登录数设置为0
+		RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, "0");
+		//定义一个GrpcServer
+
+		std::string server_address(cfg["SelfServer"]["Host"] + ":" + cfg["SelfServer"]["RPCPort"]);
+		ChatServiceImpl service;
+		grpc::ServerBuilder builder;
+		// 监听端口和添加服务
+		builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+		builder.RegisterService(&service);
+		// 构建并启动gRPC服务器
+		std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+		std::cout << "RPC Server listening on " << server_address << std::endl;
+
+
+		//单独启动一个线程处理grpc服务
+		std::thread  grpc_server_thread([&server]() {
+			server->Wait();
+			});
+
 		boost::asio::io_context io_context; //创建io_context对象，作为服务器的核心事件循环
 		//创建一个信号集，监听SIGINT和SIGTERM信号
 		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
 		//当接收到SIGINT或SIGTERM信号时，调用lambda函数来停止io_context和线程池
-		signals.async_wait([&io_context, pool](auto, auto) {
+		signals.async_wait([&io_context, pool, &server](auto, auto) {
 			io_context.stop();
 			pool->Stop();
+			server->Shutdown();
 			});
-		
+
+		auto port_str = cfg["SelfServer"]["Port"]; //从配置文件中获取端口号
 		CServer s(io_context, atoi(port_str.c_str())); //创建服务器对象，传入io_context和端口号
 		io_context.run(); //运行io_context，开始处理事件循环，直到接收到停止信号
+
+		RedisMgr::GetInstance()->HDel(LOGIN_COUNT, server_name);
+		RedisMgr::GetInstance()->Close();
+		grpc_server_thread.join();
 	}
 	catch (std::exception& e) {
 		std::cerr << "Exception: " << e.what() << std::endl;

@@ -27,6 +27,8 @@ public:
 	
 	SectionInfo operator[](const std::string& section); //重载[]运算符
 
+	std::string GetValue(const std::string& section, const std::string& key);
+
 private:
 	ConfigMgr();
 
@@ -52,6 +54,14 @@ struct SectionInfo {
 		if (_section_datas.find(key) == _section_datas.end()) {
 			return "";
 		} 
+		return _section_datas[key];
+	}
+
+	std::string GetValue(const std::string& key) {
+		if (_section_datas.find(key) == _section_datas.end()) {
+			return "";
+		}
+		// 这里可以添加一些边界检查  
 		return _section_datas[key];
 	}
 

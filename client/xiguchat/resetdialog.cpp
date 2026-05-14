@@ -201,7 +201,7 @@ bool ResetDialog::checkPassValid()
     }
 
     //密码长度至少6，可以是字母、数字和特定的特殊字符
-    static QRegularExpression regExp("^[a-zA-Z0-9!@#$%^&*]{6,15}$");
+    static QRegularExpression regExp("^[a-zA-Z0-9!@#$%^&*.]{6,15}$");
     bool match = regExp.match(pass).hasMatch(); //执行正则表达式匹配，判断密码是否符合要求
     if(!match){
         //提示字符非法

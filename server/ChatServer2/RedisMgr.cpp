@@ -297,6 +297,32 @@ std::string RedisMgr::HGet(const std::string& key, const std::string& hkey)
 	return value;
 }
 
+bool RedisMgr::HDel(const std::string& key, const std::string& field)
+{
+	auto connect = _con_pool->getConnection();
+	if (connect == nullptr) {
+		return false;
+	}
+
+	Defer defer([&connect, this]() {
+		_con_pool->returnConnection(connect);
+		});
+
+	redisReply* reply = (redisReply*)redisCommand(connect, "HDEL %s %s", key.c_str(), field.c_str());
+	if (reply == nullptr) {
+		std::cerr << "HDEL command failed" << std::endl;
+		return false;
+	}
+
+	bool success = false;
+	if (reply->type == REDIS_REPLY_INTEGER) {
+		success = reply->integer > 0;
+	}
+
+	freeReplyObject(reply);
+	return success;
+}
+
 bool RedisMgr::Del(const std::string& key)
 {
 	auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象

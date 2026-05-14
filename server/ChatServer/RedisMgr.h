@@ -33,6 +33,7 @@ public:
 	bool HSet(const char* key, const char* hkey, const char* hvalue, size_t hvaluelen);
 	//获取哈希表key中字段hkey的值(二级哈希缓存)
 	std::string HGet(const std::string& key, const std::string& hkey);
+	bool HDel(const std::string& key, const std::string& field); //删除哈希表key中字段field
 	
 	void Close(); //关闭连接池, 释放资源
 

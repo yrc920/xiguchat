@@ -31,6 +31,7 @@ private:
 	void RegisterCallBacks(); //注册消息处理函数
 	//处理用户登录消息的函数，解析消息数据并进行相应的处理
 	void LoginHandler(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
+	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
 
 	std::thread _worker_thread; //逻辑处理线程
 	std::queue<std::shared_ptr<LogicNode>> _msg_que; //逻辑消息队列
@@ -40,6 +41,5 @@ private:
 
 	//消息ID到处理函数的映射表，用于根据消息ID分发消息到对应的处理函数
 	std::map<short, FunCallBack> _fun_callbacks;
-	//用户信息表，使用unordered_map以uid为键，存储用户信息的shared_ptr，方便快速查找和管理用户数据
-	std::unordered_map<int, std::shared_ptr<UserInfo>> _users;
+
 };

@@ -34,8 +34,7 @@ private:
 
 	std::unordered_map<std::string, ChatServer> _servers; //服务器列表, key为服务器名称, value为服务器信息
 	std::mutex _server_mtx; //服务器列表的互斥锁, 保护_servers的线程安全
-	std::unordered_map<int, std::string> _tokens; //用户token列表, key为用户id, value为token
-	std::mutex _token_mtx; //用户token列表的互斥锁, 保护_tokens的线程安全
+
 };
 
 struct ChatServer {

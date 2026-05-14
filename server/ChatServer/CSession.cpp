@@ -11,7 +11,7 @@ CSession::CSession(boost::asio::io_context& io_context, CServer* server) :
 	_socket(io_context), _server(server), _b_close(false), _b_head_parse(false)
 {
 	boost::uuids::uuid  a_uuid = boost::uuids::random_generator()(); //生成一个随机的UUID
-	_uuid = boost::uuids::to_string(a_uuid); //将UUID转换为字符串形式
+	_session_id = boost::uuids::to_string(a_uuid); //将UUID转换为字符串形式
 	_recv_head_node = std::make_shared<MsgNode>(HEAD_TOTAL_LEN); //分配头部节点内存
 }
 
@@ -23,8 +23,18 @@ tcp::socket& CSession::GetSocket() {
 	return _socket; //返回socket对象的引用，以便服务器可以使用它进行通信
 }
 
-std::string& CSession::GetUuid() {
-	return _uuid; //返回会话的UUID
+std::string& CSession::GetSessionId() {
+	return _session_id;
+}
+
+void CSession::SetUserId(int uid)
+{
+	_user_uid = uid;
+}
+
+int CSession::GetUserId()
+{
+	return _user_uid;
 }
 
 void CSession::Close() {
@@ -46,7 +56,7 @@ void CSession::Send(std::string msg, short msgid)
 	int send_que_size = _send_que.size(); //获取当前发送队列的大小
 	//如果发送队列的大小超过了预设的最大值，输出警告信息并返回，避免过多的消息积压在队列中
 	if (send_que_size > MAX_SENDQUE) {
-		std::cout << "session: " << _uuid << " send que fulled, size is " << MAX_SENDQUE << std::endl;
+		std::cout << "session: " << _session_id << " send que fulled, size is " << MAX_SENDQUE << std::endl;
 		return;
 	}
 
@@ -69,7 +79,7 @@ void CSession::Send(char* msg, short max_length, short msgid) {
 	int send_que_size = _send_que.size(); //获取当前发送队列的大小
 	//如果发送队列的大小超过了预设的最大值，输出警告信息并返回，避免过多的消息积压在队列中
 	if (send_que_size > MAX_SENDQUE) {
-		std::cout << "session: " << _uuid << " send que fulled, size is " << MAX_SENDQUE << std::endl;
+		std::cout << "session: " << _session_id << " send que fulled, size is " << MAX_SENDQUE << std::endl;
 		return;
 	}
 
@@ -94,7 +104,7 @@ void CSession::HandleWrite(const boost::system::error_code& error,
 		if (error) {
 			std::cout << "handle write failed, error is " << error.what() << std::endl;
 			Close(); //关闭连接
-			_server->ClearSession(_uuid); //清除会话
+			_server->ClearSession(_session_id); //清除会话
 		}
 		
 		std::lock_guard<std::mutex> lock(_send_lock); //使用互斥锁保护发送队列，确保线程安全
@@ -125,7 +135,7 @@ void CSession::AsyncReadBody(int total_len)
 				if (ec) {
 					std::cout << "handle read failed, error is " << ec.what() << std::endl;
 					Close(); //关闭连接
-					_server->ClearSession(_uuid); //清除会话
+					_server->ClearSession(_session_id); //清除会话
 					return;
 				}
 
@@ -135,7 +145,7 @@ void CSession::AsyncReadBody(int total_len)
 					std::cout << "read length not match, read [" << bytes_transfered << "] , total ["
 						<< total_len << "]" << std::endl;
 					Close(); //关闭连接
-					_server->ClearSession(_uuid); //清除会话
+					_server->ClearSession(_session_id); //清除会话
 					return;
 				}
 
@@ -168,7 +178,7 @@ void CSession::AsyncReadHead(int total_len)
 			if (ec) {
 				std::cout << "handle read failed, error is " << ec.what() << std::endl;
 				Close(); //关闭连接
-				_server->ClearSession(_uuid); //清除会话
+				_server->ClearSession(_session_id); //清除会话
 				return;
 			}
 
@@ -178,7 +188,7 @@ void CSession::AsyncReadHead(int total_len)
 				std::cout << "read length not match, read [" << bytes_transfered << "] , total ["
 					<< HEAD_TOTAL_LEN << "]" << std::endl;
 				Close(); //关闭连接
-				_server->ClearSession(_uuid); //清除会话
+				_server->ClearSession(_session_id); //清除会话
 				return;
 			}
 
@@ -194,7 +204,7 @@ void CSession::AsyncReadHead(int total_len)
 			//如果MSGID超过最大长度，说明消息格式不合法，关闭连接并清除会话
 			if (msg_id > MAX_LENGTH) {
 				std::cout << "invalid msg_id is " << msg_id << std::endl;
-				_server->ClearSession(_uuid); //清除会话
+				_server->ClearSession(_session_id); //清除会话
 				return;
 			}
 
@@ -208,7 +218,7 @@ void CSession::AsyncReadHead(int total_len)
 			//如果消息长度超过最大长度，说明消息格式不合法，关闭连接并清除会话
 			if (msg_len > MAX_LENGTH) {
 				std::cout << "invalid data length is " << msg_len << std::endl;
-				_server->ClearSession(_uuid); //清除会话
+				_server->ClearSession(_session_id); //清除会话
 				return;
 			}
 
