@@ -127,17 +127,25 @@ void SearchList::slot_item_clicked(QListWidgetItem *item)
     //如果列表项类型是添加用户提示项, 则执行添加用户的操作, 如弹出搜索结果对话框等
     if(itemType == ListItemType::ADD_USER_TIP_ITEM)
     {
+        //如果正在等待搜索请求, 则直接返回, 以防止重复发送搜索请求
         if (_send_pending) {
             return;
         }
-        waitPending(true);
-        auto search_edit = dynamic_cast<CustomizeEdit*>(_search_edit);
-        auto uid_str = search_edit->text();
-        //此处发送请求给server
-        QJsonObject jsonObj;
-        jsonObj["uid"] = uid_str;
+        //如果搜索框的指针为空, 则直接返回
+        if (!_search_edit) {
+            return;
+        }
 
-        QJsonDocument doc(jsonObj);
+        waitPending(true); //设置正在等待搜索请求的状态, 显示加载对话框
+        //将搜索框的指针转换为CustomizeEdit类型
+        auto search_edit = dynamic_cast<CustomizeEdit*>(_search_edit);
+        auto uid_str = search_edit->text(); //获取搜索框中的文本
+
+        //此处发送请求给server
+        QJsonObject jsonObj; //创建一个JSON对象
+        jsonObj["uid"] = uid_str; //将搜索框中的文本作为用户ID添加到JSON对象中
+        QJsonDocument doc(jsonObj); //将JSON对象转换为JSON文档, 以便序列化为JSON字符串
+        //将JSON文档序列化为紧凑格式的JSON字符串, 以减少数据大小, 适合网络传输
         QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
 
         //发送tcp请求给chat server
@@ -150,10 +158,12 @@ void SearchList::slot_item_clicked(QListWidgetItem *item)
 
 void SearchList::slot_user_search(std::shared_ptr<SearchInfo> si)
 {
-    waitPending(false);
+    waitPending(false); //取消等待搜索请求的状态, 关闭加载对话框
+    //如果搜索结果为空, 则弹出搜索失败的对话框
     if (si == nullptr) {
         _find_dlg = std::make_shared<FindFailDlg>(this);
-    }else{
+    }
+    else{
         //此处分两种情况，一种是搜多到已经是自己的朋友了，一种是未添加好友
         //查找是否已经是好友
         // bool bExist = UserMgr::GetInstance()->CheckFriendById(si->_uid);
@@ -163,9 +173,11 @@ void SearchList::slot_user_search(std::shared_ptr<SearchInfo> si)
         //     emit sig_jump_chat_item(si);
         //     return;
         // }
+
         //此处先处理为添加的好友
-        _find_dlg = std::make_shared<FindSuccessDlg>(this);
+        _find_dlg = std::make_shared<FindSuccessDlg>(this); //创建搜索成功的对话框实例
+        //将搜索到的用户信息设置到搜索成功对话框中
         std::dynamic_pointer_cast<FindSuccessDlg>(_find_dlg)->SetSearchInfo(si);
     }
-    _find_dlg->show();
+    _find_dlg->show(); //显示搜索结果对话框
 }

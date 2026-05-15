@@ -26,7 +26,7 @@ bool RedisMgr::Get(const std::string& key, std::string& value)
 	//如果返回NULL则说明执行失败, 释放连接并返回false
 	if (reply == NULL) {
 		std::cout << "[ GET  " << key << " ] failed" << std::endl;
-		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+		//freeReplyObject(reply);
 		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 		return false;
 	}

@@ -196,6 +196,52 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
 			user_ptr->email = res->getString("email");
 			user_ptr->name = res->getString("name");
 			user_ptr->pwd = res->getString("pwd");
+			user_ptr->nick = res->getString("nick");
+			user_ptr->desc = res->getString("desc");
+			user_ptr->sex = res->getInt("sex");
+			break;
+		}
+		return user_ptr;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return nullptr;
+	}
+}
+
+std::shared_ptr<UserInfo> MysqlDao::GetUser(const std::string& name)
+{
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	//如果连接池返回空指针, 则说明连接池已停止, 直接返回空指针
+	if (con == nullptr) {
+		return nullptr;
+	}
+	//使用RAII机制确保无论函数如何退出, 都能正确归还MySQL连接对象给连接池, 避免资源泄漏
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+		});
+
+	try {
+		//准备SQL语句(查询指定用户名的用户信息, 包含用户ID、邮箱、密码等字段)
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
+			prepareStatement("SELECT * FROM user WHERE name = ?"));
+		pstmt->setString(1, name); //绑定参数
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery()); //执行查询
+
+		std::shared_ptr<UserInfo> user_ptr = nullptr;
+		//遍历结果集
+		while (res->next()) {
+			//如果查询结果中有数据, 则说明用户名存在, 将查询结果中的用户信息存储在user_ptr中, 返回user_ptr
+			user_ptr.reset(new UserInfo);
+			user_ptr->uid = res->getInt("uid");
+			user_ptr->email = res->getString("email");
+			user_ptr->name = name;
+			user_ptr->pwd = res->getString("pwd");
+			user_ptr->nick = res->getString("nick");
+			user_ptr->desc = res->getString("desc");
+			user_ptr->sex = res->getInt("sex");
 			break;
 		}
 		return user_ptr;

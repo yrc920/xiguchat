@@ -6,7 +6,7 @@
 
 FindSuccessDlg::FindSuccessDlg(QWidget *parent) :
     QDialog(parent),
-    ui(new Ui::FindSuccessDlg),_parent(parent)
+    ui(new Ui::FindSuccessDlg), _parent(parent)
 {
     ui->setupUi(this);
     setWindowTitle("添加"); //设置对话框标题

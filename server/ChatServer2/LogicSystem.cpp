@@ -94,6 +94,9 @@ void LogicSystem::RegisterCallBacks()
 	//注册消息处理函数
 	_fun_callbacks[MSG_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+	_fun_callbacks[ID_SEARCH_USER_REQ] = std::bind(&LogicSystem::SearchInfo, this,
+		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
@@ -117,7 +120,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 		});
 
 	//从redis获取用户token是否正确
-	std::string uid_str = std::to_string(uid);
+	std::string uid_str = std::to_string(uid); //将用户ID转换为字符串形式
 	std::string token_key = USERTOKENPREFIX + uid_str;
 	std::string token_value = "";
 	bool success = RedisMgr::GetInstance()->Get(token_key, token_value); //从Redis中获取用户token
@@ -134,7 +137,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 
 	rtvalue["error"] = ErrorCodes::Success;
 
-	std::string base_key = USER_BASE_INFO + uid_str;
+	std::string base_key = USER_BASE_INFO + uid_str; //构建用户基本信息在Redis中的键名
 	auto user_info = std::make_shared<UserInfo>(); //初始化用户信息对象
 	bool b_base = GetBaseInfo(base_key, uid, user_info); //获取用户基本信息
 	//如果获取用户基本信息失败，说明用户ID无效，返回uid无效错误码
@@ -173,6 +176,175 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	UserMgr::GetInstance()->SetUserSession(uid, session);
 
 	return;
+}
+
+void LogicSystem::SearchInfo(std::shared_ptr<CSession> session,
+	const short& msg_id, const std::string& msg_data)
+{
+	Json::Reader reader; //创建Json解析器对象
+	Json::Value root; //创建Json值对象，用于存储解析后的数据
+	reader.parse(msg_data, root); //解析Json字符串，将结果存储在root对象中
+	auto uid_str = root["uid"].asString(); //从解析后的Json对象中获取用户ID字符串
+	std::cout << "user SearchInfo uid is  " << uid_str << std::endl;
+
+	Json::Value rtvalue; //创建Json值对象，用于存储返回给客户端的数据
+	Defer defer([this, &rtvalue, session]() {
+		//将Json值对象转换为字符串形式，准备发送给客户端
+		std::string return_str = rtvalue.toStyledString();
+		//通过会话对象发送消息给客户端, 消息ID为搜索用户回包
+		session->Send(return_str, ID_SEARCH_USER_RSP);
+		});
+
+	bool b_digit = isPureDigit(uid_str); //判断用户ID字符串是否纯数字
+	if (b_digit) {
+		GetUserByUid(uid_str, rtvalue); //如果用户ID字符串是纯数字，则按照用户ID查询用户信息
+	}
+	else {
+		GetUserByName(uid_str, rtvalue); //如果用户ID字符串不是纯数字，则按照用户名查询用户信息
+	}
+	return;
+}
+
+bool LogicSystem::isPureDigit(const std::string& str)
+{
+	for (char c : str) {
+		//如果字符串中的某个字符不是数字，则返回false，说明字符串不是纯数字
+		if (!std::isdigit(c)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+void LogicSystem::GetUserByUid(std::string uid_str, Json::Value& rtvalue)
+{
+	rtvalue["error"] = ErrorCodes::Success; //默认返回成功状态码
+	std::string base_key = USER_BASE_INFO + uid_str; //构建用户基本信息在Redis中的键名
+
+	//优先查redis中查询用户信息
+	std::string info_str = "";
+	bool b_base = RedisMgr::GetInstance()->Get(base_key, info_str); //从Redis中获取用户基本信息字符串
+	if (b_base) {
+		Json::Reader reader; //创建Json解析器对象
+		Json::Value root; //创建Json值对象，用于存储解析后的数据
+		reader.parse(info_str, root); //解析Json字符串，将结果存储在root对象中
+		//从解析后的Json对象中获取用户基本信息
+		auto uid = root["uid"].asInt();
+		auto name = root["name"].asString();
+		auto pwd = root["pwd"].asString();
+		auto email = root["email"].asString();
+		auto nick = root["nick"].asString();
+		auto desc = root["desc"].asString();
+		auto sex = root["sex"].asInt();
+		auto icon = root["icon"].asString();
+		std::cout << "user  uid is  " << uid << " name  is " << name
+			<< " pwd is " << pwd << " email is " << email << " icon is " << icon << std::endl;
+		//将用户基本信息填充到返回值Json对象中，准备返回给客户端
+		rtvalue["uid"] = uid;
+		rtvalue["pwd"] = pwd;
+		rtvalue["name"] = name;
+		rtvalue["email"] = email;
+		rtvalue["nick"] = nick;
+		rtvalue["desc"] = desc;
+		rtvalue["sex"] = sex;
+		rtvalue["icon"] = icon;
+		return;
+	}
+
+	auto uid = std::stoi(uid_str); //将用户ID字符串转换为整数
+	//redis中没有则查询mysql
+	std::shared_ptr<UserInfo> user_info = nullptr;
+	user_info = MysqlMgr::GetInstance()->GetUser(uid); //根据用户ID从MySQL数据库中获取用户信息
+	//如果数据库中没有用户信息，则返回uid无效错误码
+	if (user_info == nullptr) {
+		rtvalue["error"] = ErrorCodes::UidInvalid;
+		return;
+	}
+
+	//将数据库内容写入redis缓存
+	Json::Value redis_root;
+	redis_root["uid"] = user_info->uid;
+	redis_root["pwd"] = user_info->pwd;
+	redis_root["name"] = user_info->name;
+	redis_root["email"] = user_info->email;
+	redis_root["nick"] = user_info->nick;
+	redis_root["desc"] = user_info->desc;
+	redis_root["sex"] = user_info->sex;
+	redis_root["icon"] = user_info->icon;
+	RedisMgr::GetInstance()->Set(base_key, redis_root.toStyledString()); //将用户基本信息写入Redis缓存
+
+	//返回数据
+	rtvalue["uid"] = user_info->uid;
+	rtvalue["pwd"] = user_info->pwd;
+	rtvalue["name"] = user_info->name;
+	rtvalue["email"] = user_info->email;
+	rtvalue["nick"] = user_info->nick;
+	rtvalue["desc"] = user_info->desc;
+	rtvalue["sex"] = user_info->sex;
+	rtvalue["icon"] = user_info->icon;
+}
+
+void LogicSystem::GetUserByName(std::string name, Json::Value& rtvalue)
+{
+	rtvalue["error"] = ErrorCodes::Success; //默认返回成功状态码
+	std::string base_key = NAME_INFO + name; //构建用户基本信息在Redis中的键名
+
+	//优先查redis中查询用户信息
+	std::string info_str = "";
+	bool b_base = RedisMgr::GetInstance()->Get(base_key, info_str); //从Redis中获取用户基本信息字符串
+	if (b_base) {
+		Json::Reader reader; //创建Json解析器对象
+		Json::Value root; //创建Json值对象，用于存储解析后的数据
+		reader.parse(info_str, root); //解析Json字符串，将结果存储在root对象中
+		//从解析后的Json对象中获取用户基本信息
+		auto uid = root["uid"].asInt();
+		auto name = root["name"].asString();
+		auto pwd = root["pwd"].asString();
+		auto email = root["email"].asString();
+		auto nick = root["nick"].asString();
+		auto desc = root["desc"].asString();
+		auto sex = root["sex"].asInt();
+		std::cout << "user  uid is  " << uid << " name  is "
+			<< name << " pwd is " << pwd << " email is " << email << std::endl;
+		//将用户基本信息填充到返回值Json对象中，准备返回给客户端
+		rtvalue["uid"] = uid;
+		rtvalue["pwd"] = pwd;
+		rtvalue["name"] = name;
+		rtvalue["email"] = email;
+		rtvalue["nick"] = nick;
+		rtvalue["desc"] = desc;
+		rtvalue["sex"] = sex;
+		return;
+	}
+
+	//redis中没有则查询mysql
+	std::shared_ptr<UserInfo> user_info = nullptr;
+	user_info = MysqlMgr::GetInstance()->GetUser(name); //根据用户名从MySQL数据库中获取用户信息
+	//如果数据库中没有用户信息，则返回uid无效错误码
+	if (user_info == nullptr) {
+		rtvalue["error"] = ErrorCodes::UidInvalid;
+		return;
+	}
+
+	//将数据库内容写入redis缓存
+	Json::Value redis_root;
+	redis_root["uid"] = user_info->uid;
+	redis_root["pwd"] = user_info->pwd;
+	redis_root["name"] = user_info->name;
+	redis_root["email"] = user_info->email;
+	redis_root["nick"] = user_info->nick;
+	redis_root["desc"] = user_info->desc;
+	redis_root["sex"] = user_info->sex;
+	RedisMgr::GetInstance()->Set(base_key, redis_root.toStyledString()); //将用户基本信息写入Redis缓存
+
+	//返回数据
+	rtvalue["uid"] = user_info->uid;
+	rtvalue["pwd"] = user_info->pwd;
+	rtvalue["name"] = user_info->name;
+	rtvalue["email"] = user_info->email;
+	rtvalue["nick"] = user_info->nick;
+	rtvalue["desc"] = user_info->desc;
+	rtvalue["sex"] = user_info->sex;
 }
 
 bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo)

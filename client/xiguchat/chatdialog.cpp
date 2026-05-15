@@ -59,9 +59,9 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     //设置侧边栏聊天和联系人的状态样式, 包括正常、悬浮、按下和选中状态的样式
     ui->side_chat_lb->SetState("normal", "hover", "pressed",
-        "selected_normal" ,"selected_hover" ,"selected_pressed");
+        "selected_normal", "selected_hover" ,"selected_pressed");
     ui->side_contact_lb->SetState("normal", "hover", "pressed",
-        "selected_normal" ,"selected_hover", "selected_pressed");
+        "selected_normal", "selected_hover", "selected_pressed");
     ui->side_chat_lb->SetSelected(true); //初始状态将聊天标签设置为选中状态
 
     //将侧边栏的聊天和联系人标签添加到标签组列表中, 以便后续管理它们的状态
@@ -77,6 +77,8 @@ ChatDialog::ChatDialog(QWidget *parent)
 
     //检测鼠标点击位置判断是否要清空搜索框
     this->installEventFilter(this); //安装事件过滤器
+
+    ui->search_list->SetSearchEdit(ui->search_edit); //将搜索框的指针传递给搜索结果列表
 }
 
 ChatDialog::~ChatDialog()

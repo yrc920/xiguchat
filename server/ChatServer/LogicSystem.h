@@ -31,6 +31,13 @@ private:
 	void RegisterCallBacks(); //注册消息处理函数
 	//登录处理函数, 处理用户登录请求，验证用户身份并返回登录结果
 	void LoginHandler(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
+	//搜索用户信息处理函数，处理用户搜索请求并返回搜索结果
+	void SearchInfo(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
+	bool isPureDigit(const std::string& str); //判断字符串是否纯数字
+	//根据用户ID查询用户信息，并将结果填充到Json值对象中
+	void GetUserByUid(std::string uid_str, Json::Value& rtvalue);
+	//根据用户名查询用户信息，并将结果填充到Json值对象中
+	void GetUserByName(std::string name, Json::Value& rtvalue);
 	//获取用户基本信息
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
 

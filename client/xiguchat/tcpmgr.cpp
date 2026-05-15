@@ -113,38 +113,41 @@ void TcpMgr::initHandlers()
     });
 
     _handlers.insert(ID_SEARCH_USER_RSP, [this](ReqId id, int len, QByteArray data){
-        Q_UNUSED(len);
+        Q_UNUSED(len); //表示这个参数在函数体内未使用，避免编译器警告
         qDebug()<< "handle id is "<< id << " data is " << data;
-        // 将QByteArray转换为QJsonDocument
-        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
 
-        // 检查转换是否成功
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data); //将QByteArray转换为QJsonDocument
+
+        //检查转换是否成功
         if(jsonDoc.isNull()){
             qDebug() << "Failed to create QJsonDocument.";
             return;
         }
 
-        QJsonObject jsonObj = jsonDoc.object();
+        QJsonObject jsonObj = jsonDoc.object(); //从QJsonDocument中提取QJsonObject
 
+        //如果JSON对象中不包含"error"字段，说明服务器返回的数据格式不正确
         if(!jsonObj.contains("error")){
-            int err = ErrorCodes::ERR_JSON;
+            int err = ErrorCodes::ERR_JSON; //定义一个错误码表示JSON解析错误
             qDebug() << "Login Failed, err is Json Parse Err" << err ;
-            emit sig_login_failed(err);
+            emit sig_login_failed(err); //发出登录失败的信号，参数为错误码
             return;
         }
 
         int err = jsonObj["error"].toInt();
+        //如果服务器返回的错误码不为0，说明登录失败
         if(err != ErrorCodes::SUCCESS){
             qDebug() << "Login Failed, err is " << err ;
-            emit sig_login_failed(err);
+            emit sig_login_failed(err); //发出登录失败的信号，参数为错误码
             return;
         }
 
+        //从JSON对象中提取用户信息并创建一个SearchInfo对象的智能指针
         auto search_info = std::make_shared<SearchInfo>(jsonObj["uid"].toInt(),
             jsonObj["name"].toString(), jsonObj["nick"].toString(),
             jsonObj["desc"].toString(), jsonObj["sex"].toInt(), jsonObj["icon"].toString());
 
-        emit sig_user_search(search_info);
+        emit sig_user_search(search_info); //发出用户搜索结果的信号
     });
 
 }
@@ -174,7 +177,6 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
 void TcpMgr::slot_send_data(ReqId reqId, QByteArray dataBytes)
 {
     uint16_t id = reqId; //将ReqId转换为uint16_t类型的消息ID
-
     quint16 len = static_cast<quint16>(dataBytes.size()); //计算长度(使用网络字节序转换)
 
     //创建一个QByteArray用于存储要发送的所有数据
