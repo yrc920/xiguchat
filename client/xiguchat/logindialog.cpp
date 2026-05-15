@@ -251,10 +251,10 @@ void LoginDialog::slot_tcp_con_finish(bool bsuccess)
         jsonObj["token"] = _token; //将用户令牌添加到JSON对象中
 
         QJsonDocument doc(jsonObj); //将JSON对象转换为JSON文档，以便后续转换为字符串
-        QString jsonString = doc.toJson(QJsonDocument::Indented);
+        QByteArray jsonData = doc.toJson(QJsonDocument::Indented);
 
         //发送tcp请求给chat server
-        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonString);
+        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CHAT_LOGIN, jsonData);
     }else
     {
         showTip(tr("网络异常"),false);

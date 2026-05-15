@@ -19,13 +19,14 @@
 //用户数据结构
 class SearchInfo {
 public:
-    SearchInfo(int uid, QString name, QString nick, QString desc, int sex);
+    SearchInfo(int uid, QString name, QString nick, QString desc, int sex, QString icon);
 
     int _uid; //用户ID
     QString _name; //用户名
     QString _nick; //用户昵称
     QString _desc; //用户描述
     int _sex; //用户性别
+    QString _icon; //用户头像URL
 };
 
 //加好友的申请数据结构
