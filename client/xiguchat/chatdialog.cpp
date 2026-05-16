@@ -4,6 +4,8 @@
 #include <QRandomGenerator>
 #include "chatuserwid.h"
 #include "loadingdlg.h"
+#include "tcpmgr.h"
+#include "usermgr.h"
 
 ChatDialog::ChatDialog(QWidget *parent)
     : QDialog(parent)
@@ -79,6 +81,9 @@ ChatDialog::ChatDialog(QWidget *parent)
     this->installEventFilter(this); //安装事件过滤器
 
     ui->search_list->SetSearchEdit(ui->search_edit); //将搜索框的指针传递给搜索结果列表
+
+    //连接申请添加好友信号
+    connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_friend_apply, this, &ChatDialog::slot_apply_friend);
 }
 
 ChatDialog::~ChatDialog()
@@ -167,6 +172,22 @@ void ChatDialog::slot_text_changed(const QString &str)
     if (!str.isEmpty()) {
         ShowSearch(true);
     }
+}
+
+void ChatDialog::slot_apply_friend(std::shared_ptr<AddFriendApply> apply)
+{
+    qDebug() << "receive apply friend slot, applyuid is " << apply->_from_uid <<
+        " name is " << apply->_name << " desc is " << apply->_desc;
+    //检查是否已经有来自该用户ID的好友申请了, 如果有了就直接返回, 避免重复添加好友申请
+    bool b_already = UserMgr::GetInstance()->AlreadyApply(apply->_from_uid);
+    if(b_already)
+        return;
+
+    //将好友申请信息添加到用户管理器的申请列表中
+    UserMgr::GetInstance()->AddApplyList(std::make_shared<ApplyInfo>(apply));
+    ui->side_contact_lb->ShowRedPoint(true); //在联系人标签上显示红点
+    ui->con_user_list->ShowRedPoint(true); //在联系人列表上显示红点
+    ui->friend_apply_page->AddNewApply(apply); //在好友申请页面添加新的好友申请条目
 }
 
 bool ChatDialog::eventFilter(QObject *watched, QEvent *event)

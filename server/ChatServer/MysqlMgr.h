@@ -21,6 +21,10 @@ public:
 
 	std::shared_ptr<UserInfo> GetUser(int uid); //根据用户ID获取用户信息
 	std::shared_ptr<UserInfo> GetUser(const std::string& name); //根据用户名获取用户信息
+	//获取好友申请列表, 根据起始id和限制条数返回列表
+	bool GetApplyList(int touid,
+		std::vector<std::shared_ptr<ApplyInfo>>& applyList, int begin, int limit = 10);
+	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info);
 
 private:
 	MysqlMgr();

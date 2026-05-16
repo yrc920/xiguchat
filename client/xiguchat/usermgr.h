@@ -6,6 +6,7 @@
 #include <singleton.h>
 #include "userdata.h"
 #include <vector>
+#include <QMap>
 /******************************************************************************
  *
  * @file       usermgr.h
@@ -27,16 +28,26 @@ public:
     void SetName(QString name); //设置用户名
     void SetUid(int uid); //设置用户ID
     void SetToken(QString token); //设置用户令牌
+    void SetUserInfo(std::shared_ptr<UserInfo> user_info); //设置用户信息
     int GetUid(); //获取用户ID
     QString GetName(); //获取用户名
     std::vector<std::shared_ptr<ApplyInfo>> GetApplyList(); //获取好友申请列表
 
+    void AppendApplyList(QJsonArray array);
+    void AppendFriendList(QJsonArray array);
+    bool AlreadyApply(int uid); //检查是否已经有来自指定用户ID的好友申请
+    void AddApplyList(std::shared_ptr<ApplyInfo> app); //添加好友申请到申请列表
+
 private:
     UserMgr();
-    std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
+
     int _uid; //用户ID
     QString _name; //用户名
     QString _token; //用户令牌
+    std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
+    std::shared_ptr<UserInfo> _user_info;
+    // std::vector<std::shared_ptr<FriendInfo>> _friend_list;
+    // QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
 };
 
 #endif // USERMGR_H

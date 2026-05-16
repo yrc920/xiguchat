@@ -43,6 +43,9 @@ private:
 	void GetUserByName(std::string name, Json::Value& rtvalue);
 	//获取用户基本信息
 	bool GetBaseInfo(std::string base_key, int uid, std::shared_ptr<UserInfo>& userinfo);
+	//获取好友申请信息列表
+	bool GetFriendApplyInfo(int to_uid, std::vector<std::shared_ptr<ApplyInfo>>& list);
+	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>& user_list);
 
 	std::thread _worker_thread; //逻辑处理线程
 	std::queue<std::shared_ptr<LogicNode>> _msg_que; //逻辑消息队列

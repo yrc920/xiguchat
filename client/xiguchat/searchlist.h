@@ -43,7 +43,7 @@ private:
 
 private slots:
     void slot_item_clicked(QListWidgetItem *item); //搜索结果列表项点击的槽函数
-    void slot_user_search(std::shared_ptr<SearchInfo> si);
+    void slot_user_search(std::shared_ptr<SearchInfo> si); //用户搜索结果的槽函数
 
 signals:
 

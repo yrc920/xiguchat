@@ -44,3 +44,15 @@ std::shared_ptr<UserInfo> MysqlMgr::GetUser(const std::string& name)
 	//调用数据库访问对象的GetUser方法, 将根据用户名获取用户信息的请求转发给数据库访问对象处理
 	return _dao.GetUser(name);
 }
+
+bool MysqlMgr::GetApplyList(int touid,
+	std::vector<std::shared_ptr<ApplyInfo>>& applyList, int begin, int limit)
+{
+	//调用数据库访问对象的GetApplyList方法, 将获取好友申请列表的请求转发给数据库访问对象处理
+	return _dao.GetApplyList(touid, applyList, begin, limit);
+}
+
+bool MysqlMgr::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info)
+{
+	return _dao.GetFriendList(self_id, user_info);
+}

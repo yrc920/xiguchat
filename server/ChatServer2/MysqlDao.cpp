@@ -290,6 +290,96 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(const std::string& name)
 	}
 }
 
+bool MysqlDao::GetApplyList(int touid,
+	std::vector<std::shared_ptr<ApplyInfo>>& applyList, int begin, int limit)
+{
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+	if (con == nullptr)
+		return false;
+
+	//使用RAII机制确保无论函数如何退出, 都能正确归还MySQL连接对象给连接池, 避免资源泄漏
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+		});
+
+	try {
+		//准备SQL语句, 根据起始id和限制条数返回列表
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
+			prepareStatement("select apply.from_uid, apply.status, user.name, user.nick, user.sex "
+			"from friend_apply as apply join user on apply.from_uid = user.uid where apply.to_uid = ? "
+			"and apply.id > ? order by apply.id ASC LIMIT ? "));
+
+		pstmt->setInt(1, touid); //将uid替换为你要查询的uid
+		pstmt->setInt(2, begin); //起始id
+		pstmt->setInt(3, limit); //偏移量
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery()); //执行查询
+		//遍历结果集
+		while (res->next()) {
+			auto name = res->getString("name");
+			auto uid = res->getInt("from_uid");
+			auto status = res->getInt("status");
+			auto nick = res->getString("nick");
+			auto sex = res->getInt("sex");
+			//将查询结果中的好友申请信息封装成ApplyInfo对象
+			auto apply_ptr = std::make_shared<ApplyInfo>(uid, name, "", "", nick, sex, status);
+			applyList.push_back(apply_ptr); //将查询结果中的好友申请信息存储在applyList中
+		}
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+}
+
+bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info_list) {
+
+	auto con = pool_->getConnection();
+	if (con == nullptr) {
+		return false;
+	}
+
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+		});
+
+
+	try {
+		// 准备SQL语句, 根据起始id和限制条数返回列表
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("select * from friend where self_id = ? "));
+
+		pstmt->setInt(1, self_id); // 将uid替换为你要查询的uid
+
+		// 执行查询
+		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery());
+		// 遍历结果集
+		while (res->next()) {
+			auto friend_id = res->getInt("friend_id");
+			auto back = res->getString("back");
+			//再一次查询friend_id对应的信息
+			auto user_info = GetUser(friend_id);
+			if (user_info == nullptr) {
+				continue;
+			}
+
+			user_info->back = user_info->name;
+			user_info_list.push_back(user_info);
+		}
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+
+	return true;
+}
+
 
 MySqlPool::MySqlPool(const std::string& url, const std::string& user, const std::string& pass, 
 	const std::string& schema, int poolSize)

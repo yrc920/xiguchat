@@ -106,9 +106,27 @@ void TcpMgr::initHandlers()
         }
 
         //登录成功，保存用户信息
-        UserMgr::GetInstance()->SetUid(jsonObj["uid"].toInt());
-        UserMgr::GetInstance()->SetName(jsonObj["name"].toString());
+        auto uid = jsonObj["uid"].toInt();
+        auto name = jsonObj["name"].toString();
+        auto nick = jsonObj["nick"].toString();
+        auto icon = jsonObj["icon"].toString();
+        auto sex = jsonObj["sex"].toInt();
+        auto user_info = std::make_shared<UserInfo>(uid, name, nick, icon, sex);
+
+        UserMgr::GetInstance()->SetUserInfo(user_info); //将用户信息保存到用户管理器中
         UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
+
+        //如果服务器返回了好友申请列表
+        if(jsonObj.contains("apply_list")){
+            //将好友申请列表追加到用户管理器中
+            UserMgr::GetInstance()->AppendApplyList(jsonObj["apply_list"].toArray());
+        }
+
+        // //添加好友列表
+        // if (jsonObj.contains("friend_list")) {
+        //     UserMgr::GetInstance()->AppendFriendList(jsonObj["friend_list"].toArray());
+        // }
+
         emit sig_swich_chatdlg(); //发出切换到聊天界面的信号，进入聊天界面
     });
 

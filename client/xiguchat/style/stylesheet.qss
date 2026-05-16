@@ -3,15 +3,15 @@ background-color:rgb(255,255,255)
 }
 
 #user_label, #pass_label{
-    color:black;
+   color:black;
 }
 
 #err_tip[state='normal']{
-    color: green;
+   color: green;
 }
 
 #err_tip[state='err']{
-    color: red;
+   color: red;
 }
 
 #pass_visible[state='unvisible']{
@@ -671,4 +671,53 @@ ApplyFriendItem #addBtn[state='press'] {
    color:rgb(153,153,153);
    font-size: 23px;
    font-family: "Microsoft YaHei";
+}
+
+#AuthenFriend {
+    border: 2px solid #f1f1f1;
+    font-size: 14px;
+    background: #f7f7f8;
+}
+
+#red_point {
+    border-image: url(:/res/red_point.png);
+}
+
+#FindFailDlg{
+   background-color: #ffffff;
+}
+
+#fail_tip, #fail_tip2 {
+    font-size: 14px;
+    font-family: "Microsoft YaHei";
+}
+
+#fail_sure_btn[state='normal']{
+    background: #07c160;
+    color: #ffffff;
+    font-size: 14px; /* 设置字体大小 */
+    font-family: "Microsoft YaHei"; /* 设置字体 */
+    border-radius: 20px; /* 设置圆角 */
+}
+
+#fail_sure_btn[state='hover']{
+    background: #3bbb4b;
+    color: #ffffff;
+    font-size: 14px; /* 设置字体大小 */
+    font-family: "Microsoft YaHei"; /* 设置字体 */
+    border-radius: 20px; /* 设置圆角 */
+}
+
+#fail_sure_btn[state='press']{
+   background: #07c160;
+   color: #ffffff;
+   font-size: 14px; /* 设置字体大小 */
+   font-family: "Microsoft YaHei"; /* 设置字体 */
+   border-radius: 20px; /* 设置圆角 */
+}
+
+#friend_info_page #name_lb {
+    color: #161616;
+    font-size: 18px; /* 设置字体大小 */
+    font-family: "Microsoft YaHei"; /* 设置字体 */
 }

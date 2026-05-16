@@ -46,6 +46,10 @@ struct ApplyInfo {
     ApplyInfo(int uid, QString name, QString desc, QString icon, QString nick, int sex, int status) :
         _uid(uid),_name(name),_desc(desc), _icon(icon),_nick(nick),_sex(sex),_status(status){}
 
+    ApplyInfo(std::shared_ptr<AddFriendApply> addinfo) : _uid(addinfo->_from_uid),
+        _name(addinfo->_name), _desc(addinfo->_desc), _icon(addinfo->_icon),
+        _nick(addinfo->_nick),_sex(addinfo->_sex), _status(0) {}
+
     void SetIcon(QString head){ _icon = head; }
 
     int _uid;
@@ -91,22 +95,20 @@ struct UserInfo {
         _icon(auth->_icon), _sex(auth->_sex), _last_msg(""){}
 
     UserInfo(int uid, QString name, QString icon):
-        _uid(uid), _name(name), _icon(icon), _nick(_name), _sex(0), _last_msg(""){}
+        _uid(uid), _name(name), _nick(_name), _icon(icon), _sex(0), _last_msg(""){}
 
     UserInfo(std::shared_ptr<AuthRsp> auth):
         _uid(auth->_uid), _name(auth->_name), _nick(auth->_nick),
         _icon(auth->_icon), _sex(auth->_sex), _last_msg(""){}
 
-    // UserInfo(std::shared_ptr<SearchInfo> search_info):
-    //     _uid(search_info->_uid),_name(search_info->_name),_nick(search_info->_nick),
-    //     _icon(search_info->_icon),_sex(search_info->_sex),_last_msg(""){
-
-    // }
+    UserInfo(std::shared_ptr<SearchInfo> search_info):
+        _uid(search_info->_uid),_name(search_info->_name),_nick(search_info->_nick),
+        _icon(search_info->_icon),_sex(search_info->_sex),_last_msg(""){
+    }
 
     // UserInfo(std::shared_ptr<FriendInfo> friend_info):
     //     _uid(friend_info->_uid),_name(friend_info->_name),_nick(friend_info->_nick),
     //     _icon(friend_info->_icon),_sex(friend_info->_sex),_last_msg(""){
-
     // }
 
     int _uid;

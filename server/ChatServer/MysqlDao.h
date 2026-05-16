@@ -22,6 +22,7 @@ class MysqlDao
 {
 public:
 	MysqlDao(); //初始化MySQL连接池
+	~MysqlDao();
 	//注册用户, 返回用户ID, 如果注册失败则返回-1
 	int RegUser(const std::string& name, const std::string& email, const std::string& pwd);
 	bool UpdatePwd(const std::string& name, const std::string& newpwd); //更新密码
@@ -32,8 +33,11 @@ public:
 
 	std::shared_ptr<UserInfo> GetUser(int uid); //根据用户ID获取用户信息
 	std::shared_ptr<UserInfo> GetUser(const std::string& name); //根据用户名获取用户信息
-	~MysqlDao();
-
+	//获取好友申请列表, 根据起始id和限制条数返回列表
+	bool GetApplyList(int touid,
+		std::vector<std::shared_ptr<ApplyInfo>>& applyList, int offset, int limit);
+	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info);
+	
 private:
 	//MySQL连接池对象, 用于管理MySQL连接, 提供线程安全的获取和归还连接的接口
 	std::unique_ptr<MySqlPool> pool_;

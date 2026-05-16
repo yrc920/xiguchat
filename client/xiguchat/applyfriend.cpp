@@ -1,7 +1,5 @@
 #include "applyfriend.h"
 #include "ui_applyfriend.h"
-#include "clickedlabel.h"
-#include "friendlabel.h"
 #include <QScrollBar>
 #include "usermgr.h"
 #include "tcpmgr.h"

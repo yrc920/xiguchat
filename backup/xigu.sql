@@ -11,7 +11,7 @@
  Target Server Version : 80042 (8.0.42)
  File Encoding         : 65001
 
- Date: 16/05/2026 11:06:36
+ Date: 16/05/2026 12:07:41
 */
 
 SET NAMES utf8mb4;
@@ -33,7 +33,7 @@ CREATE TABLE `friend`  (
 -- ----------------------------
 -- Records of friend
 -- ----------------------------
-INSERT INTO `friend` VALUES (55, 1055, 1054, 'sqy');
+INSERT INTO `friend` VALUES (1, 1055, 1054, 'sqy');
 
 -- ----------------------------
 -- Table structure for friend_apply
@@ -46,12 +46,13 @@ CREATE TABLE `friend_apply`  (
   `status` smallint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `from_to_uid`(`from_uid` ASC, `to_uid` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of friend_apply
 -- ----------------------------
-INSERT INTO `friend_apply` VALUES (6, 1023, 1002, 0);
+INSERT INTO `friend_apply` VALUES (1, 1023, 1002, 0);
+INSERT INTO `friend_apply` VALUES (2, 1004, 1005, 0);
 
 -- ----------------------------
 -- Table structure for user
@@ -76,7 +77,7 @@ CREATE TABLE `user`  (
 -- ----------------------------
 -- Records of user
 -- ----------------------------
-INSERT INTO `user` VALUES (2, 1002, 'xigu', '13939927271@163.com', '654321)', 'xigu', '', 0, ':/res/head_1.jpg');
+INSERT INTO `user` VALUES (2, 1002, 'xigu', '13939927271@163.com', '745230', 'xigu', '', 0, ':/res/head_1.jpg');
 INSERT INTO `user` VALUES (3, 1003, '宵宫', '3099154616@qq.com', '745230', '烟花', '', 1, ':/res/head_1.jpg');
 INSERT INTO `user` VALUES (4, 1004, 'test', '123@123.com', '745230', '', '', 0, '');
 INSERT INTO `user` VALUES (5, 1005, 'test2', '456@456.com', '745230', '', '', 0, '');

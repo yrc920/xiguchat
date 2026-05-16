@@ -160,6 +160,26 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	rtvalue["sex"] = user_info->sex;
 	rtvalue["icon"] = user_info->icon;
 
+	//从数据库获取申请列表
+	std::vector<std::shared_ptr<ApplyInfo>> apply_list;
+	auto b_apply = GetFriendApplyInfo(uid, apply_list); //获取好友申请信息列表
+	//如果获取好友申请信息列表成功
+	if (b_apply) {
+		for (auto& apply : apply_list) {
+			Json::Value obj;
+			obj["name"] = apply->_name;
+			obj["uid"] = apply->_uid;
+			obj["icon"] = apply->_icon;
+			obj["nick"] = apply->_nick;
+			obj["sex"] = apply->_sex;
+			obj["desc"] = apply->_desc;
+			obj["status"] = apply->_status;
+			rtvalue["apply_list"].append(obj); //将好友申请信息添加到Json值对象的apply_list数组中
+		}
+	}
+
+	//todo: 从数据库获取好友列表
+
 	//从配置文件中获取自身服务器的名称
 	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
 	//从Redis中获取当前服务器的登录数量
@@ -474,4 +494,16 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 		RedisMgr::GetInstance()->Set(base_key, redis_root.toStyledString());
 	}
 	return true;
+}
+
+bool LogicSystem::GetFriendApplyInfo(int to_uid, std::vector<std::shared_ptr<ApplyInfo>>& list)
+{
+	//从mysql获取好友申请列表
+	return MysqlMgr::GetInstance()->GetApplyList(to_uid, list, 0, 10);
+}
+
+bool LogicSystem::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo>>& user_list)
+{
+	//从mysql获取好友列表
+	return MysqlMgr::GetInstance()->GetFriendList(self_id, user_list);
 }
