@@ -33,6 +33,8 @@ private:
 	void LoginHandler(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
 	//搜索用户信息处理函数，处理用户搜索请求并返回搜索结果
 	void SearchInfo(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
+	void AddFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+
 	bool isPureDigit(const std::string& str); //判断字符串是否纯数字
 	//根据用户ID查询用户信息，并将结果填充到Json值对象中
 	void GetUserByUid(std::string uid_str, Json::Value& rtvalue);

@@ -95,7 +95,11 @@ void LogicSystem::RegisterCallBacks()
 	_fun_callbacks[MSG_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
+	//注册搜索用户信息处理函数
 	_fun_callbacks[ID_SEARCH_USER_REQ] = std::bind(&LogicSystem::SearchInfo, this,
+		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+	_fun_callbacks[ID_ADD_FRIEND_REQ] = std::bind(&LogicSystem::AddFriendApply, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
@@ -203,6 +207,78 @@ void LogicSystem::SearchInfo(std::shared_ptr<CSession> session,
 		GetUserByName(uid_str, rtvalue); //如果用户ID字符串不是纯数字，则按照用户名查询用户信息
 	}
 	return;
+}
+
+void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session,
+	const short& msg_id, const std::string& msg_data)
+{
+	Json::Reader reader;
+	Json::Value root;
+	reader.parse(msg_data, root);
+	auto uid = root["uid"].asInt();
+	auto applyname = root["applyname"].asString();
+	auto bakname = root["bakname"].asString();
+	auto touid = root["touid"].asInt();
+	std::cout << "user login uid is  " << uid << " applyname  is "
+		<< applyname << " bakname is " << bakname << " touid is " << touid << std::endl;
+
+	Json::Value rtvalue;
+	rtvalue["error"] = ErrorCodes::Success;
+	Defer defer([this, &rtvalue, session]() {
+		std::string return_str = rtvalue.toStyledString();
+		session->Send(return_str, ID_ADD_FRIEND_RSP);
+		});
+
+	//先更新数据库
+	MysqlMgr::GetInstance()->AddFriendApply(uid, touid);
+
+	//查询redis 查找touid对应的server ip
+	auto to_str = std::to_string(touid);
+	auto to_ip_key = USERIPPREFIX + to_str;
+	std::string to_ip_value = "";
+	bool b_ip = RedisMgr::GetInstance()->Get(to_ip_key, to_ip_value);
+	if (!b_ip) {
+		return;
+	}
+
+
+	auto& cfg = ConfigMgr::Inst();
+	auto self_name = cfg["SelfServer"]["Name"];
+	//直接通知对方有申请消息
+	if (to_ip_value == self_name) {
+		auto session = UserMgr::GetInstance()->GetSession(touid);
+		if (session) {
+			//在内存中则直接发送通知对方
+			Json::Value  notify;
+			notify["error"] = ErrorCodes::Success;
+			notify["applyuid"] = uid;
+			notify["name"] = applyname;
+			notify["desc"] = "";
+			std::string return_str = notify.toStyledString();
+			session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ);
+		}
+
+		return;
+	}
+
+	std::string base_key = USER_BASE_INFO + std::to_string(uid);
+	auto apply_info = std::make_shared<UserInfo>();
+	bool b_info = GetBaseInfo(base_key, uid, apply_info);
+
+
+	AddFriendReq add_req;
+	add_req.set_applyuid(uid);
+	add_req.set_touid(touid);
+	add_req.set_name(applyname);
+	add_req.set_desc("");
+	if (b_info) {
+		add_req.set_icon(apply_info->icon);
+		add_req.set_sex(apply_info->sex);
+		add_req.set_nick(apply_info->nick);
+	}
+
+	//发送通知
+	ChatGrpcClient::GetInstance()->NotifyAddFriend(to_ip_value, add_req);
 }
 
 bool LogicSystem::isPureDigit(const std::string& str)
