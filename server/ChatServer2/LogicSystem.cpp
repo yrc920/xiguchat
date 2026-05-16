@@ -95,7 +95,12 @@ void LogicSystem::RegisterCallBacks()
 	_fun_callbacks[MSG_CHAT_LOGIN] = std::bind(&LogicSystem::LoginHandler, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
+	//注册搜索用户信息处理函数
 	_fun_callbacks[ID_SEARCH_USER_REQ] = std::bind(&LogicSystem::SearchInfo, this,
+		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+	//注册申请添加好友处理函数
+	_fun_callbacks[ID_ADD_FRIEND_REQ] = std::bind(&LogicSystem::AddFriendApply, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
@@ -203,6 +208,81 @@ void LogicSystem::SearchInfo(std::shared_ptr<CSession> session,
 		GetUserByName(uid_str, rtvalue); //如果用户ID字符串不是纯数字，则按照用户名查询用户信息
 	}
 	return;
+}
+
+void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session,
+	const short& msg_id, const std::string& msg_data)
+{
+	Json::Reader reader; //创建Json解析器对象
+	Json::Value root; //创建Json值对象，用于存储解析后的数据
+	reader.parse(msg_data, root); //解析Json字符串，将结果存储在root对象中
+	//从解析后的Json对象中获取申请添加好友的相关信息
+	auto uid = root["uid"].asInt();
+	auto applyname = root["applyname"].asString();
+	auto bakname = root["bakname"].asString();
+	auto touid = root["touid"].asInt();
+	std::cout << "user login uid is  " << uid << " applyname  is "
+		<< applyname << " bakname is " << bakname << " touid is " << touid << std::endl;
+
+	Json::Value rtvalue; //创建Json值对象，用于存储返回给客户端的数据
+	rtvalue["error"] = ErrorCodes::Success; //默认返回成功状态码
+	Defer defer([this, &rtvalue, session]() {
+		//将Json值对象转换为字符串形式，准备发送给客户端
+		std::string return_str = rtvalue.toStyledString();
+		//通过会话对象发送消息给客户端, 消息ID为申请添加好友回包
+		session->Send(return_str, ID_ADD_FRIEND_RSP);
+		});
+
+	MysqlMgr::GetInstance()->AddFriendApply(uid, touid); //将好友申请信息写入数据库
+
+	auto to_str = std::to_string(touid);
+	auto to_ip_key = USERIPPREFIX + to_str; //构建目标用户登录ip server的名字在Redis中的键名
+	std::string to_ip_value = "";
+	//从Redis中获取目标用户的登录ip server的名字
+	bool b_ip = RedisMgr::GetInstance()->Get(to_ip_key, to_ip_value);
+	//如果Redis中没有目标用户的登录ip server的名字，说明目标用户未登录，直接返回成功状态码，不需要通知对方
+	if (!b_ip)
+		return;
+
+	//从配置文件中获取自身服务器的名称
+	auto& cfg = ConfigMgr::Inst();
+	auto self_name = cfg["SelfServer"]["Name"];
+	//如果目标用户在当前服务器上
+	if (to_ip_value == self_name) {
+		auto session = UserMgr::GetInstance()->GetSession(touid); //从UserMgr中获取目标用户的会话对象
+		//如果目标用户的会话对象存在，说明目标用户在线，直接发送通知给对方
+		if (session) {
+			//在内存中则直接发送通知对方
+			Json::Value notify; //创建Json值对象，用于存储通知信息
+			notify["error"] = ErrorCodes::Success;
+			notify["applyuid"] = uid;
+			notify["name"] = applyname;
+			notify["desc"] = "";
+			std::string return_str = notify.toStyledString();
+			//通过会话对象发送消息给目标用户, 消息ID为通知添加好友请求
+			session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ);
+		}
+		return;
+	}
+
+	std::string base_key = USER_BASE_INFO + std::to_string(uid);
+	auto apply_info = std::make_shared<UserInfo>(); //初始化申请人用户信息对象
+	bool b_info = GetBaseInfo(base_key, uid, apply_info); //获取申请人用户基本信息
+
+	AddFriendReq add_req; //创建AddFriendReq消息对象，准备发送通知
+	add_req.set_applyuid(uid);
+	add_req.set_touid(touid);
+	add_req.set_name(applyname);
+	add_req.set_desc("");
+	//如果获取申请人用户基本信息成功，则将申请人用户的头像、性别和昵称填充到AddFriendReq消息对象中
+	if (b_info) {
+		add_req.set_icon(apply_info->icon);
+		add_req.set_sex(apply_info->sex);
+		add_req.set_nick(apply_info->nick);
+	}
+
+	//通过ChatGrpcClient发送通知添加好友请求给目标用户所在的服务器
+	ChatGrpcClient::GetInstance()->NotifyAddFriend(to_ip_value, add_req);
 }
 
 bool LogicSystem::isPureDigit(const std::string& str)

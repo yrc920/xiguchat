@@ -29,6 +29,7 @@ bool MysqlMgr::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 
 bool MysqlMgr::AddFriendApply(const int& from, const int& to)
 {
+	//调用数据库访问对象的AddFriendApply方法, 将添加好友申请的请求转发给数据库访问对象处理
 	return _dao.AddFriendApply(from, to);
 }
 

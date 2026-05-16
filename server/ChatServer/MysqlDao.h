@@ -28,8 +28,7 @@ public:
 	bool CheckEmail(const std::string& name, const std::string& email); //检查用户名和邮箱是否匹配
 	//检查用户名和密码是否匹配, 如果匹配则将用户信息存储在userInfo中
 	bool CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo);
-	
-	bool AddFriendApply(const int& from, const int& to);
+	bool AddFriendApply(const int& from, const int& to); //添加好友申请
 
 	std::shared_ptr<UserInfo> GetUser(int uid); //根据用户ID获取用户信息
 	std::shared_ptr<UserInfo> GetUser(const std::string& name); //根据用户名获取用户信息

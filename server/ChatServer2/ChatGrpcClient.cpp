@@ -34,32 +34,35 @@ ChatGrpcClient::ChatGrpcClient()
 
 AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_ip, const AddFriendReq& req)
 {
-	AddFriendRsp rsp;
+	AddFriendRsp rsp; //创建AddFriendRsp消息对象，准备存储RPC调用的结果
 	Defer defer([&rsp, &req]() {
-		rsp.set_error(ErrorCodes::Success);
-		rsp.set_applyuid(req.applyuid());
-		rsp.set_touid(req.touid());
+		rsp.set_error(ErrorCodes::Success); //默认返回成功状态码
+		rsp.set_applyuid(req.applyuid()); //设置申请人UID
+		rsp.set_touid(req.touid()); //设置目标用户UID
 		});
 
-	auto find_iter = _pools.find(server_ip);
-	if (find_iter == _pools.end()) {
+	auto find_iter = _pools.find(server_ip); //在连接池映射表中查找与服务器IP地址对应的连接池
+	//如果没有找到对应的连接池，则返回默认的AddFriendRsp对象
+	if (find_iter == _pools.end())
 		return rsp;
-	}
 
-	auto& pool = find_iter->second;
-	ClientContext context;
-	auto stub = pool->getConnection();
+	auto& pool = find_iter->second; //获取对应服务器的连接池
+	ClientContext context; //创建一个ClientContext对象，用于存储RPC调用的上下文信息
+	auto stub = pool->getConnection(); //从连接池中获取一个ChatService::Stub对象，用于发起RPC调用
+	//使用获取的Stub对象调用NotifyAddFriend方法，传入上下文、请求消息和响应消息对象，并获取调用状态
 	Status status = stub->NotifyAddFriend(&context, req, &rsp);
+
+	//使用Defer对象确保在函数结束时将Stub对象归还给连接池
 	Defer defercon([&stub, this, &pool]() {
 		pool->returnConnection(std::move(stub));
 		});
 
+	//如果RPC调用失败
 	if (!status.ok()) {
-		rsp.set_error(ErrorCodes::RPCFailed);
+		rsp.set_error(ErrorCodes::RPCFailed); //设置错误状态码
 		return rsp;
 	}
-
-	return rsp;
+	return rsp; //返回RPC调用的结果
 }
 
 

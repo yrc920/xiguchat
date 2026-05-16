@@ -528,25 +528,25 @@ void ApplyFriend::SlotApplySure()
 {
     //发送请求逻辑
     QJsonObject jsonObj;
-    auto uid = UserMgr::GetInstance()->GetUid();
+    auto uid = UserMgr::GetInstance()->GetUid(); //获取当前用户的uid, 作为好友申请的发送者uid
     jsonObj["uid"] = uid;
-    auto name = ui->name_ed->text();
+    auto name = ui->name_ed->text(); //获取好友申请输入框的文本, 作为好友申请的申请信息
+    //如果好友申请输入框的文本为空, 则使用占位文本作为备注信息
     if(name.isEmpty()){
         name = ui->name_ed->placeholderText();
     }
-
     jsonObj["applyname"] = name;
 
-    auto bakname = ui->back_ed->text();
+    auto bakname = ui->back_ed->text(); //获取好友备注输入框的文本, 作为好友的备注
+    //如果好友备注输入框的文本为空, 则使用占位文本作为备注信息
     if(bakname.isEmpty()){
         bakname = ui->back_ed->placeholderText();
     }
-
     jsonObj["bakname"] = bakname;
-    jsonObj["touid"] = _si->_uid;
+    jsonObj["touid"] = _si->_uid; //获取搜索到的用户的uid, 作为好友申请的接收者uid
 
-    QJsonDocument doc(jsonObj);
-    QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
+    QJsonDocument doc(jsonObj); //将好友申请信息的json对象转换为json文档
+    QByteArray jsonData = doc.toJson(QJsonDocument::Compact); //将json文档转换为紧凑格式的json字符串
 
     //发送tcp请求给chat server
     emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_ADD_FRIEND_REQ, jsonData);

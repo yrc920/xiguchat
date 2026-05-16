@@ -4,38 +4,40 @@
 #include <json/json.h>
 #include <json/value.h>
 #include <json/reader.h>
-#include "RedisMgr.h"
+#include "RedisMgr.h" 
 #include "MysqlMgr.h"
 
 ChatServiceImpl::ChatServiceImpl() {}
 
-Status ChatServiceImpl::NotifyAddFriend(ServerContext* context, const AddFriendReq* request, AddFriendRsp* reply)
+Status ChatServiceImpl::NotifyAddFriend(ServerContext* context,
+	const AddFriendReq* request, AddFriendRsp* reply)
 {
-	//查找用户是否在本服务器
-	auto touid = request->touid();
-	auto session = UserMgr::GetInstance()->GetSession(touid);
+	auto touid = request->touid(); //获取被申请人id
+	auto session = UserMgr::GetInstance()->GetSession(touid); //获取被申请人session
 
 	Defer defer([request, reply]() {
-		reply->set_error(ErrorCodes::Success);
-		reply->set_applyuid(request->applyuid());
-		reply->set_touid(request->touid());
+		reply->set_error(ErrorCodes::Success); //默认成功
+		reply->set_applyuid(request->applyuid()); //设置申请人id
+		reply->set_touid(request->touid()); //设置被申请人id
 		});
 
-	//用户不在内存中则直接返回
+	//如果用户不在内存中则直接返回
 	if (session == nullptr) {
 		return Status::OK;
 	}
 
 	//在内存中则直接发送通知对方
-	Json::Value  rtvalue;
+	Json::Value rtvalue; //构造json数据
 	rtvalue["error"] = ErrorCodes::Success;
 	rtvalue["applyuid"] = request->applyuid();
 	rtvalue["name"] = request->name();
 	rtvalue["desc"] = request->desc();
+	rtvalue["icon"] = request->icon();
+	rtvalue["sex"] = request->sex();
+	rtvalue["nick"] = request->nick();
+	std::string return_str = rtvalue.toStyledString(); //将json数据转换为字符串
 
-	std::string return_str = rtvalue.toStyledString();
-
-	session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ);
+	session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ); //发送通知对方
 	return Status::OK;
 }
 

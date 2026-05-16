@@ -151,26 +151,28 @@ void TcpMgr::initHandlers()
     });
 
     _handlers.insert(ID_ADD_FRIEND_RSP, [this](ReqId id, int len, QByteArray data) {
-        Q_UNUSED(len);
+        Q_UNUSED(len); //表示这个参数在函数体内未使用，避免编译器警告
         qDebug() << "handle id is " << id << " data is " << data;
-        // 将QByteArray转换为QJsonDocument
-        QJsonDocument jsonDoc = QJsonDocument::fromJson(data);
 
-        // 检查转换是否成功
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data); //将QByteArray转换为QJsonDocument
+
+        //检查转换是否成功
         if (jsonDoc.isNull()) {
             qDebug() << "Failed to create QJsonDocument.";
             return;
         }
 
-        QJsonObject jsonObj = jsonDoc.object();
+        QJsonObject jsonObj = jsonDoc.object(); //从QJsonDocument中提取QJsonObject
 
+        //如果JSON对象中不包含"error"字段，说明服务器返回的数据格式不正确
         if (!jsonObj.contains("error")) {
-            int err = ErrorCodes::ERR_JSON;
+            int err = ErrorCodes::ERR_JSON; //定义一个错误码表示JSON解析错误
             qDebug() << "Add Friend Failed, err is Json Parse Err" << err;
             return;
         }
 
         int err = jsonObj["error"].toInt();
+        //如果服务器返回的错误码不为0，说明添加好友失败
         if (err != ErrorCodes::SUCCESS) {
             qDebug() << "Add Friend Failed, err is " << err;
             return;
@@ -178,6 +180,48 @@ void TcpMgr::initHandlers()
 
         qDebug() << "Add Friend Success " ;
     });
+
+    _handlers.insert(ID_NOTIFY_ADD_FRIEND_REQ, [this](ReqId id, int len, QByteArray data) {
+        Q_UNUSED(len); //表示这个参数在函数体内未使用，避免编译器警告
+        qDebug() << "handle id is " << id << " data is " << data;
+
+        QJsonDocument jsonDoc = QJsonDocument::fromJson(data); //将QByteArray转换为QJsonDocument
+
+        //检查转换是否成功
+        if (jsonDoc.isNull()) {
+            qDebug() << "Failed to create QJsonDocument.";
+            return;
+        }
+
+        QJsonObject jsonObj = jsonDoc.object(); //从QJsonDocument中提取QJsonObject
+
+         //如果JSON对象中不包含"error"字段，说明服务器返回的数据格式不正确
+        if (!jsonObj.contains("error")) {
+            int err = ErrorCodes::ERR_JSON;
+            qDebug() << "ID_NOTIFY_ADD_FRIEND_REQ Failed, err is Json Parse Err" << err;
+            return;
+        }
+
+        int err = jsonObj["error"].toInt();
+        //如果服务器返回的错误码不为0，说明添加好友申请通知失败
+        if (err != ErrorCodes::SUCCESS) {
+            qDebug() << "ID_NOTIFY_ADD_FRIEND_REQ Failed, err is " << err;
+            return;
+        }
+
+        //从JSON对象中提取好友申请信息并创建一个AddFriendApply对象的智能指针
+        int from_uid = jsonObj["applyuid"].toInt();
+        QString name = jsonObj["name"].toString();
+        QString desc = jsonObj["desc"].toString();
+        QString icon = jsonObj["icon"].toString();
+        QString nick = jsonObj["nick"].toString();
+        int sex = jsonObj["sex"].toInt();
+        auto apply_info = std::make_shared<AddFriendApply>(
+            from_uid, name, desc, icon, nick, sex);
+
+        emit sig_friend_apply(apply_info); //发出好友申请通知的信号
+    });
+
 }
 
 void TcpMgr::handleMsg(ReqId id, int len, QByteArray data)

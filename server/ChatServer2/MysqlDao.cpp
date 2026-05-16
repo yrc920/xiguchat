@@ -168,6 +168,42 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 	}
 }
 
+bool MysqlDao::AddFriendApply(const int& from, const int& to)
+{
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+	if (con == nullptr)
+		return false;
+
+	//使用RAII机制确保无论函数如何退出, 都能正确归还MySQL连接对象给连接池, 避免资源泄漏
+	Defer defer([this, &con]() {
+		pool_->returnConnection(std::move(con));
+		});
+
+	try {
+		//准备查询语句(插入一条好友申请记录, 如果已经存在相同的记录则更新记录的时间戳)
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
+			prepareStatement("INSERT INTO friend_apply (from_uid, to_uid) values (?,?) "
+				"ON DUPLICATE KEY UPDATE from_uid = from_uid, to_uid = to_uid"));
+		pstmt->setInt(1, from); //绑定参数
+		pstmt->setInt(2, to); //绑定参数
+
+		int rowAffected = pstmt->executeUpdate(); //执行更新, 返回受影响的行数
+		//如果受影响的行数小于0, 则说明更新失败
+		if (rowAffected < 0) {
+			return false;
+		}
+		return true;
+	}
+	catch (sql::SQLException& e) {
+		std::cerr << "SQLException: " << e.what();
+		std::cerr << " (MySQL error code: " << e.getErrorCode();
+		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+		return false;
+	}
+	return true;
+}
+
 std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
 {
 	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
