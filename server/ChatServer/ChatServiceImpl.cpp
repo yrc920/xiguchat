@@ -41,8 +41,9 @@ Status ChatServiceImpl::NotifyAddFriend(ServerContext* context,
 	return Status::OK;
 }
 
-Status ChatServiceImpl::NotifyAuthFriend(ServerContext* context, const AuthFriendReq* request,
-	AuthFriendRsp* reply) {
+Status ChatServiceImpl::NotifyAuthFriend(ServerContext* context,
+	const AuthFriendReq* request, AuthFriendRsp* reply)
+{
 	//查找用户是否在本服务器
 	auto touid = request->touid();
 	auto fromuid = request->fromuid();

@@ -5,6 +5,7 @@
 #include "global.h"
 #include "statewidget.h"
 #include "userdata.h"
+#include <QListWidgetItem>
 /******************************************************************************
  *
  * @file       chatdialog.h
@@ -42,13 +43,16 @@ private:
     ChatUIMode _state; //当前界面状态
     bool _b_loading; //是否正在加载更多聊天用户
     QList<StateWidget*> _lb_list; //状态控件列表
+    QMap<int, QListWidgetItem*> _chat_items_added;
 
 public slots:
     void slot_loading_chat_user(); //加载更多聊天用户的槽函数
     void slot_side_chat(); //侧边栏聊天按钮点击的槽函数
     void slot_side_contact(); //侧边栏联系人按钮点击的槽函数
     void slot_text_changed(const QString &str); //搜索框文本改变的槽函数
-    void slot_apply_friend(std::shared_ptr<AddFriendApply> apply);
+    void slot_apply_friend(std::shared_ptr<AddFriendApply> apply); //处理好友申请的槽函数
+    void slot_add_auth_friend(std::shared_ptr<AuthInfo> auth_info);
+    void slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp);
 };
 
 #endif // CHATDIALOG_H

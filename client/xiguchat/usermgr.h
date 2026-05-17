@@ -37,6 +37,10 @@ public:
     void AppendFriendList(QJsonArray array);
     bool AlreadyApply(int uid); //检查是否已经有来自指定用户ID的好友申请
     void AddApplyList(std::shared_ptr<ApplyInfo> app); //添加好友申请到申请列表
+    bool CheckFriendById(int uid); //检查指定用户ID是否是好友
+    void AddFriend(std::shared_ptr<AuthRsp> auth_rsp);
+    void AddFriend(std::shared_ptr<AuthInfo> auth_info);
+    std::shared_ptr<FriendInfo> GetFriendById(int uid);
 
 private:
     UserMgr();
@@ -46,8 +50,8 @@ private:
     QString _token; //用户令牌
     std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
     std::shared_ptr<UserInfo> _user_info;
-    // std::vector<std::shared_ptr<FriendInfo>> _friend_list;
-    // QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
+    std::vector<std::shared_ptr<FriendInfo>> _friend_list;
+    QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
 };
 
 #endif // USERMGR_H

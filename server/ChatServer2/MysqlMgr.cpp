@@ -33,6 +33,14 @@ bool MysqlMgr::AddFriendApply(const int& from, const int& to)
 	return _dao.AddFriendApply(from, to);
 }
 
+bool MysqlMgr::AuthFriendApply(const int& from, const int& to) {
+	return _dao.AuthFriendApply(from, to);
+}
+
+bool MysqlMgr::AddFriend(const int& from, const int& to, std::string back_name) {
+	return _dao.AddFriend(from, to, back_name);
+}
+
 std::shared_ptr<UserInfo> MysqlMgr::GetUser(int uid)
 {
 	//调用数据库访问对象的GetUser方法, 将根据用户ID获取用户信息的请求转发给数据库访问对象处理
@@ -54,5 +62,6 @@ bool MysqlMgr::GetApplyList(int touid,
 
 bool MysqlMgr::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info)
 {
+	//调用数据库访问对象的GetFriendList方法, 将获取好友列表的请求转发给数据库访问对象处理
 	return _dao.GetFriendList(self_id, user_info);
 }

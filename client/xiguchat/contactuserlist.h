@@ -39,8 +39,8 @@ private:
 
 public slots:
     void slot_item_clicked(QListWidgetItem *item); //处理联系人列表中条目被点击的槽函数
-    // void slot_add_auth_firend(std::shared_ptr<AuthInfo>);
-    // void slot_auth_rsp(std::shared_ptr<AuthRsp>);
+    void slot_add_auth_firend(std::shared_ptr<AuthInfo>);
+    void slot_auth_rsp(std::shared_ptr<AuthRsp>);
 
 signals:
     void sig_loading_contact_user(); //通知聊天界面加载更多联系人用户的信号
