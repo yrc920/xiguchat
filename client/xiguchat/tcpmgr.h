@@ -53,6 +53,7 @@ signals:
     void sig_friend_apply(std::shared_ptr<AddFriendApply>); //申请对方为好友的信号
     void sig_add_auth_friend(std::shared_ptr<AuthInfo>); //对方同意好友申请的信号
     void sig_auth_rsp(std::shared_ptr<AuthRsp>); //同意好友申请的响应信号
+    void sig_text_chat_msg(std::shared_ptr<TextChatMsg>); //收到文本消息的信号
 };
 
 #endif // TCPMGR_H

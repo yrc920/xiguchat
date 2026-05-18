@@ -33,6 +33,7 @@ public:
     std::shared_ptr<FriendInfo> GetFriendById(int uid);
     std::vector<std::shared_ptr<FriendInfo>> GetChatListPerPage();
     std::vector<std::shared_ptr<FriendInfo>> GetConListPerPage();
+    std::shared_ptr<UserInfo> GetUserInfo();
 
     void AppendApplyList(QJsonArray array);
     void AppendFriendList(QJsonArray array);
@@ -41,6 +42,7 @@ public:
     bool CheckFriendById(int uid); //检查指定用户ID是否是好友
     void AddFriend(std::shared_ptr<AuthRsp> auth_rsp);
     void AddFriend(std::shared_ptr<AuthInfo> auth_info);
+    void AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<TextChatData>> msgs);
 
     void UpdateChatLoadedCount();
     void UpdateContactLoadedCount();

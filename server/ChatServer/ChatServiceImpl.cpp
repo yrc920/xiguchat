@@ -86,7 +86,8 @@ Status ChatServiceImpl::NotifyAuthFriend(ServerContext* context,
 }
 
 Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext* context,
-	const TextChatMsgReq* request, TextChatMsgRsp* reply) {
+	const TextChatMsgReq* request, TextChatMsgRsp* reply)
+{
 	//查找用户是否在本服务器
 	auto touid = request->touid();
 	auto session = UserMgr::GetInstance()->GetSession(touid);

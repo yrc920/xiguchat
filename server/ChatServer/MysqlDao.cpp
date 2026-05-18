@@ -337,6 +337,7 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(int uid)
 			user_ptr->nick = res->getString("nick");
 			user_ptr->desc = res->getString("desc");
 			user_ptr->sex = res->getInt("sex");
+			user_ptr->icon = res->getString("icon");
 			break;
 		}
 		return user_ptr;
@@ -380,7 +381,6 @@ std::shared_ptr<UserInfo> MysqlDao::GetUser(const std::string& name)
 			user_ptr->nick = res->getString("nick");
 			user_ptr->desc = res->getString("desc");
 			user_ptr->sex = res->getInt("sex");
-			user_ptr->icon = res->getString("icon");
 			break;
 		}
 		return user_ptr;

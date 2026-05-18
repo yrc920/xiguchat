@@ -36,6 +36,7 @@ private:
 	//申请添加好友处理函数，处理用户申请添加好友的请求并返回处理结果
 	void AddFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 	void AuthFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	void DealChatTextMsg(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 
 	bool isPureDigit(const std::string& str); //判断字符串是否纯数字
 	//根据用户ID查询用户信息，并将结果填充到Json值对象中

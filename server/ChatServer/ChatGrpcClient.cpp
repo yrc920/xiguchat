@@ -143,8 +143,8 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 }
 
 TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
-	const TextChatMsgReq& req, const Json::Value& rtvalue) {
-
+	const TextChatMsgReq& req, const Json::Value& rtvalue)
+{
 	TextChatMsgRsp rsp;
 	rsp.set_error(ErrorCodes::Success);
 
@@ -156,8 +156,7 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
 			new_msg->set_msgid(text_data.msgid());
 			new_msg->set_msgcontent(text_data.msgcontent());
 		}
-
-		});
+	});
 
 	auto find_iter = _pools.find(server_ip);
 	if (find_iter == _pools.end()) {

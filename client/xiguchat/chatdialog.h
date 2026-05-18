@@ -41,12 +41,14 @@ private:
     void SetSelectChatPage(int uid = 0);
     void loadMoreChatUser();
     void loadMoreConUser();
+    void UpdateChatMsg(std::vector<std::shared_ptr<TextChatData>> msgdata);
 
     Ui::ChatDialog *ui;
     ChatUIMode _mode; //当前界面模式
     ChatUIMode _state; //当前界面状态
     bool _b_loading; //是否正在加载更多聊天用户
     QList<StateWidget*> _lb_list; //状态控件列表
+    QWidget* _last_widget;
     QMap<int, QListWidgetItem*> _chat_items_added;
     int _cur_chat_uid;
 
@@ -60,6 +62,12 @@ public slots:
     void slot_add_auth_friend(std::shared_ptr<AuthInfo> auth_info);
     void slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp);
     void slot_jump_chat_item(std::shared_ptr<SearchInfo> si);
+    void slot_friend_info_page(std::shared_ptr<UserInfo> user_info);
+    void slot_switch_apply_friend_page();
+    void slot_jump_chat_item_from_infopage(std::shared_ptr<UserInfo> user_info);
+    void slot_item_clicked(QListWidgetItem *item);
+    void slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
+    void slot_append_send_chat_msg(std::shared_ptr<TextChatData> msgdata);
 };
 
 #endif // CHATDIALOG_H

@@ -105,6 +105,9 @@ void LogicSystem::RegisterCallBacks()
 
 	_fun_callbacks[ID_AUTH_FRIEND_REQ] = std::bind(&LogicSystem::AuthFriendApply, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+	_fun_callbacks[ID_TEXT_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatTextMsg, this,
+		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
@@ -416,6 +419,72 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session,
 	ChatGrpcClient::GetInstance()->NotifyAuthFriend(to_ip_value, auth_req);
 }
 
+void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
+	const short& msg_id, const std::string& msg_data)
+{
+	Json::Reader reader;
+	Json::Value root;
+	reader.parse(msg_data, root);
+
+	auto uid = root["fromuid"].asInt();
+	auto touid = root["touid"].asInt();
+
+	const Json::Value  arrays = root["text_array"];
+
+	Json::Value  rtvalue;
+	rtvalue["error"] = ErrorCodes::Success;
+	rtvalue["text_array"] = arrays;
+	rtvalue["fromuid"] = uid;
+	rtvalue["touid"] = touid;
+
+	Defer defer([this, &rtvalue, session]() {
+		std::string return_str = rtvalue.toStyledString();
+		session->Send(return_str, ID_TEXT_CHAT_MSG_RSP);
+		});
+
+
+	//查询redis 查找touid对应的server ip
+	auto to_str = std::to_string(touid);
+	auto to_ip_key = USERIPPREFIX + to_str;
+	std::string to_ip_value = "";
+	bool b_ip = RedisMgr::GetInstance()->Get(to_ip_key, to_ip_value);
+	if (!b_ip) {
+		return;
+	}
+
+	auto& cfg = ConfigMgr::Inst();
+	auto self_name = cfg["SelfServer"]["Name"];
+	//直接通知对方有认证通过消息
+	if (to_ip_value == self_name) {
+		auto session = UserMgr::GetInstance()->GetSession(touid);
+		if (session) {
+			//在内存中则直接发送通知对方
+			std::string return_str = rtvalue.toStyledString();
+			session->Send(return_str, ID_NOTIFY_TEXT_CHAT_MSG_REQ);
+		}
+
+		return;
+	}
+
+
+	TextChatMsgReq text_msg_req;
+	text_msg_req.set_fromuid(uid);
+	text_msg_req.set_touid(touid);
+	for (const auto& txt_obj : arrays) {
+		auto content = txt_obj["content"].asString();
+		auto msgid = txt_obj["msgid"].asString();
+		std::cout << "content is " << content << std::endl;
+		std::cout << "msgid is " << msgid << std::endl;
+		auto* text_msg = text_msg_req.add_textmsgs();
+		text_msg->set_msgid(msgid);
+		text_msg->set_msgcontent(content);
+	}
+
+	//发送通知 todo...
+	ChatGrpcClient::GetInstance()->NotifyTextChatMsg(to_ip_value, text_msg_req, rtvalue);
+}
+
+
 bool LogicSystem::isPureDigit(const std::string& str)
 {
 	for (char c : str) {
@@ -580,7 +649,8 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 			<< userinfo->name << " pwd is " << userinfo->pwd << " email is "
 			<< userinfo->email << std::endl;
 	}
-	else {
+	else
+	{
 		//redis中没有则查询mysql
 		//查询数据库
 		std::shared_ptr<UserInfo> user_info = nullptr;

@@ -23,6 +23,7 @@ public:
     void appendChatItem(QWidget *item); //在布局中添加一个聊天项, 使其显示在底部
     void prependChatItem(QWidget *item); //在布局中添加一个聊天项, 使其显示在顶部
     void insertChatItem(QWidget *before, QWidget *item); //在布局中插入一个聊天项, 使其显示在指定项之前
+    void removeAllItem(); //移除布局中的所有聊天项
 
 protected:
     bool eventFilter(QObject *o, QEvent *e) override; //重写事件过滤器函数, 用于处理滚动区域的事件

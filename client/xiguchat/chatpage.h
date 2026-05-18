@@ -2,6 +2,7 @@
 #define CHATPAGE_H
 
 #include <QWidget>
+#include "userdata.h"
 /******************************************************************************
  *
  * @file       chatpage.h
@@ -24,15 +25,22 @@ public:
     explicit ChatPage(QWidget *parent = nullptr);
     ~ChatPage();
 
+    void SetUserInfo(std::shared_ptr<UserInfo> user_info);
+    void AppendChatMsg(std::shared_ptr<TextChatData> msg);
+
 protected:
     //重写paintEvent函数, 使得这个widget能够正确地绘制自己的背景和边框等基本元素
     virtual void paintEvent(QPaintEvent *event) override;
 
+private:
+    Ui::ChatPage *ui;
+    std::shared_ptr<UserInfo> _user_info;
+
 private slots:
     void on_send_btn_clicked(); //点击发送按钮时触发的槽函数
 
-private:
-    Ui::ChatPage *ui;
+signals:
+    void sig_append_send_chat_msg(std::shared_ptr<TextChatData> msg);
 };
 
 #endif // CHATPAGE_H
