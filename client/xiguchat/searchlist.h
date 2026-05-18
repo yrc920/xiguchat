@@ -46,7 +46,7 @@ private slots:
     void slot_user_search(std::shared_ptr<SearchInfo> si); //用户搜索结果的槽函数
 
 signals:
-
+    void sig_jump_chat_item(std::shared_ptr<SearchInfo> si);
 };
 
 

@@ -438,21 +438,20 @@ bool MysqlDao::GetApplyList(int touid,
 	}
 }
 
-bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info_list) {
-
+bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info_list)
+{
 	auto con = pool_->getConnection();
-	if (con == nullptr) {
+	if (con == nullptr)
 		return false;
-	}
 
 	Defer defer([this, &con]() {
 		pool_->returnConnection(std::move(con));
 		});
 
-
 	try {
 		// 准备SQL语句, 根据起始id和限制条数返回列表
-		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->prepareStatement("select * from friend where self_id = ? "));
+		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
+			prepareStatement("select * from friend where self_id = ? "));
 
 		pstmt->setInt(1, self_id); // 将uid替换为你要查询的uid
 
@@ -479,7 +478,6 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> 
 		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
 		return false;
 	}
-
 	return true;
 }
 

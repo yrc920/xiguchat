@@ -25,13 +25,14 @@ class UserMgr : public QObject,public Singleton<UserMgr>,
 public:
     friend class Singleton<UserMgr>; //使基类创建实例时可以访问私有构造函数
     ~UserMgr(); //使基类析构时可以访问派生类的析构函数
-    void SetName(QString name); //设置用户名
-    void SetUid(int uid); //设置用户ID
     void SetToken(QString token); //设置用户令牌
     void SetUserInfo(std::shared_ptr<UserInfo> user_info); //设置用户信息
     int GetUid(); //获取用户ID
     QString GetName(); //获取用户名
     std::vector<std::shared_ptr<ApplyInfo>> GetApplyList(); //获取好友申请列表
+    std::shared_ptr<FriendInfo> GetFriendById(int uid);
+    std::vector<std::shared_ptr<FriendInfo>> GetChatListPerPage();
+    std::vector<std::shared_ptr<FriendInfo>> GetConListPerPage();
 
     void AppendApplyList(QJsonArray array);
     void AppendFriendList(QJsonArray array);
@@ -40,18 +41,22 @@ public:
     bool CheckFriendById(int uid); //检查指定用户ID是否是好友
     void AddFriend(std::shared_ptr<AuthRsp> auth_rsp);
     void AddFriend(std::shared_ptr<AuthInfo> auth_info);
-    std::shared_ptr<FriendInfo> GetFriendById(int uid);
+
+    void UpdateChatLoadedCount();
+    void UpdateContactLoadedCount();
+    bool IsLoadConFin();
+    bool IsLoadChatFin();
 
 private:
     UserMgr();
 
-    int _uid; //用户ID
-    QString _name; //用户名
     QString _token; //用户令牌
     std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
     std::shared_ptr<UserInfo> _user_info;
     std::vector<std::shared_ptr<FriendInfo>> _friend_list;
     QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
+    int _chat_loaded;
+    int _contact_loaded;
 };
 
 #endif // USERMGR_H

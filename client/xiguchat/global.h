@@ -156,4 +156,6 @@ const std::vector<QString> names = {
     "Hunter"
 };
 
+const int CHAT_COUNT_PER_PAGE = 12; //每页加载的聊天用户数量
+
 #endif // GLOBAL_H

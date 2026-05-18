@@ -37,7 +37,7 @@ void ApplyFriendPage::AddNewApply(std::shared_ptr<AddFriendApply> apply)
     int head_i = randomValue % heads.size();
     auto* apply_item = new ApplyFriendItem(); //创建好友申请条目
     auto apply_info = std::make_shared<ApplyInfo>(apply->_from_uid,
-        apply->_name, apply->_desc,heads[head_i], apply->_name, 0, 0); //将好友申请信息封装成ApplyInfo对象
+        apply->_name, apply->_desc, heads[head_i], apply->_name, 0, 0); //将好友申请信息封装成ApplyInfo对象
     apply_item->SetInfo(apply_info); //设置好友申请条目的信息
 
     QListWidgetItem* item = new QListWidgetItem; //创建QListWidgetItem对象
@@ -47,14 +47,16 @@ void ApplyFriendPage::AddNewApply(std::shared_ptr<AddFriendApply> apply)
     ui->apply_friend_list->insertItem(0, item); //将item插入到列表的顶部
     ui->apply_friend_list->setItemWidget(item, apply_item); //将自定义widget设置为item的显示内容
     apply_item->ShowAddBtn(true); //显示添加按钮
+    //将申请人的用户ID和好友申请条目对象存储在_unauth_items哈希表中
+    _unauth_items[apply->_from_uid] = apply_item;
 
     //收到审核好友信号
     connect(apply_item, &ApplyFriendItem::sig_auth_friend,
         [this](std::shared_ptr<ApplyInfo> apply_info) {
         auto* authFriend = new AuthenFriend(this);
-        authFriend->setModal(true);
-        authFriend->SetApplyInfo(apply_info);
-        authFriend->show();
+        authFriend->setModal(true); //设置对话框为模态, 阻止用户与其他窗口交互
+        authFriend->SetApplyInfo(apply_info); //设置认证好友对话框的信息
+        authFriend->show(); //显示认证好友对话框
     });
 }
 
@@ -99,9 +101,9 @@ void ApplyFriendPage::loadApplyList()
         connect(apply_item, &ApplyFriendItem::sig_auth_friend,
             [this](std::shared_ptr<ApplyInfo> apply_info) {
             auto* authFriend = new AuthenFriend(this);
-            authFriend->setModal(true);
-            authFriend->SetApplyInfo(apply_info);
-            authFriend->show();
+            authFriend->setModal(true); //设置对话框为模态, 阻止用户与其他窗口交互
+            authFriend->SetApplyInfo(apply_info); //设置认证好友对话框的信息
+            authFriend->show(); //显示认证好友对话框
         });
     }
 
@@ -130,9 +132,9 @@ void ApplyFriendPage::loadApplyList()
         connect(apply_item, &ApplyFriendItem::sig_auth_friend,
             [this](std::shared_ptr<ApplyInfo> apply_info){
             auto *authFriend =  new AuthenFriend(this);
-            authFriend->setModal(true);
-            authFriend->SetApplyInfo(apply_info);
-            authFriend->show();
+            authFriend->setModal(true); //设置对话框为模态, 阻止用户与其他窗口交互
+            authFriend->SetApplyInfo(apply_info); //设置认证好友对话框的信息
+            authFriend->show(); //显示认证好友对话框
         });
     }
 }

@@ -37,6 +37,10 @@ private:
     void ShowSearch(bool bsearch); //显示或隐藏搜索框
     void AddLBGroup(StateWidget* lb); //将状态控件添加到状态控件列表中, 以便进行状态管理
     void ClearLabelState(StateWidget* lb); //清除状态控件的状态, 将除了传入的控件以外的其他控件恢复到初始状态
+    void SetSelectChatItem(int uid = 0);
+    void SetSelectChatPage(int uid = 0);
+    void loadMoreChatUser();
+    void loadMoreConUser();
 
     Ui::ChatDialog *ui;
     ChatUIMode _mode; //当前界面模式
@@ -44,15 +48,18 @@ private:
     bool _b_loading; //是否正在加载更多聊天用户
     QList<StateWidget*> _lb_list; //状态控件列表
     QMap<int, QListWidgetItem*> _chat_items_added;
+    int _cur_chat_uid;
 
 public slots:
     void slot_loading_chat_user(); //加载更多聊天用户的槽函数
+    void slot_loading_contact_user(); //加载更多联系人用户的槽函数
     void slot_side_chat(); //侧边栏聊天按钮点击的槽函数
     void slot_side_contact(); //侧边栏联系人按钮点击的槽函数
     void slot_text_changed(const QString &str); //搜索框文本改变的槽函数
     void slot_apply_friend(std::shared_ptr<AddFriendApply> apply); //处理好友申请的槽函数
     void slot_add_auth_friend(std::shared_ptr<AuthInfo> auth_info);
     void slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp);
+    void slot_jump_chat_item(std::shared_ptr<SearchInfo> si);
 };
 
 #endif // CHATDIALOG_H

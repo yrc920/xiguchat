@@ -27,6 +27,9 @@ protected:
     //重写事件过滤器函数, 用于处理鼠标悬浮和滚轮事件
     bool eventFilter(QObject *watched, QEvent *event) override;
 
+private:
+    bool _load_pending; //是否正在加载更多聊天用户的标志
+
 signals:
     void sig_loading_chat_user(); //当滚轮滚动到底部时发送信号通知聊天界面加载更多聊天用户
 };

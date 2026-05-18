@@ -270,6 +270,11 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session,
 	//从配置文件中获取自身服务器的名称
 	auto& cfg = ConfigMgr::Inst();
 	auto self_name = cfg["SelfServer"]["Name"];
+
+	std::string base_key = USER_BASE_INFO + std::to_string(uid);
+	auto apply_info = std::make_shared<UserInfo>(); //初始化申请人用户信息对象
+	bool b_info = GetBaseInfo(base_key, uid, apply_info); //获取申请人用户基本信息
+
 	//如果目标用户在当前服务器上
 	if (to_ip_value == self_name) {
 		auto session = UserMgr::GetInstance()->GetSession(touid); //从UserMgr中获取目标用户的会话对象
@@ -281,16 +286,17 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session,
 			notify["applyuid"] = uid;
 			notify["name"] = applyname;
 			notify["desc"] = "";
+			if (b_info) {
+				notify["icon"] = apply_info->icon;
+				notify["sex"] = apply_info->sex;
+				notify["nick"] = apply_info->nick;
+			}
 			std::string return_str = notify.toStyledString();
 			//通过会话对象发送消息给目标用户, 消息ID为通知添加好友请求
 			session->Send(return_str, ID_NOTIFY_ADD_FRIEND_REQ);
 		}
 		return;
 	}
-
-	std::string base_key = USER_BASE_INFO + std::to_string(uid);
-	auto apply_info = std::make_shared<UserInfo>(); //初始化申请人用户信息对象
-	bool b_info = GetBaseInfo(base_key, uid, apply_info); //获取申请人用户基本信息
 
 	AddFriendReq add_req; //创建AddFriendReq消息对象，准备发送通知
 	add_req.set_applyuid(uid);
