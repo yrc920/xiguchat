@@ -146,14 +146,14 @@ const std::vector<QString> heads = {
 };
 
 const std::vector<QString> names = {
-    "HanMeiMei",
-    "Lily",
-    "Ben",
-    "Androw",
-    "Max",
-    "Summer",
-    "Candy",
-    "Hunter"
+    "C++",
+    "Java",
+    "Python",
+    "Go",
+    "Nodejs",
+    "Rust",
+    "Swift",
+    "Kotlin",
 };
 
 const int CHAT_COUNT_PER_PAGE = 12; //每页加载的聊天用户数量

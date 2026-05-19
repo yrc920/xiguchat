@@ -140,7 +140,7 @@ void LoginDialog::slot_forget_pwd()
 
 void LoginDialog::initHead()
 {
-    QPixmap originalPixmap(":/res/head_1.jpg"); //加载图片
+    QPixmap originalPixmap(":/res/ice.png"); //加载图片
     //设置图片自动缩放
     qDebug() << originalPixmap.size() << ui->head_label->size();
     originalPixmap = originalPixmap.scaled(ui->head_label->size(),

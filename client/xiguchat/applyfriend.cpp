@@ -13,7 +13,7 @@ ApplyFriend::ApplyFriend(QWidget *parent) :
     setWindowFlags(windowFlags() | Qt::FramelessWindowHint); //隐藏对话框标题栏
     this->setObjectName("ApplyFriend");
     this->setModal(true); //设置为模态对话框, 阻止用户在关闭对话框前与其他窗口进行交互
-    ui->name_ed->setPlaceholderText(tr("恋恋风辰")); //设置申请备注输入框的占位文本
+    ui->name_ed->setPlaceholderText(tr("西故")); //设置申请备注输入框的占位文本
     ui->lb_ed->setPlaceholderText("搜索、添加标签"); //设置标签输入框的占位文本
     ui->back_ed->setPlaceholderText("燃烧的胸毛"); //设置好友备注输入框的占位文本
 
