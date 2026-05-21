@@ -1,5 +1,6 @@
 build/
 bin/
+app/
 Debug/
 Release/
 x64/
