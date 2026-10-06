@@ -3,15 +3,15 @@
 
  Source Server         : mysql
  Source Server Type    : MySQL
- Source Server Version : 80042 (8.0.42)
+ Source Server Version : 90701 (9.7.1)
  Source Host           : localhost:3306
  Source Schema         : xigu
 
  Target Server Type    : MySQL
- Target Server Version : 80042 (8.0.42)
+ Target Server Version : 90701 (9.7.1)
  File Encoding         : 65001
 
- Date: 16/05/2026 12:07:41
+ Date: 07/10/2026 01:34:19
 */
 
 SET NAMES utf8mb4;
@@ -28,7 +28,7 @@ CREATE TABLE `friend`  (
   `back` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT '',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `self_friend`(`self_id` ASC, `friend_id` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 2 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of friend
@@ -46,7 +46,7 @@ CREATE TABLE `friend_apply`  (
   `status` smallint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE INDEX `from_to_uid`(`from_uid` ASC, `to_uid` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 3 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 4 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of friend_apply
@@ -72,7 +72,7 @@ CREATE TABLE `user`  (
   UNIQUE INDEX `uid`(`uid` ASC) USING BTREE,
   UNIQUE INDEX `email`(`email` ASC) USING BTREE,
   INDEX `name`(`name` ASC) USING BTREE
-) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
+) ENGINE = InnoDB AUTO_INCREMENT = 9 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci ROW_FORMAT = DYNAMIC;
 
 -- ----------------------------
 -- Records of user
@@ -101,9 +101,9 @@ INSERT INTO `user_id` VALUES (1005);
 -- ----------------------------
 DROP PROCEDURE IF EXISTS `reg_user`;
 delimiter ;;
-CREATE PROCEDURE `reg_user`(IN `new_name` VARCHAR(255),
-                            IN `new_email` VARCHAR(255),
-                            IN `new_pwd` VARCHAR(255),
+CREATE PROCEDURE `reg_user`(IN `new_name` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+                            IN `new_email` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
+                            IN `new_pwd` VARCHAR(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
                             OUT `result` INT)
 BEGIN
     -- 如果在执行过程中遇到任何错误，则回滚事务
@@ -115,7 +115,7 @@ ROLLBACK;
 SET result = -1;
 END;
     -- 开始事务
-START TRANSACTION;
+    START TRANSACTION;
 -- 检查用户名是否已存在
 IF EXISTS (SELECT 1 FROM `user` WHERE `name` = new_name) THEN
         SET result = 0; -- 用户名已存在

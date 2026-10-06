@@ -1,16 +1,25 @@
-#include "MysqlDao.h"
+﻿#include "MysqlDao.h"
 #include "ConfigMgr.h"
+#include <cstdlib>
 
 MysqlDao::MysqlDao()
 {
 	auto& cfg = ConfigMgr::Inst(); //获取配置管理器实例
 	const auto& host = cfg["Mysql"]["Host"];
-	const auto& port = cfg["Mysql"]["Port"];
+	const auto& xport = cfg["Mysql"]["XPort"]; //X Protocol端口号
 	const auto& pwd = cfg["Mysql"]["Passwd"];
 	const auto& schema = cfg["Mysql"]["Schema"];
 	const auto& user = cfg["Mysql"]["User"];
+	//X Protocol默认端口为33060, 若配置缺失则使用默认值
+	unsigned xport_num = 33060;
+	if (!xport.empty()) {
+		int v = std::atoi(xport.c_str());
+		if (v > 0) {
+			xport_num = static_cast<unsigned>(v);
+		}
+	}
 	//初始化MySQL连接池对象, 连接池大小为5
-	pool_.reset(new MySqlPool(host + ":" + port, user, pwd, schema, 5));
+	pool_.reset(new MySqlPool(host, xport_num, user, pwd, schema, 5));
 }
 
 MysqlDao::~MysqlDao() {
@@ -19,113 +28,99 @@ MysqlDao::~MysqlDao() {
 
 int MysqlDao::RegUser(const std::string& name, const std::string& email, const std::string& pwd)
 {
-	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL会话对象
 	try {
-		//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+		//如果连接池返回空指针, 则说明连接池已停止, 直接返回-1
 		if (con == nullptr)
-			return false;
+			return -1;
 
-		//准备调用存储过程
-		std::unique_ptr<sql::PreparedStatement> stmt(con->_con->
-			prepareStatement("CALL reg_user(?,?,?,@result)"));
-		//设置输入参数
-		stmt->setString(1, name);
-		stmt->setString(2, email);
-		stmt->setString(3, pwd);
-		stmt->execute();//执行存储过程
+		//调用存储过程, 通过会话变量@result返回结果(与JDBC API时代逻辑一致)
+		con->_session->sql("CALL reg_user(?,?,?,@result)")
+			.bind(name).bind(email).bind(pwd).execute();
 
-		//查询会话变量获取输出参数的值(PreparedStatement不直接支持注册输出参数)
-		std::unique_ptr<sql::Statement> stmtResult(con->_con->createStatement());
-		//执行查询获取结果, 此处逻辑写在mysql存储过程中, 通过设置会话变量@result来返回结果
-		std::unique_ptr<sql::ResultSet> res(stmtResult->executeQuery("SELECT @result AS result"));
+		//查询会话变量获取输出参数的值(X DevAPI不直接支持注册输出参数)
+		auto res = con->_session->sql("SELECT @result AS result").execute();
 
 		//解析结果, 如果查询成功且有结果, 则获取result值并返回, 否则返回-1表示失败
-		if (res->next()) {
-			int result = res->getInt("result");
+		auto row = res.fetchOne();
+		if (!row.isNull()) {
+			int result = row[0].get<int>();
 			std::cout << "Result: " << result << std::endl;
-			pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+			pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 			return result;
 		}
-		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		return -1;
-	}catch (sql::SQLException& e) {
-		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+	}catch (mysqlx::Error& e) {
+		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
+		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return -1;
 	}
 }
 
 bool MysqlDao::CheckEmail(const std::string& name, const std::string& email) {
-	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL会话对象
 	try {
 		//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
 		if (con == nullptr)
 			return false;
 
-		//准备查询语句(查询指定用户名的邮箱地址)
-		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
-			prepareStatement("SELECT email FROM user WHERE name = ?"));
-		pstmt->setString(1, name); //绑定参数
-		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery()); //执行查询
+		//执行查询语句(查询指定用户名的邮箱地址)
+		auto res = con->_session->sql("SELECT email FROM user WHERE name = ?")
+			.bind(name).execute();
 
+		auto row = res.fetchOne();
 		//遍历结果集
-		while (res->next()) {
-			std::cout << "Check Email: " << res->getString("email") << std::endl;
+		while (!row.isNull()) {
+			auto email_in_db = row[0].get<std::string>();
+			std::cout << "Check Email: " << email_in_db << std::endl;
 			//如果查询结果中的email与输入的email不匹配, 则说明用户名和邮箱不匹配, 返回false
-			if (email != res->getString("email")) {
-				pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+			if (email != email_in_db) {
+				pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 				return false;
 			}
-			pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+			pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 			return true;
+			row = res.fetchOne();
 		}
+		//保持原行为: 用户名不存在时同样返回true
 		return true;
 	}
-	catch (sql::SQLException& e) {
-		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+	catch (mysqlx::Error& e) {
+		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
+		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return false;
 	}
 }
 
 bool MysqlDao::UpdatePwd(const std::string& name, const std::string& newpwd) {
-	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL会话对象
 	try {
 		//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
 		if (con == nullptr)
 			return false;
 
-		//准备查询语句(更新指定用户名的密码)
-		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
-			prepareStatement("UPDATE user SET pwd = ? WHERE name = ?"));
-		//绑定参数
-		pstmt->setString(2, name);
-		pstmt->setString(1, newpwd);
-		int updateCount = pstmt->executeUpdate(); //执行更新
+		//执行更新语句(更新指定用户名的密码)
+		auto res = con->_session->sql("UPDATE user SET pwd = ? WHERE name = ?")
+			.bind(newpwd).bind(name).execute();
 
-		std::cout << "Updated rows: " << updateCount << std::endl;
-		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+		std::cout << "Updated rows: " << res.getAffectedItemsCount() << std::endl;
+		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		return true;
 	}
-	catch (sql::SQLException& e) {
-		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+	catch (mysqlx::Error& e) {
+		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
+		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return false;
 	}
 }
 
 bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo) {
-	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL连接对象
+	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL会话对象
 	
-	//使用RAII机制确保无论函数如何退出, 都能正确归还MySQL连接对象给连接池, 避免资源泄漏
+	//使用RAII机制确保无论函数如何退出, 都能正确归还MySQL会话对象给连接池, 避免资源泄漏
 	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con)); //将使用完的MySQL连接对象归还给连接池
+		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		});
 
 	try {
@@ -133,18 +128,16 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 		if (con == nullptr)
 			return false;
 
-		//准备查询语句(查询指定邮箱的用户信息, 包含密码、邮箱等字段)
-		std::unique_ptr<sql::PreparedStatement> pstmt(con->_con->
-			prepareStatement("SELECT * FROM user WHERE email = ?"));
-		pstmt->setString(1, email); //绑定参数
-		std::unique_ptr<sql::ResultSet> res(pstmt->executeQuery()); //执行查询
+		//执行查询语句(查询指定邮箱的用户信息, 显式列出列以便按索引取值)
+		auto res = con->_session->sql("SELECT uid, name, pwd, email FROM user WHERE email = ?")
+			.bind(email).execute();
 
 		std::string origin_pwd = "";
+		auto row = res.fetchOne();
 		//遍历结果集
-		while (res->next()) {
-			origin_pwd = res->getString("pwd"); //获取查询结果中的密码字段值
+		if (!row.isNull()) {
+			origin_pwd = row[2].get<std::string>(); //第2列为pwd
 			std::cout << "Password: " << origin_pwd << std::endl;
-			break;
 		}
 
 		//如果查询结果中的密码与输入的密码不匹配, 则说明邮箱和密码不匹配, 返回false
@@ -152,37 +145,36 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 			return false;
 
 		//如果邮箱和密码匹配, 则将查询结果中的用户信息存储在userInfo中, 返回true
-		userInfo.name = res->getString("name");
+		userInfo.name = row[1].get<std::string>();
 		userInfo.email = email;
-		userInfo.uid = res->getInt("uid");
+		userInfo.uid = row[0].get<int>();
 		userInfo.pwd = origin_pwd;
 		return true;
 	}
-	catch (sql::SQLException& e) {
-		std::cerr << "SQLException: " << e.what();
-		std::cerr << " (MySQL error code: " << e.getErrorCode();
-		std::cerr << ", SQLState: " << e.getSQLState() << " )" << std::endl;
+	catch (mysqlx::Error& e) {
+		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return false;
 	}
 }
 
 
-MySqlPool::MySqlPool(const std::string& url, const std::string& user, const std::string& pass, 
+MySqlPool::MySqlPool(const std::string& host, unsigned port, const std::string& user, const std::string& pass,
 	const std::string& schema, int poolSize)
-		: url_(url), user_(user), pass_(pass), schema_(schema), poolSize_(poolSize), b_stop_(false)
+		: host_(host), port_(port), user_(user), pass_(pass), schema_(schema), poolSize_(poolSize), b_stop_(false)
 {
 	try {
 		for (int i = 0; i < poolSize_; ++i) {
-			//获取MySQL驱动实例
-			sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance();
-			auto* con = driver->connect(url_, user_, pass_); //创建MySQL连接对象
-			con->setSchema(schema_); //设置连接的默认数据库
-			// 获取当前时间戳
+			//构建X DevAPI连接设置
+			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
+			// X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
+			//创建会话对象
+			auto session = std::make_unique<mysqlx::Session>(settings);
+			//获取当前时间戳
 			auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-			// 将时间戳转换为秒
+			//将时间戳转换为秒
 			long long timestamp = std::chrono::duration_cast<std::chrono::seconds>(currentTime).count();
-			//将连接对象和当前时间封装成SqlConnection对象, 加入连接池队列
-			pool_.push(std::make_unique<SqlConnection>(con, timestamp));
+			//将会话对象和当前时间封装成SqlConnection对象, 加入连接池队列
+			pool_.push(std::make_unique<SqlConnection>(std::move(session), timestamp));
 		}
 
 		//启动检测线程, 定期检查连接的状态并保持连接的活跃性, 防止连接超时导致连接池中的连接失效
@@ -195,7 +187,7 @@ MySqlPool::MySqlPool(const std::string& url, const std::string& user, const std:
 		});
 		_check_thread.detach(); //分离检测线程, 使其在后台运行, 不阻塞主线程的退出
 	}
-	catch (sql::SQLException& e) {
+	catch (mysqlx::Error& e) {
 		//处理异常
 		std::cout << "mysql pool init failed, error is " << e.what() << std::endl;
 	}
@@ -225,17 +217,15 @@ void MySqlPool::checkConnection() {
 
 		try {
 			//执行一个简单的查询语句, 保证连接的活跃性
-			std::unique_ptr<sql::Statement> stmt(con->_con->createStatement());
-			stmt->executeQuery("SELECT 1");
+			con->_session->sql("SELECT 1").execute();
 			con->_last_oper_time = timestamp; //更新连接对象的上次操作时间为当前时间
 		}
-		catch (sql::SQLException& e) {
+		catch (mysqlx::Error& e) {
 			std::cout << "Error keeping connection alive: " << e.what() << std::endl;
-			//重新创建连接并替换旧的连接
-			sql::mysql::MySQL_Driver* driver = sql::mysql::get_mysql_driver_instance(); //获取MySQL驱动实例
-			auto* newcon = driver->connect(url_, user_, pass_); //创建新的MySQL连接对象
-			newcon->setSchema(schema_); //设置连接的默认数据库
-			con->_con.reset(newcon); //替换旧的连接对象
+			//重新创建会话对象并替换旧的会话
+			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
+			// X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
+			con->_session.reset(new mysqlx::Session(settings)); //替换旧的会话对象
 			con->_last_oper_time = timestamp; //更新连接对象的上次操作时间为当前时间
 		}
 	}

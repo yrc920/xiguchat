@@ -1,15 +1,10 @@
-#pragma once
+﻿#pragma once
 // 数据库访问对象类, 用于封装对MySQL数据库的操作
 //
 
 #include "const.h"
 #include <thread>
-#include <jdbc/mysql_driver.h>
-#include <jdbc/mysql_connection.h>
-#include <jdbc/cppconn/prepared_statement.h>
-#include <jdbc/cppconn/resultset.h>
-#include <jdbc/cppconn/statement.h>
-#include <jdbc/cppconn/exception.h>
+#include <mysqlx/xdevapi.h>
 #include "data.h"
 #include <memory>
 #include <queue>
@@ -47,14 +42,14 @@ private:
 
 class SqlConnection {
 public:
-	SqlConnection(sql::Connection* con, int64_t lasttime) :_con(con), _last_oper_time(lasttime) {}
-	std::unique_ptr<sql::Connection> _con; //MySQL连接对象, 使用智能指针管理资源
+	SqlConnection(std::unique_ptr<mysqlx::Session> session, int64_t lasttime) :_session(std::move(session)), _last_oper_time(lasttime) {}
+	std::unique_ptr<mysqlx::Session> _session; //X DevAPI会话对象, 使用智能指针管理资源
 	int64_t _last_oper_time; //上次操作时间
 };
 
 class MySqlPool {
 public:
-	MySqlPool(const std::string& url, const std::string& user, const std::string& pass, 
+	MySqlPool(const std::string& host, unsigned port, const std::string& user, const std::string& pass,
 		const std::string& schema, int poolSize);
 
 	void checkConnection(); //检查连接的有效性
@@ -64,7 +59,8 @@ public:
 	~MySqlPool();
 
 private:
-	std::string url_; //MySQL服务器的URL地址, 包含主机地址和端口号
+	std::string host_; //MySQL服务器地址
+	unsigned port_; //X Protocol端口号
 	std::string user_; //MySQL用户名
 	std::string pass_; //MySQL密码
 	std::string schema_; //MySQL数据库名
