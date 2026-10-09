@@ -1,0 +1,64 @@
+#ifndef USERMGR_H
+#define USERMGR_H
+
+#include <QObject>
+#include <memory>
+#include <singleton.h>
+#include "userdata.h"
+#include <vector>
+#include <QMap>
+/******************************************************************************
+ *
+ * @file       usermgr.h
+ * @brief      用户管理类，负责保存用户信息
+ *
+ * @author     西故
+ * @date       2026/05/03
+ * @history
+ *****************************************************************************/
+
+class UserMgr : public QObject,public Singleton<UserMgr>,
+    public std::enable_shared_from_this<UserMgr>
+{
+    Q_OBJECT //使得UserMgr可以使用Qt的信号和槽机制
+
+public:
+    friend class Singleton<UserMgr>; //使基类创建实例时可以访问私有构造函数
+    ~UserMgr(); //使基类析构时可以访问派生类的析构函数
+    void SetToken(QString token); //设置用户令牌
+    void SetUserInfo(std::shared_ptr<UserInfo> user_info); //设置用户信息
+    int GetUid(); //获取用户ID
+    QString GetName(); //获取用户名
+    std::vector<std::shared_ptr<ApplyInfo>> GetApplyList(); //获取好友申请列表
+    std::shared_ptr<FriendInfo> GetFriendById(int uid);
+    std::vector<std::shared_ptr<FriendInfo>> GetChatListPerPage();
+    std::vector<std::shared_ptr<FriendInfo>> GetConListPerPage();
+    std::shared_ptr<UserInfo> GetUserInfo();
+
+    void AppendApplyList(QJsonArray array);
+    void AppendFriendList(QJsonArray array);
+    bool AlreadyApply(int uid); //检查是否已经有来自指定用户ID的好友申请
+    void AddApplyList(std::shared_ptr<ApplyInfo> app); //添加好友申请到申请列表
+    bool CheckFriendById(int uid); //检查指定用户ID是否是好友
+    void AddFriend(std::shared_ptr<AuthRsp> auth_rsp);
+    void AddFriend(std::shared_ptr<AuthInfo> auth_info);
+    void AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<TextChatData>> msgs);
+
+    void UpdateChatLoadedCount();
+    void UpdateContactLoadedCount();
+    bool IsLoadConFin();
+    bool IsLoadChatFin();
+
+private:
+    UserMgr();
+
+    QString _token; //用户令牌
+    std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
+    std::shared_ptr<UserInfo> _user_info;
+    std::vector<std::shared_ptr<FriendInfo>> _friend_list;
+    QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
+    int _chat_loaded;
+    int _contact_loaded;
+};
+
+#endif // USERMGR_H

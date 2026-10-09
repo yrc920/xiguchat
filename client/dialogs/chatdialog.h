@@ -1,0 +1,73 @@
+#ifndef CHATDIALOG_H
+#define CHATDIALOG_H
+
+#include <QDialog>
+#include "global.h"
+#include "statewidget.h"
+#include "userdata.h"
+#include <QListWidgetItem>
+/******************************************************************************
+ *
+ * @file       chatdialog.h
+ * @brief      聊天界面
+ *
+ * @author     西故
+ * @date       2026/05/05
+ * @history
+ *****************************************************************************/
+
+namespace Ui {
+class ChatDialog;
+}
+
+class ChatDialog : public QDialog
+{
+    Q_OBJECT //使得ChatDialog可以使用Qt的信号和槽机制
+
+public:
+    explicit ChatDialog(QWidget *parent = nullptr);
+    ~ChatDialog();
+    void addChatUserList(); //添加聊天用户列表项(测试用例)
+
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override; //事件过滤器
+    void handleGlobalMousePress(QMouseEvent *event); //处理全局鼠标点击事件的函数
+
+private:
+    void ShowSearch(bool bsearch); //显示或隐藏搜索框
+    void AddLBGroup(StateWidget* lb); //将状态控件添加到状态控件列表中, 以便进行状态管理
+    void ClearLabelState(StateWidget* lb); //清除状态控件的状态, 将除了传入的控件以外的其他控件恢复到初始状态
+    void SetSelectChatItem(int uid = 0);
+    void SetSelectChatPage(int uid = 0);
+    void loadMoreChatUser();
+    void loadMoreConUser();
+    void UpdateChatMsg(std::vector<std::shared_ptr<TextChatData>> msgdata);
+
+    Ui::ChatDialog *ui;
+    ChatUIMode _mode; //当前界面模式
+    ChatUIMode _state; //当前界面状态
+    bool _b_loading; //是否正在加载更多聊天用户
+    QList<StateWidget*> _lb_list; //状态控件列表
+    QWidget* _last_widget;
+    QMap<int, QListWidgetItem*> _chat_items_added;
+    int _cur_chat_uid;
+
+public slots:
+    void slot_loading_chat_user(); //加载更多聊天用户的槽函数
+    void slot_loading_contact_user(); //加载更多联系人用户的槽函数
+    void slot_side_chat(); //侧边栏聊天按钮点击的槽函数
+    void slot_side_contact(); //侧边栏联系人按钮点击的槽函数
+    void slot_text_changed(const QString &str); //搜索框文本改变的槽函数
+    void slot_apply_friend(std::shared_ptr<AddFriendApply> apply); //处理好友申请的槽函数
+    void slot_add_auth_friend(std::shared_ptr<AuthInfo> auth_info);
+    void slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp);
+    void slot_jump_chat_item(std::shared_ptr<SearchInfo> si);
+    void slot_friend_info_page(std::shared_ptr<UserInfo> user_info);
+    void slot_switch_apply_friend_page();
+    void slot_jump_chat_item_from_infopage(std::shared_ptr<UserInfo> user_info);
+    void slot_item_clicked(QListWidgetItem *item);
+    void slot_text_chat_msg(std::shared_ptr<TextChatMsg> msg);
+    void slot_append_send_chat_msg(std::shared_ptr<TextChatData> msgdata);
+};
+
+#endif // CHATDIALOG_H

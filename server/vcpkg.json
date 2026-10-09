@@ -1,0 +1,17 @@
+{
+  "name": "xiguchat-server",
+  "version-semver": "1.0.0",
+  "description": "XiguChat backend microservices (CMake build)",
+  "dependencies": [
+    { "name": "grpc", "features": [ "codegen" ] },
+    "protobuf",
+    "boost-asio",
+    "boost-beast",
+    "boost-filesystem",
+    "boost-property-tree",
+    "boost-uuid",
+    "hiredis",
+    "jsoncpp",
+    "mysql-connector-cpp"
+  ]
+}

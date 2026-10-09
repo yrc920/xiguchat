@@ -1,0 +1,24 @@
+# ============ 构建产物 ============
+build/
+
+# ============ vcpkg 安装目录 ============
+server/vcpkg_installed/
+
+# ============ Node 依赖 ============
+server/services/VerifyServer/node_modules/
+
+# ============ 运行日志 ============
+logs/
+*.log
+
+# ============ IDE / 编辑器配置 ============
+.vscode/
+.qtcreator/
+*.user
+
+# ============ 数据库备份 ============
+backup/
+
+# ============ 系统文件 ============
+.DS_Store
+Thumbs.db

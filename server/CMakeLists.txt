@@ -1,0 +1,77 @@
+# ============================================================
+#  XiguChat Server — 后端微服务（CMake 构建）
+#
+#  技术栈: C++20 + gRPC + protobuf + boost::asio/beast + hiredis
+#          + jsoncpp + MySQL X DevAPI (mysql-connector-cpp)
+#  依赖:   vcpkg manifest（server/vcpkg.json），由 vcpkg
+#          toolchain 自动安装，版本由 vcpkg baseline 锁定
+#  目标:   GateServer / StatusServer / ChatServer / ChatServer2
+#          四个相互独立的可执行程序（微服务）
+#  构建:   VSCode + CMake 插件选择 windows-msvc 预设，
+#          或命令行：cmake --preset windows-msvc
+#                     cmake --build --preset windows-msvc-debug
+# ============================================================
+cmake_minimum_required(VERSION 3.20)
+
+project(xiguchat-server VERSION 1.0.0 LANGUAGES CXX)
+
+# ---------- C++ 标准 ----------
+# 统一使用 C++20；REQUIRED 表示编译器不支持时直接配置失败，
+# EXTENSIONS OFF 禁用 GNU 扩展，保证可移植性
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+# 把项目自带的 cmake/ 目录加入模块搜索路径，
+# 这样下面 include(XiguCommon) 才能找到 cmake/XiguCommon.cmake
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+# ---------- 查找依赖（vcpkg 提供） ----------
+# 全部使用 CONFIG 模式：vcpkg 安装的包自带 *Config.cmake，
+# REQUIRED 表示缺一不可，缺少会在配置期直接报错。
+# gRPC/protobuf：微服务 RPC 通信基础
+# Boost.filesystem：配置文件路径处理
+# hiredis：Redis 客户端
+# jsoncpp：JSON 序列化
+# unofficial-mysql-connector-cpp：MySQL X DevAPI 连接器
+# Threads：跨平台线程库（std::thread 依赖）
+find_package(gRPC CONFIG REQUIRED)
+find_package(protobuf CONFIG REQUIRED)
+find_package(Boost CONFIG REQUIRED COMPONENTS filesystem)
+find_package(hiredis CONFIG REQUIRED)
+find_package(jsoncpp CONFIG REQUIRED)
+find_package(unofficial-mysql-connector-cpp CONFIG REQUIRED)
+find_package(Threads REQUIRED)
+
+# ---------- 公共编译选项 ----------
+if(MSVC)
+    # 源码为 UTF-8（含中文注释）：
+    #   /utf-8   让 MSVC 按 UTF-8 解析源码，避免中文乱码与 C4819
+    #   /wd4819  关闭"文件含非 UTF-8 字符"编码警告
+    #   /wd4996  关闭"使用不安全 CRT 函数"的弃用告警（如 strcpy 等）
+    #   _CRT_SECURE_NO_WARNINGS 等效宏定义
+    add_compile_options(/utf-8 /wd4819 /wd4996)
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+else()
+    # 非 MSVC 编译器（GCC/Clang）开启常用警告
+    add_compile_options(-Wall -Wextra)
+endif()
+
+# ---------- 公共部署函数 ----------
+# XiguCommon.cmake 提供 xigu_deploy()：
+# 每个服务构建后自动拷贝 config.ini 与运行时 DLL 到输出目录
+include(XiguCommon)
+
+# ---------- proto 共享库 ----------
+# proto/CMakeLists.txt 定义 xigu_proto 静态库：
+# 构建期用 protoc 从 proto/message.proto 生成 C++ 代码，
+# 4 个服务共用同一份生成代码，避免各服务重复维护 proto
+add_subdirectory(proto)
+
+# ---------- 微服务 ----------
+# 每个服务目录有独立的 CMakeLists.txt，声明各自的源码、
+# 头文件与链接库；四个服务相互独立、分别产出可执行文件
+add_subdirectory(services/GateServer)
+add_subdirectory(services/StatusServer)
+add_subdirectory(services/ChatServer)
+add_subdirectory(services/ChatServer2)

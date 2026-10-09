@@ -1,0 +1,43 @@
+#include "const.h"
+#include "ConfigMgr.h"
+#include "StatusServiceImpl.h"
+
+int main(int argc, char** argv) {
+	auto& cfg = ConfigMgr::Inst(); //获取配置管理器实例
+	//构建服务器地址
+	std::string server_address(cfg["StatusServer"]["Host"] + ":" + cfg["StatusServer"]["Port"]);
+
+	try {
+		StatusServiceImpl service; //创建服务实例
+		grpc::ServerBuilder builder; //创建gRPC服务器构建器
+
+		//监听端口和添加服务
+		builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
+		builder.RegisterService(&service);
+
+		//构建并启动gRPC服务器
+		std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+		std::cout << "Server listening on " << server_address << std::endl;
+
+		boost::asio::io_context io_context; //创建Boost.Asio的io_context
+		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM); //创建signal_set用于捕获SIGINT
+
+		//设置异步等待SIGINT信号
+		signals.async_wait([&server](const boost::system::error_code& error, int signal_number) {
+			if (!error) {
+				std::cout << "Shutting down server..." << std::endl;
+				server->Shutdown(); // 优雅地关闭服务器
+			}
+		});
+
+		std::thread([&io_context]() { io_context.run(); }).detach(); //在单独的线程中运行io_context
+
+		server->Wait(); //等待服务器关闭
+		io_context.stop(); //停止io_context
+	}
+	catch (std::exception const& e) {
+		std::cerr << "Error: " << e.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+	return 0;
+}
