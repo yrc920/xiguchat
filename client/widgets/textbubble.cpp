@@ -53,7 +53,7 @@ void TextBubble::setPlainText(const QString &text)
     //遍历每一段找到最宽的那一段
     for (QTextBlock it = doc->begin(); it != doc->end(); it = it.next())
     {
-        int txtW = int(fm.width(it.text())); //测量当前段落的文本宽度
+        int txtW = int(fm.horizontalAdvance(it.text())); //测量当前段落的文本宽度
         max_width = max_width < txtW ? txtW : max_width; //找到最长的那段
     }
     //设置这个气泡的最大宽度, 只需要设置一次

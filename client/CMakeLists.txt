@@ -1,7 +1,7 @@
 # ============================================================
-#  XiguChat Client — 聊天客户端（Qt5 桌面程序）
+#  XiguChat Client — 聊天客户端（Qt6 桌面程序）
 #
-#  技术栈: Qt 5.15.2 (Core / Gui / Network / Widgets) + C++17
+#  技术栈: Qt 6.5 (Core / Gui / Network / Widgets) + C++17
 # ============================================================
 cmake_minimum_required(VERSION 3.16)
 
@@ -23,9 +23,9 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # ---------- 查找 Qt ----------
-# 通过 CMAKE_PREFIX_PATH（CMakePresets.json 已配置）找到 Qt5，
+# 通过 CMAKE_PREFIX_PATH（CMakePresets.json 的 $env{QT_ROOT} 已配置）找到 Qt6，
 # 只使用下面列出的 4 个模块；缺少任何模块都会在配置期直接报错
-find_package(Qt5 REQUIRED COMPONENTS Core Gui Network Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Widgets)
 
 # ------------------------------------------------------------
 #  core/ — 全局定义、单例与公共数据结构
@@ -181,6 +181,12 @@ set(VIEW_FORMS
 #  WIN32 标志：生成 GUI 子系统程序（无控制台窗口），
 #  入口仍为 main()，Qt 会按 Windows 方式运行
 # ------------------------------------------------------------
+# Windows 资源文件（图标/版本信息）只在 Windows 参与编译，
+# macOS / Linux 上 .rc 无对应编译器，必须条件化
+if(WIN32)
+    set(XIGUCHAT_RC resources/xiguchat.rc)
+endif()
+
 add_executable(xiguchat WIN32
     main.cpp
     ${CORE_SOURCES} ${CORE_HEADERS}
@@ -189,7 +195,7 @@ add_executable(xiguchat WIN32
     ${DIALOG_SOURCES} ${DIALOG_HEADERS} ${DIALOG_FORMS}
     ${VIEW_SOURCES} ${VIEW_HEADERS} ${VIEW_FORMS}
     resources/rc.qrc
-    resources/xiguchat.rc
+    ${XIGUCHAT_RC}
 )
 
 # 各模块目录加入头文件搜索路径，源码内 #include "xxx.h" 可直接引用
@@ -203,7 +209,7 @@ target_include_directories(xiguchat PRIVATE
 )
 
 # 链接 Qt 模块库（必须是 find_package 列出的那 4 个）
-target_link_libraries(xiguchat PRIVATE Qt5::Core Qt5::Gui Qt5::Network Qt5::Widgets)
+target_link_libraries(xiguchat PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Widgets)
 
 # 源码为 UTF-8 编码：MSVC 需要显式告知（/utf-8），
 # 否则默认按系统代码页解析，含中文的源码会产生 C4819 警告或乱码

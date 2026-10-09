@@ -74,7 +74,7 @@ void ApplyFriend::InitTipLbs()
         connect(lb, &ClickedLabel::clicked, this, &ApplyFriend::SlotChangeFriendLabelByTip);
 
         QFontMetrics fontMetrics(lb->font()); //获取QLabel控件的字体信息
-        int textWidth = fontMetrics.width(lb->text()); //获取文本的宽度
+        int textWidth = fontMetrics.horizontalAdvance(lb->text()); //获取文本的宽度
         int textHeight = fontMetrics.height(); //获取文本的高度
 
         //如果当前标签的x坐标加上文本宽度和间距超过标签展示区的宽度, 则换行显示
@@ -150,7 +150,7 @@ void ApplyFriend::ShowMoreLabel()
         auto added_lb = _add_labels[added_key]; //获取已经添加的标签控件
 
         QFontMetrics fontMetrics(added_lb->font()); // 获取QLabel控件的字体信息
-        textWidth = fontMetrics.width(added_lb->text()); // 获取文本的宽度
+        textWidth = fontMetrics.horizontalAdvance(added_lb->text()); // 获取文本的宽度
         textHeight = fontMetrics.height(); // 获取文本的高度
 
         //如果当前标签的x坐标加上文本宽度和间距超过标签展示区的宽度, 则换行显示
@@ -188,7 +188,7 @@ void ApplyFriend::ShowMoreLabel()
         connect(lb, &ClickedLabel::clicked, this, &ApplyFriend::SlotChangeFriendLabelByTip);
 
         QFontMetrics fontMetrics(lb->font()); // 获取QLabel控件的字体信息
-        int textWidth = fontMetrics.width(lb->text()); // 获取文本的宽度
+        int textWidth = fontMetrics.horizontalAdvance(lb->text()); // 获取文本的宽度
         int textHeight = fontMetrics.height(); // 获取文本的高度
 
         //如果当前标签的x坐标加上文本宽度和间距超过标签展示区的宽度, 则换行显示
@@ -347,7 +347,7 @@ void ApplyFriend::SlotLabelEnter()
     qDebug() << "_tip_cur_point.x() is " << _tip_cur_point.x();
 
     QFontMetrics fontMetrics(lb->font()); // 获取QLabel控件的字体信息
-    int textWidth = fontMetrics.width(lb->text()); // 获取文本的宽度
+    int textWidth = fontMetrics.horizontalAdvance(lb->text()); // 获取文本的宽度
     int textHeight = fontMetrics.height(); // 获取文本的高度
     qDebug() << "textWidth is " << textWidth;
 
@@ -495,7 +495,7 @@ void ApplyFriend::SlotAddFirendLabelByClickTip(QString text)
     qDebug() << "_tip_cur_point.x() is " << _tip_cur_point.x();
 
     QFontMetrics fontMetrics(lb->font()); // 获取QLabel控件的字体信息
-    int textWidth = fontMetrics.width(lb->text()); // 获取文本的宽度
+    int textWidth = fontMetrics.horizontalAdvance(lb->text()); // 获取文本的宽度
     int textHeight = fontMetrics.height(); // 获取文本的高度
     qDebug() << "textWidth is " << textWidth;
 

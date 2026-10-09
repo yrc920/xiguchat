@@ -22,7 +22,7 @@ void ClickedBtn::SetState(QString normal, QString hover, QString press)
     update(); //更新界面
 }
 
-void ClickedBtn::enterEvent(QEvent *event)
+void ClickedBtn::enterEvent(QEnterEvent *event)
 {
     setProperty("state", _hover); //设置状态属性为悬停状态的样式名称(用于qss根据状态属性选择样式)
     repolish(this); //刷新样式表，使得状态生效

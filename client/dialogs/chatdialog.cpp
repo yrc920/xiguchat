@@ -462,7 +462,7 @@ void ChatDialog::slot_auth_rsp(std::shared_ptr<AuthRsp> auth_rsp)
 
 void ChatDialog::slot_jump_chat_item(std::shared_ptr<SearchInfo> si)
 {
-    qDebug() << "slot jump chat item " << endl;
+    qDebug() << "slot jump chat item ";
     auto find_iter = _chat_items_added.find(si->_uid);
     if(find_iter != _chat_items_added.end()){
         qDebug() << "jump to chat item , uid is " << si->_uid;
@@ -512,7 +512,7 @@ void ChatDialog::slot_switch_apply_friend_page()
 
 void ChatDialog::slot_jump_chat_item_from_infopage(std::shared_ptr<UserInfo> user_info)
 {
-    qDebug() << "slot jump chat item " << endl;
+    qDebug() << "slot jump chat item ";
     auto find_iter = _chat_items_added.find(user_info->_uid);
     if(find_iter != _chat_items_added.end()){
         qDebug() << "jump to chat item , uid is " << user_info->_uid;
@@ -675,7 +675,7 @@ void ChatDialog::handleGlobalMousePress(QMouseEvent *event)
     }
 
     //将鼠标点击位置转换为搜索列表坐标系中的位置
-    QPoint posInSearchList = ui->search_list->mapFromGlobal(event->globalPos());
+    QPoint posInSearchList = ui->search_list->mapFromGlobal(event->globalPosition().toPoint());
     //判断点击位置是否在聊天列表的范围内
     if (!ui->search_list->rect().contains(posInSearchList)) {
         ui->search_edit->clear(); //如果不在聊天列表内，清空输入框

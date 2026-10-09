@@ -54,7 +54,7 @@ void ClickedLabel::mouseReleaseEvent(QMouseEvent *event)
     QLabel::mousePressEvent(event);
 }
 
-void ClickedLabel::enterEvent(QEvent* event) {
+void ClickedLabel::enterEvent(QEnterEvent* event) {
     //如果当前状态是正常状态
     if(_curstate == ClickLbState::Normal){
         //设置状态属性为正常悬停状态的样式名称(用于qss根据状态属性选择样式)

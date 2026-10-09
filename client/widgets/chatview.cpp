@@ -12,7 +12,7 @@ ChatView::ChatView(QWidget *parent)
     /* 窗口主布局为垂直布局, 其中包含一个滚动区域组件 */
     QVBoxLayout *pMainLayout = new QVBoxLayout(); //创建一个垂直布局管理器
     this->setLayout(pMainLayout); //将当前窗口的布局设置为垂直布局
-    pMainLayout->setMargin(0); //设置布局管理器的边距为0, 这样布局中的组件就会紧贴窗口边缘
+    pMainLayout->setContentsMargins(0, 0, 0, 0); //设置布局管理器的边距为0, 这样布局中的组件就会紧贴窗口边缘
     m_pScrollArea = new QScrollArea(); //创建一个滚动区域组件
     m_pScrollArea->setObjectName("chat_area");
     pMainLayout->addWidget(m_pScrollArea); //将滚动区域添加到主布局中, 这样滚动区域就会显示在窗口中
@@ -38,7 +38,7 @@ ChatView::ChatView(QWidget *parent)
     QHBoxLayout *pHLayout_2 = new QHBoxLayout(); //创建一个水平布局管理器, 用于排列滚动区域的内容和滚动条
     //将滚动条添加到水平布局中, 并使其悬浮显示在右边
     pHLayout_2->addWidget(pVScrollBar, 0, Qt::AlignRight);
-    pHLayout_2->setMargin(0); //设置水平布局的边距为0, 这样布局中的组件就会紧贴窗口边缘
+    pHLayout_2->setContentsMargins(0, 0, 0, 0); //设置水平布局的边距为0, 这样布局中的组件就会紧贴窗口边缘
     m_pScrollArea->setLayout(pHLayout_2); //将滚动区域的布局设置为水平布局, 这样滚动区域就会包含滚动条
     pVScrollBar->setHidden(true); //设置滚动条初始状态为隐藏
 
@@ -105,7 +105,7 @@ bool ChatView::eventFilter(QObject *o, QEvent *e)
 void ChatView::paintEvent(QPaintEvent *event)
 {
     QStyleOption opt; //创建一个QStyleOption对象
-    opt.init(this); //初始化这个对象，使它包含当前widget的状态和属性
+    opt.initFrom(this); //初始化这个对象，使它包含当前widget的状态和属性
     QPainter p(this); //创建一个QPainter对象，并将当前widget作为绘制设备
     //调用当前widget的style来绘制基本元素(PE_Widget)
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);

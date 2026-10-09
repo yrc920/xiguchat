@@ -15,7 +15,7 @@ StateWidget::StateWidget(QWidget *parent) : QWidget(parent), _curstate(ClickLbSt
 void StateWidget::paintEvent(QPaintEvent *event)
 {
     QStyleOption opt; //创建一个QStyleOption对象
-    opt.init(this); //初始化这个对象，使它包含当前widget的状态和属性
+    opt.initFrom(this); //初始化这个对象，使它包含当前widget的状态和属性
     QPainter p(this); //创建一个QPainter对象，并将当前widget作为绘制设备
     //调用当前widget的style来绘制基本元素(PE_Widget)
     style()->drawPrimitive(QStyle::PE_Widget, &opt, &p, this);
@@ -71,7 +71,7 @@ void StateWidget::mouseReleaseEvent(QMouseEvent *event)
     QWidget::mousePressEvent(event);
 }
 
-void StateWidget::enterEvent(QEvent* event) {
+void StateWidget::enterEvent(QEnterEvent* event) {
     //如果鼠标进入控件区域, 则根据当前状态切换到对应的悬停状态
     if(_curstate == ClickLbState::Normal){
         //qDebug()<<"enter , change to normal hover: "<< _normal_hover;
@@ -160,7 +160,7 @@ void StateWidget::AddRedPoint()
     QVBoxLayout* layout2 = new QVBoxLayout; //创建一个垂直布局管理器
     _red_point->setAlignment(Qt::AlignCenter); //设置红点示意图的对齐方式为居中
     layout2->addWidget(_red_point); //将红点示意图添加到布局管理器中
-    layout2->setMargin(0); //设置布局管理器的边距为0
+    layout2->setContentsMargins(0, 0, 0, 0); //设置布局管理器的边距为0
     this->setLayout(layout2); //将布局管理器设置为当前widget的布局
     _red_point->setVisible(false); //初始状态下隐藏红点示意图
 }

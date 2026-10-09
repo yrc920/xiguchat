@@ -21,7 +21,7 @@ public:
     ClickedLabel(QWidget* parent);
     virtual void mousePressEvent(QMouseEvent *ev) override; //处理鼠标点击事件
     virtual void mouseReleaseEvent(QMouseEvent *event) override; //处理鼠标释放事件
-    virtual void enterEvent(QEvent* event) override; //处理鼠标悬停进入事件
+    virtual void enterEvent(QEnterEvent* event) override; //处理鼠标悬停进入事件
     virtual void leaveEvent(QEvent* event) override; //处理鼠标悬停离开事件
     //设置状态的样式名称
     void SetState(QString normal = "", QString hover = "", QString press = "",

@@ -21,7 +21,7 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
     QGridLayout *pGLayout = new QGridLayout(); //创建一个网格布局管理器
     pGLayout->setVerticalSpacing(7); //设置网格布局的垂直间距
     pGLayout->setHorizontalSpacing(7); //设置网格布局的水平间距
-    pGLayout->setMargin(7); //设置网格布局的内边距
+    pGLayout->setContentsMargins(7, 7, 7, 7); //设置网格布局的内边距
     //创建一个水平扩展的占位符, 用于调整布局中的空白区域
     QSpacerItem*pSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
     //如果消息的发送者是自己
