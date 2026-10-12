@@ -8,7 +8,7 @@
   "configurePresets": [
     {
       "name": "windows-mingw",
-      "displayName": "Windows · MinGW · Qt 6.5",
+      "displayName": "Windows · MinGW · Qt 6.5 (Debug)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/windows-mingw",
       "cacheVariables": {
@@ -18,8 +18,19 @@
       }
     },
     {
+      "name": "windows-mingw-release",
+      "displayName": "Windows · MinGW · Qt 6.5 (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/windows-mingw-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "$env{MINGW_ROOT}/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "$env{MINGW_ROOT}/bin/g++.exe"
+      }
+    },
+    {
       "name": "macos-clang",
-      "displayName": "macOS · AppleClang · Qt 6.5",
+      "displayName": "macOS · AppleClang · Qt 6.5 (Debug)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-clang",
       "cacheVariables": {
@@ -27,12 +38,30 @@
       }
     },
     {
+      "name": "macos-clang-release",
+      "displayName": "macOS · AppleClang · Qt 6.5 (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-clang-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "linux-gcc",
-      "displayName": "Linux · GCC · Qt 6.5",
+      "displayName": "Linux · GCC · Qt 6.5 (Debug)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-gcc",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux · GCC · Qt 6.5 (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-gcc-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
       }
     }
   ],
@@ -42,12 +71,24 @@
       "configurePreset": "windows-mingw"
     },
     {
+      "name": "windows-mingw-release",
+      "configurePreset": "windows-mingw-release"
+    },
+    {
       "name": "macos-clang",
       "configurePreset": "macos-clang"
     },
     {
+      "name": "macos-clang-release",
+      "configurePreset": "macos-clang-release"
+    },
+    {
       "name": "linux-gcc",
       "configurePreset": "linux-gcc"
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release"
     }
   ]
 }

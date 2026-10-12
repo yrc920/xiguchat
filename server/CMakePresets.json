@@ -12,14 +12,14 @@
       "generator": "Visual Studio 18 2026",
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build/windows-msvc",
-      "toolchainFile": "D:/cppsoft/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
     },
     {
       "name": "macos-clang",
-      "displayName": "macOS AppleClang (vcpkg)",
+      "displayName": "macOS AppleClang Debug (vcpkg)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-clang",
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
@@ -29,14 +29,36 @@
       }
     },
     {
+      "name": "macos-clang-release",
+      "displayName": "macOS AppleClang Release (vcpkg)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/macos-clang-release",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "arm64-osx",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
       "name": "linux-gcc",
-      "displayName": "Linux GCC (vcpkg)",
+      "displayName": "Linux GCC Debug (vcpkg)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-gcc",
       "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-linux",
         "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "linux-gcc-release",
+      "displayName": "Linux GCC Release (vcpkg)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-gcc-release",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_BUILD_TYPE": "Release"
       }
     }
   ],
@@ -56,8 +78,16 @@
       "configurePreset": "macos-clang"
     },
     {
+      "name": "macos-clang-release",
+      "configurePreset": "macos-clang-release"
+    },
+    {
       "name": "linux-gcc",
       "configurePreset": "linux-gcc"
+    },
+    {
+      "name": "linux-gcc-release",
+      "configurePreset": "linux-gcc-release"
     }
   ]
 }
