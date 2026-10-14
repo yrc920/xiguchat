@@ -141,23 +141,26 @@ void LoginDialog::slot_forget_pwd()
 void LoginDialog::initHead()
 {
     QPixmap originalPixmap(":/res/ice.png"); //加载图片
-    //设置图片自动缩放
-    qDebug() << originalPixmap.size() << ui->head_label->size();
-    originalPixmap = originalPixmap.scaled(ui->head_label->size(),
+    //按设备像素比（HiDPI）预渲染，避免高分屏下模糊
+    qreal dpr = ui->head_label->devicePixelRatioF();
+    originalPixmap = originalPixmap.scaled(ui->head_label->size() * dpr,
         Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    originalPixmap.setDevicePixelRatio(dpr);
 
     //创建一个和原始图片相同大小的QPixmap，用于绘制圆角图片
     QPixmap roundedPixmap(originalPixmap.size());
     roundedPixmap.fill(Qt::transparent); // 用透明色填充
+    roundedPixmap.setDevicePixelRatio(dpr);
 
     QPainter painter(&roundedPixmap);
     painter.setRenderHint(QPainter::Antialiasing); //设置抗锯齿，使圆角更平滑
     painter.setRenderHint(QPainter::SmoothPixmapTransform); //设置平滑变换，使缩放后的图片更清晰
 
     //使用QPainterPath设置圆角
+    //QPainter 在 HiDPI 画布上使用逻辑坐标，矩形尺寸需除以设备像素比
     QPainterPath path;
     //最后两个参数分别是x和y方向的圆角半径
-    path.addRoundedRect(0, 0, originalPixmap.width(), originalPixmap.height(), 10, 10);
+    path.addRoundedRect(0, 0, originalPixmap.width() / dpr, originalPixmap.height() / dpr, 10, 10);
     painter.setClipPath(path); //设置剪切路径为圆角矩形，这样之后绘制的图片就会被剪切成圆角的形状
     painter.drawPixmap(0, 0, originalPixmap); //将原始图片绘制到roundedPixmap上
     ui->head_label->setPixmap(roundedPixmap); //设置绘制好的圆角图片到QLabel上

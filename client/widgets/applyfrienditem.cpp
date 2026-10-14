@@ -1,5 +1,6 @@
 #include "applyfrienditem.h"
 #include "ui_applyfrienditem.h"
+#include "global.h"
 
 ApplyFriendItem::ApplyFriendItem(QWidget *parent) :
     ListItemBase(parent), _added(false),
@@ -27,9 +28,8 @@ void ApplyFriendItem::SetInfo(std::shared_ptr<ApplyInfo> apply_info)
 
     QPixmap pixmap(_apply_info->_icon); //加载图片
     //设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->user_name_lb->setText(_apply_info->_name); //设置用户名标签的文本为申请人的名字
     ui->user_chat_lb->setText(_apply_info->_desc); //设置用户备注标签的文本为申请人的备注信息

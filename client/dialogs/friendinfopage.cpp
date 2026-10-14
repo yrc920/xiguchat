@@ -1,6 +1,7 @@
 #include "friendinfopage.h"
 #include "ui_friendinfopage.h"
 #include <QDebug>
+#include "global.h"
 
 FriendInfoPage::FriendInfoPage(QWidget *parent) :
     QWidget(parent),
@@ -24,9 +25,8 @@ void FriendInfoPage::SetInfo(std::shared_ptr<UserInfo> user_info)
     QPixmap pixmap(user_info->_icon);
 
     // 设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->name_lb->setText(user_info->_name);
     ui->nick_lb->setText(user_info->_nick);

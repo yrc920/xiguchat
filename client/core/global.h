@@ -14,6 +14,7 @@
 #include <QJsonObject>
 #include <QDir>
 #include <QSettings>
+#include <QPixmap>
 /******************************************************************************
  *
  * @file       global.h
@@ -130,6 +131,19 @@ enum ListItemType{
 const int MIN_APPLY_LABEL_ED_LEN = 40; //申请好友标签输入框最低长度
 const QString add_prefix = "添加标签 ";
 const int tip_offset = 5; //标签之间的间距
+
+// 将图片缩放到目标显示尺寸，并按设备像素比（HiDPI）预渲染，
+// 避免高分屏下按逻辑像素缩放导致的模糊
+inline QPixmap scalePixmapForLabel(const QPixmap &src, const QSize &targetSize, qreal dpr)
+{
+    if (src.isNull()) {
+        return src;
+    }
+    QPixmap scaled = src.scaled(targetSize * dpr, Qt::KeepAspectRatio,
+                                Qt::SmoothTransformation);
+    scaled.setDevicePixelRatio(dpr);
+    return scaled;
+}
 
 const std::vector<QString>  strs ={"hello world !",
                                    "nice to meet u",

@@ -60,13 +60,12 @@ ChatDialog::ChatDialog(QWidget *parent)
     connect(ui->con_user_list, &ContactUserList::sig_switch_apply_friend_page,
         this, &ChatDialog::slot_switch_apply_friend_page);
 
-    addChatUserList(); //添加一些随机生成的聊天用户列表项作为测试用例
+    addChatUserList(); //加载聊天用户列表（按好友列表分页读取）
 
-    //加载图片并缩放到label的大小
+    //加载图片并按设备像素比预渲染，避免高分屏模糊
     QPixmap pixmap(":/res/head_1.jpg");
-    QPixmap scaledPixmap = pixmap.scaled(ui->side_head_lb->size(), Qt::KeepAspectRatio);
-    ui->side_head_lb->setPixmap(scaledPixmap); //将缩放后的图片设置到QLabel上
-    ui->side_head_lb->setScaledContents(true); //设置QLabel自动缩放图片内容以适应大小
+    ui->side_head_lb->setPixmap(scalePixmapForLabel(pixmap, ui->side_head_lb->size(),
+        ui->side_head_lb->devicePixelRatioF()));
 
     //设置侧边栏聊天和联系人的状态样式, 包括正常、悬浮、按下和选中状态的样式
     ui->side_chat_lb->SetState("normal", "hover", "pressed",

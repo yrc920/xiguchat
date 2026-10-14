@@ -1,5 +1,6 @@
 #include "chatuserwid.h"
 #include "ui_chatuserwid.h"
+#include "global.h"
 
 ChatUserWid::ChatUserWid(QWidget *parent) :
     ListItemBase(parent),
@@ -23,9 +24,8 @@ void ChatUserWid::SetInfo(std::shared_ptr<UserInfo> user_info)
     QPixmap pixmap(_user_info->_icon);
 
     // 设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->user_name_lb->setText(_user_info->_name);
     ui->user_chat_lb->setText(_user_info->_last_msg);
@@ -38,9 +38,8 @@ void ChatUserWid::SetInfo(std::shared_ptr<FriendInfo> friend_info)
     QPixmap pixmap(_user_info->_icon);
 
     // 设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->user_name_lb->setText(_user_info->_name);
     ui->user_chat_lb->setText(_user_info->_last_msg);

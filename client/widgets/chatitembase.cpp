@@ -13,7 +13,7 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
 
     //初始化显示用户头像的标签
     m_pIconLabel = new QLabel();
-    m_pIconLabel->setScaledContents(true); //设置头像标签的内容自动缩放以适应标签的大小
+    // 头像由 setUserIcon() 按设备像素比预渲染，不启用 scaledContents 以免二次缩放变模糊
     m_pIconLabel->setFixedSize(42, 42);
 
     //初始化显示消息内容的气泡组件
@@ -59,7 +59,9 @@ void ChatItemBase::setUserName(const QString &name)
 
 void ChatItemBase::setUserIcon(const QPixmap &icon)
 {
-    m_pIconLabel->setPixmap(icon);
+    // 按头像标签尺寸与设备像素比预渲染，避免高分屏模糊
+    m_pIconLabel->setPixmap(scalePixmapForLabel(icon, m_pIconLabel->size(),
+        m_pIconLabel->devicePixelRatioF()));
 }
 
 void ChatItemBase::setWidget(QWidget *w)

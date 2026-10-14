@@ -1,5 +1,6 @@
 #include "conuseritem.h"
 #include "ui_conuseritem.h"
+#include "global.h"
 
 ConUserItem::ConUserItem(QWidget *parent) :
     ListItemBase(parent),
@@ -27,9 +28,8 @@ void ConUserItem::SetInfo(std::shared_ptr<AuthInfo> auth_info)
 
     QPixmap pixmap(_info->_icon); //加载图片
     //设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->user_name_lb->setText(_info->_name); //设置用户名标签的文本为用户的名字
 }
@@ -41,9 +41,8 @@ void ConUserItem::SetInfo(int uid, QString name, QString icon)
 
     QPixmap pixmap(_info->_icon); //加载图片
     //设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->user_name_lb->setText(_info->_name); //设置用户名标签的文本为用户的名字
 }
@@ -54,9 +53,8 @@ void ConUserItem::SetInfo(std::shared_ptr<AuthRsp> auth_rsp)
 
     QPixmap pixmap(_info->_icon); //加载图片
     //设置图片自动缩放
-    ui->icon_lb->setPixmap(pixmap.scaled(ui->icon_lb->size(),
-        Qt::KeepAspectRatio, Qt::SmoothTransformation));
-    ui->icon_lb->setScaledContents(true);
+    ui->icon_lb->setPixmap(scalePixmapForLabel(pixmap, ui->icon_lb->size(),
+        ui->icon_lb->devicePixelRatioF()));
 
     ui->user_name_lb->setText(_info->_name); //设置用户名标签的文本为用户的名字
 }

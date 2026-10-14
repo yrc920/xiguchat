@@ -3,6 +3,7 @@
 
 #include <QDir>
 #include "applyfriend.h"
+#include "global.h"
 
 FindSuccessDlg::FindSuccessDlg(QWidget *parent) :
     QDialog(parent),
@@ -17,9 +18,9 @@ FindSuccessDlg::FindSuccessDlg(QWidget *parent) :
     QString pix_path = QDir::toNativeSeparators(app_path +
         QDir::separator() + "static" + QDir::separator() + "head_1.jpg"); //构建图片的完整路径
     QPixmap head_pix(pix_path); //加载图片
-    //缩放图片到label的大小，保持宽高比，并使用平滑变换以获得更好的图像质量
-    head_pix = head_pix.scaled(ui->head_lb->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    ui->head_lb->setPixmap(head_pix); //将缩放后的图片设置到QLabel上
+    // 按头像标签尺寸与设备像素比预渲染，避免高分屏模糊
+    ui->head_lb->setPixmap(scalePixmapForLabel(head_pix, ui->head_lb->size(),
+        ui->head_lb->devicePixelRatioF()));
     ui->add_friend_btn->SetState("normal", "hover", "press"); //设置添加好友按钮的状态样式
     this->setModal(true); //设置对话框为模态, 阻止用户与其他窗口交互, 直到对话框被关闭
 }
