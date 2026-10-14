@@ -12,7 +12,6 @@
       "generator": "Visual Studio 18 2026",
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build/windows-msvc",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-windows"
       }
@@ -22,7 +21,6 @@
       "displayName": "macOS AppleClang Debug (vcpkg)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-clang",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
         "CMAKE_BUILD_TYPE": "Debug"
@@ -33,7 +31,6 @@
       "displayName": "macOS AppleClang Release (vcpkg)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/macos-clang-release",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "arm64-osx",
         "CMAKE_BUILD_TYPE": "Release"
@@ -44,7 +41,6 @@
       "displayName": "Linux GCC Debug (vcpkg)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-gcc",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-linux",
         "CMAKE_BUILD_TYPE": "Debug"
@@ -55,7 +51,6 @@
       "displayName": "Linux GCC Release (vcpkg)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/linux-gcc-release",
-      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "VCPKG_TARGET_TRIPLET": "x64-linux",
         "CMAKE_BUILD_TYPE": "Release"

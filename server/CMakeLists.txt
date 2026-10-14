@@ -13,6 +13,22 @@
 # ============================================================
 cmake_minimum_required(VERSION 3.21)
 
+# ---------- 环境检查 ----------
+# vcpkg 工具链依赖 $ENV{VCPKG_ROOT} 定位，未设置时在此给出清晰指引
+if(NOT DEFINED ENV{VCPKG_ROOT})
+    message(FATAL_ERROR
+        "未设置 VCPKG_ROOT 环境变量（vcpkg 安装目录），请先设置：\n"
+        "  Windows:   setx VCPKG_ROOT \"D:\\path\\to\\vcpkg\"\n"
+        "  macOS/Linux: export VCPKG_ROOT=~/vcpkg\n"
+        "设置后重新打开 VSCode（或终端）再 configure。")
+endif()
+
+# ---------- vcpkg 工具链 ----------
+# 在 project() 前显式设置（toolchain 在第一个 project() 调用时加载），
+# 由本文件统一指定，使命令行、IDE 等各构建入口获得一致的构建环境
+set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+    CACHE FILEPATH "vcpkg toolchain file")
+
 project(xiguchat-server VERSION 1.0.0 LANGUAGES CXX)
 
 # ---------- C++ 标准 ----------
