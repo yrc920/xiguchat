@@ -2,11 +2,16 @@
 
 #include <QApplication>
 #include <QFile>
+#include <QIcon>
 #include "global.h"
 
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
+    // 统一设置应用窗口图标（三端通用，从 qrc 资源加载）：
+    // Windows/Linux 显示在窗口标题栏与任务栏；
+    // macOS 窗口标题栏不显示图标，Dock 图标由 .app bundle 内的 .icns 提供（见 CMakeLists APPLE 分支）
+    a.setWindowIcon(QIcon(":/res/Facebook.ico"));
     QFile qss(":style/stylesheet.qss"); //资源文件路径
     if(qss.open(QFile::ReadOnly)){
         qDebug("open success");

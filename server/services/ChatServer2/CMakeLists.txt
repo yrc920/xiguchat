@@ -5,7 +5,7 @@
 #
 #  依赖: xigu_proto（共享 proto 库）+ gRPC/protobuf + Boost
 #        + hiredis + jsoncpp + mysql-connector-cpp
-#  产物: build/windows-msvc/bin/ChatServer2/Debug/ChatServer2.exe
+#  产物: 构建目录 bin/ChatServer2/ 下（三平台同一布局，Debug/Release 由预设决定）
 # ============================================================
 
 # 可执行文件名（同时用于输出目录与部署）
@@ -89,4 +89,4 @@ set_target_properties(${SERVER_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${SERVER_NAME}")
 
 # 构建后部署：拷贝 config.ini 与全部运行时 DLL 到 exe 目录
-xigu_deploy(${SERVER_NAME})
+xiguchat_deploy(${SERVER_NAME})

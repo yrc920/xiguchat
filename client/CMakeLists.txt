@@ -187,12 +187,6 @@ set(VIEW_FORMS
 #  WIN32 标志：生成 GUI 子系统程序（无控制台窗口），
 #  入口仍为 main()，Qt 会按 Windows 方式运行
 # ------------------------------------------------------------
-# Windows 资源文件（图标/版本信息）只在 Windows 参与编译，
-# macOS / Linux 上 .rc 无对应编译器，必须条件化
-if(WIN32)
-    set(XIGUCHAT_RC resources/xiguchat.rc)
-endif()
-
 add_executable(xiguchat WIN32
     main.cpp
     ${CORE_SOURCES} ${CORE_HEADERS}
@@ -201,7 +195,6 @@ add_executable(xiguchat WIN32
     ${DIALOG_SOURCES} ${DIALOG_HEADERS} ${DIALOG_FORMS}
     ${VIEW_SOURCES} ${VIEW_HEADERS} ${VIEW_FORMS}
     resources/rc.qrc
-    ${XIGUCHAT_RC}
 )
 
 # 各模块目录加入头文件搜索路径，源码内 #include "xxx.h" 可直接引用
@@ -223,10 +216,26 @@ if(MSVC)
     target_compile_options(xiguchat PRIVATE /utf-8 /wd4819)
 endif()
 
-# 输出目录：构建目录下的 bin/（最终 exe 在 build/windows-msvc/bin/）
+# 输出目录：构建目录下的 bin/（三平台产物统一在 build/<preset>/bin/ 下）
 set_target_properties(xiguchat PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# macOS：打成 .app bundle，Dock/程序坞才能显示图标。
+# macOS 窗口标题栏不显示图标，setWindowIcon 在 mac 上无效，
+# Dock 图标来自 bundle Contents/Resources 里的 .icns。
+# xiguchat.icns 由 resources/Facebook.ico（128x128）转换生成。
+if(APPLE)
+    set_target_properties(xiguchat PROPERTIES
+        MACOSX_BUNDLE TRUE
+        MACOSX_BUNDLE_BUNDLE_NAME "xiguchat"
+        MACOSX_BUNDLE_ICON_FILE "xiguchat.icns"
+    )
+    target_sources(xiguchat PRIVATE resources/xiguchat.icns)
+    set_source_files_properties(resources/xiguchat.icns PROPERTIES
+        MACOSX_PACKAGE_LOCATION "Resources"
+    )
+endif()
 
 # ------------------------------------------------------------
 #  构建后部署：把运行必需的 config.ini 与 static/ 资源

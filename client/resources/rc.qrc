@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/">
+        <file alias="res/Facebook.ico">Facebook.ico</file>
         <file>res/ice.png</file>
         <file>style/stylesheet.qss</file>
         <file>res/add_friend_hover.png</file>

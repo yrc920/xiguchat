@@ -347,7 +347,7 @@ void TcpMgr::initHandlers()
         }
 
         qDebug() << "Receive Text Chat Rsp Success " ;
-        //ui设置送达等标记 todo...
+        // TODO: 设置消息送达等标记（当前未实现）
     });
 
     _handlers.insert(ID_NOTIFY_TEXT_CHAT_MSG_REQ, [this](ReqId id, int len, QByteArray data) {

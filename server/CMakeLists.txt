@@ -7,11 +7,11 @@
 #          toolchain 自动安装，版本由 vcpkg baseline 锁定
 #  目标:   GateServer / StatusServer / ChatServer / ChatServer2
 #          四个相互独立的可执行程序（微服务）
-#  构建:   VSCode + CMake 插件选择 windows-msvc 预设，
-#          或命令行：cmake --preset windows-msvc
-#                     cmake --build --preset windows-msvc-debug
+#  构建:   三平台预设（windows-msvc / macos-clang / linux-gcc），
+#          命令行：cmake --preset <平台预设> [-release]
+#                  cmake --build --preset <平台预设>[-release]
 # ============================================================
-cmake_minimum_required(VERSION 3.20)
+cmake_minimum_required(VERSION 3.21)
 
 project(xiguchat-server VERSION 1.0.0 LANGUAGES CXX)
 
@@ -23,7 +23,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # 把项目自带的 cmake/ 目录加入模块搜索路径，
-# 这样下面 include(XiguCommon) 才能找到 cmake/XiguCommon.cmake
+# 这样下面 include(XiguChatCommon) 才能找到 cmake/XiguChatCommon.cmake
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # ---------- 查找依赖（vcpkg 提供） ----------
@@ -62,9 +62,9 @@ else()
 endif()
 
 # ---------- 公共部署函数 ----------
-# XiguCommon.cmake 提供 xigu_deploy()：
-# 每个服务构建后自动拷贝 config.ini 与运行时 DLL 到输出目录
-include(XiguCommon)
+# XiguChatCommon.cmake 提供 xiguchat_deploy()：
+# 每个服务构建后自动拷贝 config.ini（三平台）与运行时 DLL（仅 Windows）到输出目录
+include(XiguChatCommon)
 
 # ---------- proto 共享库 ----------
 # proto/CMakeLists.txt 定义 xigu_proto 静态库：
