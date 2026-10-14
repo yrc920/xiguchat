@@ -34,7 +34,7 @@ void FriendLabel::SetText(QString text)
     qDebug() << " textWidth is " << textWidth;
     //设置标签的宽度为文本宽度加上关闭按钮的宽度和一些间距
     this->setFixedWidth(ui->tip_lb->width() + ui->close_lb->width() + 5);
-    this->setFixedHeight(textHeight + 12); //设置标签的高度为文本高度加上一些间距
+    this->setFixedHeight(textHeight + 2); //设置标签的高度为文本高度加上一些间距
     qDebug() << " this->setFixedHeight " << this->height();
     _width = this->width(); //保存标签的宽度
     _height = this->height(); //保存标签的高度

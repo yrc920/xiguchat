@@ -2,20 +2,20 @@
 #include <QPainter>
 #include <QDebug>
 
-const int WIDTH_SANJIAO  = 12;  //三角宽
+const int WIDTH_SANJIAO  = 8;  //三角宽
 
 BubbleFrame::BubbleFrame(ChatRole role, QWidget *parent)
     : QFrame(parent)
     ,m_role(role)
-    ,m_margin(12)
+    ,m_margin(3)
 {
     m_pHLayout = new QHBoxLayout(); //创建一个水平布局管理器
     if(m_role == ChatRole::Self)
         //设置水平布局的内边距, 如果消息的发送者是自己, 则设置右边距为三角宽加上默认边距, 其他边距为默认边距
-        m_pHLayout->setContentsMargins(m_margin, m_margin-3, WIDTH_SANJIAO + m_margin, m_margin-3);
+        m_pHLayout->setContentsMargins(m_margin, m_margin, WIDTH_SANJIAO + m_margin, m_margin);
     else
         //设置水平布局的内边距, 如果消息的发送者是对方, 则设置左边距为三角宽加上默认边距, 其他边距为默认边距
-        m_pHLayout->setContentsMargins(WIDTH_SANJIAO + m_margin-3, m_margin, m_margin, m_margin-3);
+        m_pHLayout->setContentsMargins(WIDTH_SANJIAO + m_margin, m_margin, m_margin, m_margin);
 
     this->setLayout(m_pHLayout); //将当前气泡组件的布局设置为水平布局
 }
@@ -54,14 +54,14 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
         //定义小三角的三个点的坐标
         QPointF points[3] = {
             QPointF(bk_rect.x(), 12),
-            QPointF(bk_rect.x(), 12 + WIDTH_SANJIAO + 3),
-            QPointF(bk_rect.x() - WIDTH_SANJIAO, 12),
+            QPointF(bk_rect.x(), 10 + WIDTH_SANJIAO + 2),
+            QPointF(bk_rect.x() - WIDTH_SANJIAO, 10 + WIDTH_SANJIAO - WIDTH_SANJIAO / 2),
         };
         painter.drawPolygon(points, 3); //绘制一个由这三个点组成的多边形, 也就是气泡的小三角
     }
     else
     {
-        QColor bk_color(158,234,106); //设置气泡背景颜色为浅绿色
+        QColor bk_color(158, 234, 106); //设置气泡背景颜色为浅绿色
         painter.setBrush(QBrush(bk_color)); //设置绘制的刷子为这个颜色
 
         //定义一个矩形区域, 从气泡组件的左上角开始, 宽度为气泡组件的宽度减去三角宽, 高度为气泡组件的高度
@@ -71,8 +71,8 @@ void BubbleFrame::paintEvent(QPaintEvent *e)
         //定义小三角的三个点的坐标
         QPointF points[3] = {
             QPointF(bk_rect.x() + bk_rect.width(), 12),
-            QPointF(bk_rect.x() + bk_rect.width(), 12 + WIDTH_SANJIAO + 3),
-            QPointF(bk_rect.x() + bk_rect.width() + WIDTH_SANJIAO, 12),
+            QPointF(bk_rect.x() + bk_rect.width(), 12 + WIDTH_SANJIAO + 2),
+            QPointF(bk_rect.x() + bk_rect.width() + WIDTH_SANJIAO, 10 + WIDTH_SANJIAO - WIDTH_SANJIAO / 2),
         };
         painter.drawPolygon(points, 3); //绘制一个由这三个点组成的多边形, 也就是气泡的小三角
     }

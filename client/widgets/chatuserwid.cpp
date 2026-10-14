@@ -7,6 +7,8 @@ ChatUserWid::ChatUserWid(QWidget *parent) :
 {
     ui->setupUi(this);
     SetItemType(ListItemType::CHAT_USER_ITEM); //设置列表项的类型为聊天用户项
+    ui->red_point->raise();
+    ShowRedPoint(false);
 }
 
 ChatUserWid::~ChatUserWid()
@@ -42,6 +44,15 @@ void ChatUserWid::SetInfo(std::shared_ptr<FriendInfo> friend_info)
 
     ui->user_name_lb->setText(_user_info->_name);
     ui->user_chat_lb->setText(_user_info->_last_msg);
+}
+
+void ChatUserWid::ShowRedPoint(bool bshow)
+{
+    if(bshow){
+        ui->red_point->show();
+    }else{
+        ui->red_point->hide();
+    }
 }
 
 std::shared_ptr<UserInfo> ChatUserWid::GetUserInfo()

@@ -87,7 +87,7 @@ void SearchList::addTipItem()
 {
     auto *invalid_item = new QWidget(); //创建一个无效条目的widget实例
     QListWidgetItem *item_tmp = new QListWidgetItem; //创建一个QListWidgetItem实例
-    item_tmp->setSizeHint(QSize(400, 20)); //设置列表项的大小为一个较小的尺寸, 以适应搜索提示信息的显示
+    item_tmp->setSizeHint(QSize(250, 10)); //设置列表项的大小为一个较小的尺寸, 以适应搜索提示信息的显示
     this->addItem(item_tmp); //将列表项添加到搜索结果列表中
     invalid_item->setObjectName("invalid_item");
     this->setItemWidget(item_tmp, invalid_item); //将无效条目的widget设置为列表项的widget

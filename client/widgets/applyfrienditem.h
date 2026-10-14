@@ -29,7 +29,7 @@ public:
     void SetInfo(std::shared_ptr<ApplyInfo> apply_info); //设置好友申请信息
     void ShowAddBtn(bool bshow); //显示或隐藏添加按钮
     QSize sizeHint() const override {
-        return QSize(400, 130); //返回自定义的尺寸
+        return QSize(250, 80); //返回自定义的尺寸
     }
     int GetUid(); //获取申请人的用户ID
 

@@ -27,11 +27,12 @@ public:
     ~ChatUserWid();
 
     QSize sizeHint() const override {
-        return QSize(350, 110); //返回自定义的尺寸
+        return QSize(250, 70); //返回自定义的尺寸
     }
 
     void SetInfo(std::shared_ptr<UserInfo> user_info);
     void SetInfo(std::shared_ptr<FriendInfo> friend_info);
+    void ShowRedPoint(bool bshow);
     std::shared_ptr<UserInfo> GetUserInfo();
     void updateLastMsg(std::vector<std::shared_ptr<TextChatData>> msgs);
 

@@ -127,7 +127,7 @@ enum ListItemType{
     APPLY_FRIEND_ITEM, //好友申请
 };
 
-const int MIN_APPLY_LABEL_ED_LEN = 50; //申请好友标签输入框最低长度
+const int MIN_APPLY_LABEL_ED_LEN = 40; //申请好友标签输入框最低长度
 const QString add_prefix = "添加标签 ";
 const int tip_offset = 5; //标签之间的间距
 
@@ -156,6 +156,6 @@ const std::vector<QString> names = {
     "Kotlin",
 };
 
-const int CHAT_COUNT_PER_PAGE = 12; //每页加载的聊天用户数量
+const int CHAT_COUNT_PER_PAGE = 13; //每页加载的聊天用户数量
 
 #endif // GLOBAL_H

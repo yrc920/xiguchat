@@ -9,25 +9,25 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
     //初始化显示用户名的标签
     m_pNameLabel = new QLabel();
     m_pNameLabel->setObjectName("chat_user_name");
-    m_pNameLabel->setFixedHeight(30); //设置用户名标签的高度
+    m_pNameLabel->setFixedHeight(20); //设置用户名标签的高度
 
     //初始化显示用户头像的标签
     m_pIconLabel = new QLabel();
     m_pIconLabel->setScaledContents(true); //设置头像标签的内容自动缩放以适应标签的大小
-    m_pIconLabel->setFixedSize(70, 70);
+    m_pIconLabel->setFixedSize(42, 42);
 
     //初始化显示消息内容的气泡组件
     m_pBubble = new QWidget();
     QGridLayout *pGLayout = new QGridLayout(); //创建一个网格布局管理器
-    pGLayout->setVerticalSpacing(7); //设置网格布局的垂直间距
-    pGLayout->setHorizontalSpacing(7); //设置网格布局的水平间距
-    pGLayout->setContentsMargins(7, 7, 7, 7); //设置网格布局的内边距
+    pGLayout->setVerticalSpacing(3); //设置网格布局的垂直间距
+    pGLayout->setHorizontalSpacing(3); //设置网格布局的水平间距
+    pGLayout->setContentsMargins(3, 3, 3, 3); //设置网格布局的内边距
     //创建一个水平扩展的占位符, 用于调整布局中的空白区域
     QSpacerItem*pSpacer = new QSpacerItem(40, 20, QSizePolicy::Expanding, QSizePolicy::Minimum);
     //如果消息的发送者是自己
     if(m_role == ChatRole::Self)
     {
-        m_pNameLabel->setContentsMargins(0, 0, 12, 0); //设置用户名标签的右边距为12像素, 其他边距为0
+        m_pNameLabel->setContentsMargins(0, 0, 8, 0); //设置用户名标签的右边距为12像素, 其他边距为0
         m_pNameLabel->setAlignment(Qt::AlignRight); //设置用户名标签的文本对齐方式为右对齐
         pGLayout->addWidget(m_pNameLabel, 0, 1, 1, 1); //将用户名标签添加到网格布局的第0行第1列, 占据1行1列
         //将头像标签添加到网格布局的第0行第2列, 占据2行1列, 对齐方式为顶部对齐
@@ -39,7 +39,7 @@ ChatItemBase::ChatItemBase(ChatRole role, QWidget *parent)
     }
     //如果消息的发送者是对方
     else{
-        m_pNameLabel->setContentsMargins(12, 0, 0, 0); //设置用户名标签的左边距为12像素, 其他边距为0
+        m_pNameLabel->setContentsMargins(8, 0, 0, 0); //设置用户名标签的左边距为12像素, 其他边距为0
         m_pNameLabel->setAlignment(Qt::AlignLeft); //设置用户名标签的文本对齐方式为左对齐
         //将头像标签添加到网格布局的第0行第0列, 占据2行1列, 对齐方式为顶部对齐
         pGLayout->addWidget(m_pIconLabel, 0, 0, 2, 1, Qt::AlignTop);

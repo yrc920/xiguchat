@@ -17,9 +17,9 @@ AuthenFriend::AuthenFriend(QWidget *parent)
     ui->lb_ed->setPlaceholderText("搜索、添加标签"); //设置标签输入框的占位文本
     ui->back_ed->setPlaceholderText("燃烧的胸毛"); //设置好友备注输入框的占位文本
 
-    ui->lb_ed->move(5, 5); //设置标签输入框的初始位置
-    ui->lb_ed->setFixedHeight(40); //设置标签输入框的固定高度
-    ui->lb_ed->setMaxLength(20); //设置标签输入框的最大输入长度为20个字符, 超过后将无法继续输入
+    ui->lb_ed->move(2, 2); //设置标签输入框的初始位置
+    ui->lb_ed->setFixedHeight(20); //设置标签输入框的固定高度
+    ui->lb_ed->setMaxLength(10); //设置标签输入框的最大输入长度为20个字符, 超过后将无法继续输入
     ui->input_tip_wid->hide(); //初始隐藏输入提示框
 
     _tip_cur_point = QPoint(5, 5); //设置标签展示区第一个标签的初始位置
@@ -87,7 +87,7 @@ void AuthenFriend::InitTipLbs()
             }
             _tip_cur_point.setX(tip_offset); //换行后第一个标签的x坐标重置为间距值
             //换行后第一个标签的y坐标增加文本高度和间距值
-            _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 20);
+            _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 15);
         }
 
         auto next_point = _tip_cur_point; //下一个标签的位置, 初始为当前标签的位置
@@ -105,7 +105,7 @@ void AuthenFriend::AddTipLbs(ClickedLabel* lb, QPoint cur_point,
     _add_labels.insert(lb->text(), lb); //将标签添加到已经创建好的标签的map中
     _add_label_keys.push_back(lb->text()); //将标签文本添加到已经创建好的标签的key列表中
     //更新下一个标签的x坐标为当前标签的x坐标加上文本宽度和间距值
-    next_point.setX(lb->pos().x() + text_width + 20);
+    next_point.setX(lb->pos().x() + text_width + 15);
     next_point.setY(lb->pos().y()); //下一个标签的y坐标与当前标签相同
 }
 
@@ -136,7 +136,7 @@ void AuthenFriend::ShowMoreLabel()
     qDebug()<< "receive more label clicked";
     ui->more_li_wid->hide(); //隐藏显示更多标签的标签和分割线
 
-    ui->lb_list->setFixedWidth(520); //设置标签展示区的固定宽度, 以便重新排列标签
+    ui->lb_list->setFixedWidth(325); //设置标签展示区的固定宽度, 以便重新排列标签
     _tip_cur_point = QPoint(5, 5); //重置标签展示区当前坐标, 从第一个标签位置重新排列
     auto next_point = _tip_cur_point; //下一个标签位置, 初始为第一个标签位置
     int textWidth; //文本宽度
@@ -155,12 +155,12 @@ void AuthenFriend::ShowMoreLabel()
         {
             _tip_cur_point.setX(tip_offset); //换行后第一个标签的x坐标重置为间距值
             //换行后第一个标签的y坐标增加文本高度和间距值
-            _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 20);
+            _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 15);
         }
         added_lb->move(_tip_cur_point); //将标签移动到当前坐标位置
 
         //更新下一个标签的x坐标为当前标签的x坐标加上文本宽度和间距值
-        next_point.setX(added_lb->pos().x() + textWidth + 20);
+        next_point.setX(added_lb->pos().x() + textWidth + 15);
         next_point.setY(_tip_cur_point.y()); //下一个标签的y坐标与当前标签相同
 
         _tip_cur_point = next_point; //更新当前标签的位置为下一个标签的位置, 为下一个标签的排列做准备
@@ -193,7 +193,7 @@ void AuthenFriend::ShowMoreLabel()
         {
             _tip_cur_point.setX(tip_offset); //换行后第一个标签的x坐标重置为间距值
             //换行后第一个标签的y坐标增加文本高度和间距值
-            _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 20);
+            _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 15);
         }
 
         next_point = _tip_cur_point; //下一个标签的位置, 初始为当前标签的位置
@@ -228,7 +228,7 @@ void AuthenFriend::resetLabels()
         iter.value()->show(); //显示标签
 
         //更新下一个标签的x坐标为当前标签的x坐标加上标签宽度和间距值
-        _label_point.setX(_label_point.x()+iter.value()->width() + 5);
+        _label_point.setX(_label_point.x()+iter.value()->width() + 2);
         _label_point.setY(_label_point.y()); //下一个标签的y坐标与当前标签相同
         label_height = iter.value()->height(); //更新标签高度为当前标签的高度, 为换行做准备
     }
@@ -244,7 +244,7 @@ void AuthenFriend::resetLabels()
     if(_label_point.x() + MIN_APPLY_LABEL_ED_LEN > ui->gridWidget->width())
     {
         //换行后标签输入框的x坐标重置为初始值, y坐标增加标签高度和间距值
-        ui->lb_ed->move(5, _label_point.y() + label_height + 6);
+        ui->lb_ed->move(2, _label_point.y() + label_height + 6);
     }
     else{
         ui->lb_ed->move(_label_point); //将标签输入框移动到当前标签的下一个位置显示
@@ -267,7 +267,7 @@ void AuthenFriend::addLabel(QString name)
     {
         //换行后第一个标签的y坐标增加标签高度和间距值
         _label_point.setY(_label_point.y() + tmplabel->height() + 6);
-        _label_point.setX(5); //换行后第一个标签的x坐标重置为初始值
+        _label_point.setX(2); //换行后第一个标签的x坐标重置为初始值
     }
 
     tmplabel->move(_label_point); //将标签移动到当前坐标位置
@@ -279,13 +279,13 @@ void AuthenFriend::addLabel(QString name)
     connect(tmplabel, &FriendLabel::sig_close, this, &AuthenFriend::SlotRemoveFriendLabel);
 
     //更新下一个标签的x坐标为当前标签的x坐标加上标签宽度和间距值
-    _label_point.setX(_label_point.x() + tmplabel->width() + 5);
+    _label_point.setX(_label_point.x() + tmplabel->width() + 2);
 
     //如果标签输入框的x坐标加上最小输入框长度超过标签展示区的宽度, 则将标签输入框移动到下一行显示
     if (_label_point.x() + MIN_APPLY_LABEL_ED_LEN > ui->gridWidget->width())
     {
         //换行后标签输入框的x坐标重置为初始值, y坐标增加标签高度和间距值
-        ui->lb_ed->move(5, _label_point.y() + tmplabel->height() + 4);
+        ui->lb_ed->move(2, _label_point.y() + tmplabel->height() + 2);
     }
     else {
         ui->lb_ed->move(_label_point); //将标签输入框移动到当前标签的下一个位置显示
@@ -294,12 +294,12 @@ void AuthenFriend::addLabel(QString name)
     ui->lb_ed->clear(); //清空标签输入框的文本
 
     //如果标签展示区的高度不足以显示当前标签和标签输入框, 则增加标签展示区的高度以适应新的标签
-    if (ui->gridWidget->height() < _label_point.y() + tmplabel->height() + 4)
+    if (ui->gridWidget->height() < _label_point.y() + tmplabel->height() + 2)
     {
         //增加标签展示区的高度为当前标签的y坐标加上标签高度的两倍和一些间距值
-        ui->gridWidget->setFixedHeight(_label_point.y() + tmplabel->height() * 2 + 4);
+        ui->gridWidget->setFixedHeight(_label_point.y() + tmplabel->height() * 2 + 2);
         //增加滚动区域内容的高度以适应新的标签显示
-        ui->scrollcontent->setFixedHeight(ui->scrollcontent->height() + tmplabel->height() * 2 + 4);
+        ui->scrollcontent->setFixedHeight(ui->scrollcontent->height() + tmplabel->height() * 2 + 2);
     }
 }
 
@@ -353,7 +353,7 @@ void AuthenFriend::SlotLabelEnter()
     {
         _tip_cur_point.setX(5); //换行后第一个标签的x坐标重置为初始值
         //换行后第一个标签的y坐标增加文本高度和间距值
-        _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 20);
+        _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 15);
     }
 
     auto next_point = _tip_cur_point; //下一个标签的位置, 初始为当前标签的位置
@@ -501,7 +501,7 @@ void AuthenFriend::SlotAddFirendLabelByClickTip(QString text)
     {
         _tip_cur_point.setX(5); //换行后第一个标签的x坐标重置为初始值
         //换行后第一个标签的y坐标增加文本高度和间距值
-        _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 20);
+        _tip_cur_point.setY(_tip_cur_point.y() + textHeight + 15);
     }
 
     auto next_point = _tip_cur_point; //下一个标签的位置, 初始为当前标签的位置

@@ -18,9 +18,9 @@ TextBubble::TextBubble(ChatRole role, const QString &text, QWidget *parent)
     m_pTextEdit->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_pTextEdit->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_pTextEdit->installEventFilter(this);
-    //设置文本编辑区的字体为微软雅黑, 字体大小为10
+    //设置文本编辑区的字体为微软雅黑, 字体大小为12
     QFont font("Microsoft YaHei");
-    font.setPointSize(10);
+    font.setPointSize(12);
     m_pTextEdit->setFont(font);
 
     setPlainText(text); //设置文本编辑区的纯文本内容为传入的文本参数
@@ -79,7 +79,7 @@ void TextBubble::adjustTextHeight()
     //文本编辑区的垂直边距, 这个值是文本编辑区内容与气泡组件边框之间的距离, 默认为7像素
     int vMargin = this->layout()->contentsMargins().top();
     //设置这个气泡需要的高度 文本高+文本边距+TextEdit边框到气泡边框的距离
-    setFixedHeight(text_height + doc_margin *2 + vMargin*2);
+    setFixedHeight(text_height + doc_margin * 2 + vMargin * 2);
 }
 
 void TextBubble::initStyleSheet()

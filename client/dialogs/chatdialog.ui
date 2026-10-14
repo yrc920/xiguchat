@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1037</width>
-    <height>634</height>
+    <width>602</width>
+    <height>507</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -39,22 +39,25 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>80</width>
+       <width>56</width>
        <height>0</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>80</width>
+       <width>56</width>
        <height>16777215</height>
       </size>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
+      <property name="spacing">
+       <number>30</number>
+      </property>
       <property name="leftMargin">
        <number>10</number>
       </property>
       <property name="topMargin">
-       <number>50</number>
+       <number>30</number>
       </property>
       <property name="rightMargin">
        <number>0</number>
@@ -63,38 +66,25 @@
        <number>0</number>
       </property>
       <item>
-       <widget class="QLabel" name="side_head_lb">
+       <widget class="QWidget" name="widget" native="true">
         <property name="minimumSize">
          <size>
-          <width>60</width>
-          <height>60</height>
+          <width>29</width>
+          <height>29</height>
          </size>
         </property>
-        <property name="maximumSize">
-         <size>
-          <width>60</width>
-          <height>60</height>
-         </size>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QWidget" name="widget" native="true">
         <property name="layoutDirection">
          <enum>Qt::LeftToRight</enum>
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <property name="spacing">
-          <number>40</number>
+          <number>30</number>
          </property>
          <property name="leftMargin">
-          <number>10</number>
+          <number>0</number>
          </property>
          <property name="topMargin">
-          <number>30</number>
+          <number>0</number>
          </property>
          <property name="rightMargin">
           <number>0</number>
@@ -103,17 +93,36 @@
           <number>0</number>
          </property>
          <item>
-          <widget class="StateWidget" name="side_chat_lb" native="true">
+          <widget class="QLabel" name="side_head_lb">
            <property name="minimumSize">
             <size>
-             <width>40</width>
-             <height>40</height>
+             <width>35</width>
+             <height>35</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>40</width>
-             <height>40</height>
+             <width>35</width>
+             <height>35</height>
+            </size>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="StateWidget" name="side_chat_lb" native="true">
+           <property name="minimumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>30</width>
+             <height>30</height>
             </size>
            </property>
           </widget>
@@ -122,20 +131,23 @@
           <widget class="StateWidget" name="side_contact_lb" native="true">
            <property name="minimumSize">
             <size>
-             <width>40</width>
-             <height>40</height>
+             <width>30</width>
+             <height>30</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>40</width>
-             <height>40</height>
+             <width>30</width>
+             <height>30</height>
             </size>
            </property>
           </widget>
          </item>
         </layout>
        </widget>
+      </item>
+      <item>
+       <widget class="QWidget" name="widget_2" native="true"/>
       </item>
       <item>
        <spacer name="verticalSpacer">
@@ -155,9 +167,15 @@
    </item>
    <item>
     <widget class="QWidget" name="chat_user_wid" native="true">
+     <property name="minimumSize">
+      <size>
+       <width>250</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="maximumSize">
       <size>
-       <width>430</width>
+       <width>250</width>
        <height>16777215</height>
       </size>
      </property>
@@ -182,21 +200,46 @@
         <property name="minimumSize">
          <size>
           <width>0</width>
-          <height>80</height>
+          <height>60</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
           <width>16777215</width>
-          <height>80</height>
+          <height>60</height>
          </size>
         </property>
         <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <property name="spacing">
+          <number>6</number>
+         </property>
+         <property name="leftMargin">
+          <number>9</number>
+         </property>
          <property name="topMargin">
-          <number>20</number>
+          <number>9</number>
+         </property>
+         <property name="rightMargin">
+          <number>9</number>
+         </property>
+         <property name="bottomMargin">
+          <number>9</number>
          </property>
          <item>
-          <widget class="CustomizeEdit" name="search_edit"/>
+          <widget class="CustomizeEdit" name="search_edit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>24</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>24</height>
+            </size>
+           </property>
+          </widget>
          </item>
          <item>
           <spacer name="horizontalSpacer">
@@ -208,7 +251,7 @@
            </property>
            <property name="sizeHint" stdset="0">
             <size>
-             <width>10</width>
+             <width>5</width>
              <height>20</height>
             </size>
            </property>
@@ -218,18 +261,24 @@
           <widget class="ClickedBtn" name="add_btn">
            <property name="minimumSize">
             <size>
-             <width>40</width>
-             <height>40</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="maximumSize">
             <size>
-             <width>40</width>
-             <height>40</height>
+             <width>24</width>
+             <height>24</height>
             </size>
            </property>
            <property name="text">
             <string/>
+           </property>
+           <property name="iconSize">
+            <size>
+             <width>16</width>
+             <height>16</height>
+            </size>
            </property>
           </widget>
          </item>
@@ -237,7 +286,20 @@
        </widget>
       </item>
       <item>
-       <widget class="ChatUserList" name="chat_user_list"/>
+       <widget class="ChatUserList" name="chat_user_list">
+        <property name="minimumSize">
+         <size>
+          <width>250</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>250</width>
+          <height>16777215</height>
+         </size>
+        </property>
+       </widget>
       </item>
       <item>
        <widget class="SearchList" name="search_list"/>
@@ -250,8 +312,14 @@
    </item>
    <item>
     <widget class="QStackedWidget" name="stackedWidget">
+     <property name="minimumSize">
+      <size>
+       <width>50</width>
+       <height>0</height>
+      </size>
+     </property>
      <property name="currentIndex">
-      <number>2</number>
+      <number>1</number>
      </property>
      <widget class="FriendInfoPage" name="friend_info_page"/>
      <widget class="ChatPage" name="chat_page"/>
@@ -264,7 +332,7 @@
   <customwidget>
    <class>ClickedBtn</class>
    <extends>QPushButton</extends>
-   <header>clickedbtn.h</header>
+   <header location="global">clickedbtn.h</header>
   </customwidget>
   <customwidget>
    <class>CustomizeEdit</class>

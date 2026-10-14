@@ -6,24 +6,31 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>523</width>
-    <height>60</height>
+    <width>493</width>
+    <height>43</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
     <width>0</width>
-    <height>60</height>
+    <height>43</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
     <width>16777215</width>
-    <height>60</height>
+    <height>43</height>
    </size>
   </property>
   <property name="windowTitle">
    <string>Form</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">#FriendLabel {
+	background: #daf6e7;
+    color: #48bf56;
+    border-radius: 10px;
+} </string>
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <property name="spacing">
@@ -43,6 +50,18 @@
    </property>
    <item>
     <widget class="QLabel" name="tip_lb">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>20</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>20</height>
+      </size>
+     </property>
      <property name="text">
       <string>TextLabel</string>
      </property>
@@ -52,17 +71,17 @@
     <widget class="QWidget" name="close_wid" native="true">
      <property name="minimumSize">
       <size>
-       <width>30</width>
-       <height>30</height>
+       <width>25</width>
+       <height>25</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>30</width>
-       <height>30</height>
+       <width>25</width>
+       <height>25</height>
       </size>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
       <property name="spacing">
        <number>0</number>
       </property>
@@ -82,15 +101,18 @@
        <widget class="ClickedLabel" name="close_lb">
         <property name="minimumSize">
          <size>
-          <width>30</width>
-          <height>30</height>
+          <width>15</width>
+          <height>15</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>30</width>
-          <height>30</height>
+          <width>15</width>
+          <height>15</height>
          </size>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">border-image: url(:/res/tipclose.png);</string>
         </property>
         <property name="text">
          <string/>

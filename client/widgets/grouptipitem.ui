@@ -6,20 +6,20 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>400</width>
-    <height>40</height>
+    <width>250</width>
+    <height>25</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>0</width>
-    <height>40</height>
+    <width>250</width>
+    <height>25</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
-    <width>16777215</width>
-    <height>40</height>
+    <width>250</width>
+    <height>25</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -30,7 +30,7 @@
     <number>0</number>
    </property>
    <property name="leftMargin">
-    <number>30</number>
+    <number>20</number>
    </property>
    <property name="topMargin">
     <number>0</number>
@@ -43,6 +43,18 @@
    </property>
    <item>
     <widget class="QLabel" name="label">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>16</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>16</height>
+      </size>
+     </property>
      <property name="text">
       <string>新的朋友</string>
      </property>

@@ -18,7 +18,7 @@ ConUserItem::~ConUserItem()
 
 QSize ConUserItem::sizeHint() const
 {
-    return QSize(350, 110); // 返回自定义的尺寸
+    return QSize(250, 70); // 返回自定义的尺寸
 }
 
 void ConUserItem::SetInfo(std::shared_ptr<AuthInfo> auth_info)

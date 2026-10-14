@@ -1,8 +1,8 @@
 #include "picturebubble.h"
 #include <QLabel>
 
-#define PIC_MAX_WIDTH 300 //设置图片气泡的最大宽度为300像素
-#define PIC_MAX_HEIGHT 180 //设置图片气泡的最大高度为180像素
+#define PIC_MAX_WIDTH 160 //设置图片气泡的最大宽度为300像素
+#define PIC_MAX_HEIGHT 90 //设置图片气泡的最大高度为180像素
 
 PictureBubble::PictureBubble(const QPixmap &picture, ChatRole role, QWidget *parent)
     : BubbleFrame(role, parent)
@@ -18,5 +18,5 @@ PictureBubble::PictureBubble(const QPixmap &picture, ChatRole role, QWidget *par
     int right_margin = this->layout()->contentsMargins().right(); //获取图片气泡的水平边距
     int v_margin = this->layout()->contentsMargins().bottom(); //获取图片气泡的垂直边距
     //设置图片气泡的固定大小, 宽度为图片的宽度加上水平边距, 高度为图片的高度加上垂直边距的两倍
-    setFixedSize(pix.width()+left_margin + right_margin, pix.height() + v_margin *2);
+    setFixedSize(pix.width() + left_margin + right_margin, pix.height() + v_margin * 2);
 }
