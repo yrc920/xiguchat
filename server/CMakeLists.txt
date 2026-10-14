@@ -42,6 +42,10 @@ find_package(hiredis CONFIG REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
 find_package(unofficial-mysql-connector-cpp CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+# mysql-connector-cpp 的 X DevAPI 压缩功能依赖 zstd 与 lz4，
+# 但 vcpkg 的 unofficial 配置不会自动传递该依赖，需显式查找
+find_package(zstd CONFIG REQUIRED)
+find_package(lz4 CONFIG REQUIRED)
 
 # ---------- 公共编译选项 ----------
 if(MSVC)
@@ -75,3 +79,10 @@ add_subdirectory(services/GateServer)
 add_subdirectory(services/StatusServer)
 add_subdirectory(services/ChatServer)
 add_subdirectory(services/ChatServer2)
+
+# ---------- 统一补链接 ----------
+# 四个微服务都链接 mysql-connector-cpp（X DevAPI），
+# 统一补上其静态库引用的 zstd 压缩符号（顺序在 mysql 之后）
+foreach(server IN ITEMS GateServer StatusServer ChatServer ChatServer2)
+    target_link_libraries(${server} PRIVATE zstd::libzstd LZ4::lz4)
+endforeach()

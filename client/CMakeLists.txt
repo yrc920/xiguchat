@@ -23,8 +23,14 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 # ---------- 查找 Qt ----------
-# 通过 CMAKE_PREFIX_PATH（CMakePresets.json 的 $env{QT_ROOT} 已配置）找到 Qt6，
+# Qt 安装路径来源（按优先级）：
+#  1. Qt Creator 打开工程时，Kit 会自动注入 CMAKE_PREFIX_PATH（Qt 路径）
+#  2. 命令行构建：export QT_ROOT=<Qt 安装目录>（如 ~/Qt/6.5.3/macos）
+#     或 -DCMAKE_PREFIX_PATH=<Qt 安装目录>，二选一
 # 只使用下面列出的 4 个模块；缺少任何模块都会在配置期直接报错
+if(DEFINED ENV{QT_ROOT})
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_ROOT}")
+endif()
 find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Widgets)
 
 # ------------------------------------------------------------
