@@ -95,7 +95,7 @@ void MainWindow::SlotSwitchChat()
     setCentralWidget(_chat_dlg); //将聊天页面设置为主窗口的中心组件
     _chat_dlg->show(); //显示聊天页面
     _login_dlg->hide(); //隐藏登录页面
-    this->setMinimumSize(QSize(1050, 900));
+    this->setMinimumSize(QSize(900, 650));
     //设置窗口的最大尺寸为系统允许的最大值，允许窗口被放大到全屏
     this->setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 }
