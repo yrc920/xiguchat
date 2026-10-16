@@ -253,3 +253,21 @@ add_custom_command(TARGET xiguchat POST_BUILD
         "$<TARGET_FILE_DIR:xiguchat>/static"
     COMMENT "Copy config.ini and static/ to output"
 )
+
+# ------------------------------------------------------------
+#  Windows：构建后通过 windeployqt 自动收集 Qt 运行库
+#  Qt6*.dll、平台插件（platforms/qwindows.dll）与 MinGW 运行时
+#  （libgcc/libstdc++/libwinpthread）拷到 exe 同目录，
+#  保证构建产物双击即可运行，无需配置 Qt 的 PATH
+# ------------------------------------------------------------
+if(WIN32)
+    find_program(WINDEPLOYQT_EXECUTABLE windeployqt
+        HINTS "$ENV{QT_ROOT}/bin" "${CMAKE_PREFIX_PATH}/bin")
+    if(WINDEPLOYQT_EXECUTABLE)
+        add_custom_command(TARGET xiguchat POST_BUILD
+            COMMAND "${WINDEPLOYQT_EXECUTABLE}"
+                    --compiler-runtime --no-translations
+                    "$<TARGET_FILE:xiguchat>"
+            COMMENT "Deploy Qt runtime libraries via windeployqt")
+    endif()
+endif()
