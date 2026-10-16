@@ -5,6 +5,22 @@
 # ============================================================
 cmake_minimum_required(VERSION 3.16)
 
+# Windows 前端使用 Qt 配套的 MinGW 作为编译器（macOS/Linux 使用系统
+# clang/gcc）。编译器路径由 QT_MINGW_ROOT 环境变量提供，在 project()
+# 之前设置；未设置时给出清晰指引
+if(WIN32)
+    if(NOT DEFINED ENV{QT_MINGW_ROOT})
+        message(FATAL_ERROR
+            "未设置 QT_MINGW_ROOT 环境变量（Windows 构建前端所需的 MinGW 目录）：\n"
+            "  setx QT_MINGW_ROOT \"D:\\Qt\\Tools\\mingw1120_64\"\n"
+            "注意：必须使用与 Qt 版本配套的 MinGW——Qt 6.5 对应 MinGW 11.2\n"
+            "（Qt 安装包自带，如 D:\\Qt\\Tools\\mingw1120_64），其他版本 ABI 不兼容。\n"
+            "设置后重新打开 VSCode（或终端）再 configure。")
+    endif()
+    set(CMAKE_C_COMPILER "$ENV{QT_MINGW_ROOT}/bin/gcc.exe")
+    set(CMAKE_CXX_COMPILER "$ENV{QT_MINGW_ROOT}/bin/g++.exe")
+endif()
+
 project(xiguchat VERSION 1.0.0 LANGUAGES CXX)
 
 # ---------- C++ 标准 ----------

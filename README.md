@@ -103,7 +103,11 @@ Windows 使用 **MinGW** Kit；macOS / Linux 使用系统编译器 Kit。
 
 ```bash
 cd client
-# Windows:  需设置 MINGW_ROOT（MinGW 安装目录）
+# Windows:  需设置 QT_ROOT（Qt 6.5 目录）与 QT_MINGW_ROOT（Qt 配套 MinGW）
+#           如 setx QT_ROOT "D:\Qt\6.5.3\mingw_64"
+#             setx QT_MINGW_ROOT "D:\Qt\Tools\mingw1120_64"
+#           QT_MINGW_ROOT 必须是与 Qt 版本对应的 MinGW（Qt 6.5 对应 11.2，
+#           即 Qt 安装包自带的 mingw1120_64），其他版本 ABI 不兼容
 cmake --preset windows-mingw     # 或 windows-mingw-release
 cmake --build --preset windows-mingw
 # macOS:
