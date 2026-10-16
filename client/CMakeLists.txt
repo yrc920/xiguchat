@@ -5,17 +5,19 @@
 # ============================================================
 cmake_minimum_required(VERSION 3.16)
 
-# Windows 前端使用 Qt 配套的 MinGW 作为编译器（macOS/Linux 使用系统
-# clang/gcc）。编译器路径由 QT_MINGW_ROOT 环境变量提供，在 project()
-# 之前设置；未设置时给出清晰指引
-if(WIN32)
+# 编译器（跨平台统一由 Kit 或系统提供）：macOS/Linux 使用系统 clang/gcc，
+# 无需任何设置；仅 Windows 需要显式指定 Qt 配套 MinGW。MinGW 两种来源
+# （任选其一，互不覆盖）：
+#  1) Qt Creator：MinGW Kit 通过 -D 指定编译器
+#  2) 命令行/VSCode：QT_MINGW_ROOT 环境变量（在 project() 之前设置）
+if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     if(NOT DEFINED ENV{QT_MINGW_ROOT})
         message(FATAL_ERROR
-            "未设置 QT_MINGW_ROOT 环境变量（Windows 构建前端所需的 MinGW 目录）：\n"
-            "  setx QT_MINGW_ROOT \"D:\\Qt\\Tools\\mingw1120_64\"\n"
-            "注意：必须使用与 Qt 版本配套的 MinGW——Qt 6.5 对应 MinGW 11.2\n"
-            "（Qt 安装包自带，如 D:\\Qt\\Tools\\mingw1120_64），其他版本 ABI 不兼容。\n"
-            "设置后重新打开 VSCode（或终端）再 configure。")
+            "未指定 Windows 编译器，两种方式任选其一：\n"
+            "  1) Qt Creator：选择 Qt 6.5 MinGW Kit 打开工程\n"
+            "  2) 命令行/VSCode：setx QT_MINGW_ROOT \"D:\\Qt\\Tools\\mingw1120_64\"\n"
+            "     （必须是与 Qt 6.5 配套的 MinGW 11.2，即 Qt 自带 mingw1120_64，\n"
+            "      其他版本 ABI 不兼容），设置后重新打开 VSCode 再 configure。")
     endif()
     set(CMAKE_C_COMPILER "$ENV{QT_MINGW_ROOT}/bin/gcc.exe")
     set(CMAKE_CXX_COMPILER "$ENV{QT_MINGW_ROOT}/bin/g++.exe")
@@ -38,19 +40,23 @@ set(CMAKE_AUTORCC ON)
 # 让编译器默认在当前目录找头文件（配合下方 include 目录使用）
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-# ---------- 查找 Qt ----------
-# Qt 安装路径通过 QT_ROOT 环境变量提供（Qt Creator 打开工程时，
-# Kit 会自动注入 CMAKE_PREFIX_PATH，覆盖此设置）。
-# 只使用下面列出的 4 个模块；缺少任何模块都会在配置期直接报错
-if(NOT DEFINED ENV{QT_ROOT})
-    message(FATAL_ERROR
-        "未设置 QT_ROOT 环境变量（Qt 6.5 安装目录）：\n"
-        "  macOS/Linux: export QT_ROOT=~/Qt/6.5.3/macos\n"
-        "  Windows:     setx QT_ROOT D:\\Qt\\6.5.3\\mingw_64\n"
-        "设置后重新打开 VSCode 或终端再 configure。")
+# ---------- 查找 Qt（Windows/macOS/Linux 通用）----------
+# Qt 安装路径两种来源（任选其一，互不覆盖）：
+#  1) Qt Creator：选择本机 Qt 6.5 Kit（三平台通用），Kit 自动注入 CMAKE_PREFIX_PATH
+#  2) 命令行/VSCode：QT_ROOT 环境变量
+find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Widgets)
+if(NOT Qt6_FOUND AND DEFINED ENV{QT_ROOT})
+    list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_ROOT}")
+    find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Widgets)
 endif()
-list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_ROOT}")
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Widgets)
+if(NOT Qt6_FOUND)
+    message(FATAL_ERROR
+        "找不到 Qt 6.5（Core/Gui/Network/Widgets），两种方式任选其一：\n"
+        "  1) Qt Creator：选择本机 Qt 6.5 Kit 打开工程\n"
+        "  2) 命令行/VSCode：设置 QT_ROOT 环境变量\n"
+        "       macOS/Linux: export QT_ROOT=~/Qt/6.5.3/macos\n"
+        "       Windows:      setx QT_ROOT D:\\Qt\\6.5.3\\mingw_64")
+endif()
 
 # ------------------------------------------------------------
 #  core/ — 全局定义、单例与公共数据结构
@@ -203,8 +209,8 @@ set(VIEW_FORMS
 
 # ------------------------------------------------------------
 #  可执行目标
-#  WIN32 标志：生成 GUI 子系统程序（无控制台窗口），
-#  入口仍为 main()，Qt 会按 Windows 方式运行
+#  WIN32 标志：仅 Windows 生效——生成 GUI 子系统程序（无控制台黑窗），
+#  入口仍为 main()；macOS/Linux 下该标志被忽略，Qt 自动处理 GUI 程序
 # ------------------------------------------------------------
 add_executable(xiguchat WIN32
     main.cpp
@@ -229,8 +235,9 @@ target_include_directories(xiguchat PRIVATE
 # 链接 Qt 模块库（必须是 find_package 列出的那 4 个）
 target_link_libraries(xiguchat PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Widgets)
 
-# 源码为 UTF-8 编码：MSVC 需要显式告知（/utf-8），
-# 否则默认按系统代码页解析，含中文的源码会产生 C4819 警告或乱码
+# 源码统一为 UTF-8 编码：仅 MSVC 默认按系统代码页解析，需显式告知
+# （/utf-8），否则含中文的源码会产生 C4819 警告或乱码；
+# MinGW/clang/gcc 默认按 UTF-8 解析，无需额外设置
 if(MSVC)
     target_compile_options(xiguchat PRIVATE /utf-8 /wd4819)
 endif()
@@ -240,9 +247,9 @@ set_target_properties(xiguchat PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-# macOS：打成 .app bundle，Dock/程序坞才能显示图标。
-# macOS 窗口标题栏不显示图标，setWindowIcon 在 mac 上无效，
-# Dock 图标来自 bundle Contents/Resources 里的 .icns。
+# 应用图标（跨平台）：Windows/Linux 图标由 Qt 资源 rc.qrc 提供即可；
+# 仅 macOS 的 Dock 不读 Qt 资源，必须打成 .app bundle 并附带 .icns
+# （macOS 窗口标题栏也不显示图标，setWindowIcon 在 mac 上无效）。
 # xiguchat.icns 由 resources/Facebook.ico（128x128）转换生成。
 if(APPLE)
     set_target_properties(xiguchat PROPERTIES
@@ -257,8 +264,9 @@ if(APPLE)
 endif()
 
 # ------------------------------------------------------------
-#  构建后部署：把运行必需的 config.ini 与 static/ 资源
-#  拷贝到 exe 同目录，保证程序可直接运行
+#  构建后部署（三平台统一）：把运行必需的 config.ini 与 static/ 资源
+#  拷到产物同目录（Windows/Linux 为 bin/，macOS 为 .app/Contents/MacOS/），
+#  保证程序可直接运行
 # ------------------------------------------------------------
 add_custom_command(TARGET xiguchat POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -271,10 +279,12 @@ add_custom_command(TARGET xiguchat POST_BUILD
 )
 
 # ------------------------------------------------------------
-#  Windows：构建后通过 windeployqt 自动收集 Qt 运行库
-#  Qt6*.dll、平台插件（platforms/qwindows.dll）与 MinGW 运行时
-#  （libgcc/libstdc++/libwinpthread）拷到 exe 同目录，
-#  保证构建产物双击即可运行，无需配置 Qt 的 PATH
+#  Qt 运行库部署（仅 Windows 需要）：macOS/Linux 的 Qt 库位于系统
+#  标准路径，构建产物直接可运行；Windows 的 Qt 为绿色安装，
+#  DLL 不在系统路径，需通过 windeployqt 把 Qt6*.dll、平台插件
+#  （platforms/qwindows.dll）与 MinGW 运行时（libgcc/libstdc++/
+#  libwinpthread）拷到产物同目录，保证双击即可运行，无需配置
+#  Qt 的 PATH
 # ------------------------------------------------------------
 if(WIN32)
     find_program(WINDEPLOYQT_EXECUTABLE windeployqt
