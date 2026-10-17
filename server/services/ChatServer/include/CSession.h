@@ -46,7 +46,8 @@ private:
 
 	tcp::socket _socket; //套接字
 	std::string _session_id; //会话ID, 用于唯一标识一个会话(token)
-	int _user_uid; //用户ID
+    // 用户ID, 0 表示尚未登录(uid 由发号表递增产生, 最小为 1001, 0 不会是合法值)
+    int _user_uid = 0;
 	char _data[MAX_LENGTH]; //接收缓冲区
 	CServer* _server; //指向服务器对象的指针
 	bool _b_close; //会话是否关闭

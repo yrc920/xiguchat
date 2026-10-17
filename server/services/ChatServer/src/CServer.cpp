@@ -2,6 +2,8 @@
 #include <iostream>
 #include "IOContextPool.h"
 #include "UserMgr.h"
+#include "ConfigMgr.h"
+#include "RedisMgr.h"
 
 CServer::CServer(boost::asio::io_context& io_context, short port) : _io_context(io_context),
 _port(port), _acceptor(io_context, tcp::endpoint(tcp::v4(), port))
@@ -43,13 +45,34 @@ void CServer::StartAccept()
 
 void CServer::ClearSession(std::string session_id)
 {
-	if (_sessions.find(session_id) != _sessions.end()) {
-		//移除用户和session的关联
-		UserMgr::GetInstance()->RmvUserSession(_sessions[session_id]->GetUserId());
-	}
+	std::shared_ptr<CSession> session; //待清理的会话
 
 	{
 		std::lock_guard<std::mutex> lock(_mutex); //保护_sessions的互斥锁
-		_sessions.erase(session_id); //从_sessions中删除指定session_id的会话
+		auto it = _sessions.find(session_id);
+		//会话已清理过则直接返回, 避免同一个连接重复扣减登录计数
+		if (it == _sessions.end()) {
+			return;
+		}
+		session = it->second;
+		_sessions.erase(it); //从_sessions中删除指定session_id的会话
+	}
+
+	//只有完成登录的连接才需要解绑用户并扣减本实例的登录计数；
+	//未登录就断开的连接 uid 为 0, 不能参与这两项清理
+	auto uid = session->GetUserId();
+	if (uid == 0) {
+		return;
+	}
+
+	//移除用户和session的关联
+	UserMgr::GetInstance()->RmvUserSession(uid);
+
+	//本实例的登录计数减一, 与登录时的自增配对, 供 StatusServer 做最小连接数分配
+	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
+	long long count = 0;
+	if (RedisMgr::GetInstance()->HIncrBy(LOGIN_COUNT, server_name, -1, count) && count < 0) {
+		//计数异常时兜底归零, 避免负值长期影响分配
+		RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, "0");
 	}
 }

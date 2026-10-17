@@ -34,6 +34,9 @@ public:
 	//获取哈希表key中字段hkey的值(二级哈希缓存)
 	std::string HGet(const std::string& key, const std::string& hkey);
 	bool HDel(const std::string& key, const std::string& field); //删除哈希表key中字段field
+	//对哈希表key中字段hkey做原子自增(HINCRBY)，increment 可为负数，value 返回自增后的值
+	//自增在 Redis 单条命令内完成，多个进程/线程同时增减不会互相覆盖
+	bool HIncrBy(const std::string& key, const std::string& hkey, long long increment, long long& value);
 	
 	void Close(); //关闭连接池, 释放资源
 

@@ -25,6 +25,7 @@ set(SERVER_SOURCES
     src/MysqlDao.cpp          # 数据访问层（用户表查询等）
     src/StatusGrpcClient.cpp  # 调用 StatusServer 的 gRPC 客户端
     src/VerifyGrpcClient.cpp  # 调用 VerifyServer 的 gRPC 客户端
+    src/PasswordHash.cpp      # 密码哈希与校验（libsodium Argon2id）
 )
 
 # ---------- 头文件清单 ----------
@@ -41,6 +42,7 @@ set(SERVER_HEADERS
     include/MysqlDao.h
     include/StatusGrpcClient.h
     include/VerifyGrpcClient.h
+    include/PasswordHash.h
     include/Singleton.h
     include/const.h
 )
@@ -60,6 +62,7 @@ target_include_directories(${SERVER_NAME} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/i
 # Boost::headers:        仅头文件的 Boost 库（asio/beast 等）
 # hiredis::hiredis:      Redis 客户端
 # JsonCpp::JsonCpp:      JSON 库
+# unofficial-sodium::sodium: 口令哈希（Argon2id）
 # unofficial::mysql-connector-cpp::connector: MySQL 连接器
 # Threads::Threads:      线程支持
 target_link_libraries(${SERVER_NAME} PRIVATE
@@ -70,6 +73,7 @@ target_link_libraries(${SERVER_NAME} PRIVATE
     Boost::headers
     hiredis::hiredis
     JsonCpp::JsonCpp
+    unofficial-sodium::sodium
     unofficial::mysql-connector-cpp::connector
     Threads::Threads
 )

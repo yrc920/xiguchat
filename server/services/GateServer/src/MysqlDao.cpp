@@ -1,5 +1,6 @@
 ﻿#include "MysqlDao.h"
 #include "ConfigMgr.h"
+#include "PasswordHash.h"
 #include <cstdlib>
 
 MysqlDao::MysqlDao()
@@ -34,9 +35,16 @@ int MysqlDao::RegUser(const std::string& name, const std::string& email, const s
 		if (con == nullptr)
 			return -1;
 
+		//密码以哈希形式落库, 数据库中不出现明文
+		auto stored_pwd = PasswordHash::Hash(pwd);
+		if (stored_pwd.empty()) {
+			pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
+			return -1;
+		}
+
 		//调用存储过程, 通过会话变量@result返回结果(与JDBC API时代逻辑一致)
 		con->_session->sql("CALL reg_user(?,?,?,@result)")
-			.bind(name).bind(email).bind(pwd).execute();
+			.bind(name).bind(email).bind(stored_pwd).execute();
 
 		//查询会话变量获取输出参数的值(X DevAPI不直接支持注册输出参数)
 		auto res = con->_session->sql("SELECT @result AS result").execute();
@@ -100,9 +108,16 @@ bool MysqlDao::UpdatePwd(const std::string& name, const std::string& newpwd) {
 		if (con == nullptr)
 			return false;
 
+		//密码以哈希形式落库, 数据库中不出现明文
+		auto stored_pwd = PasswordHash::Hash(newpwd);
+		if (stored_pwd.empty()) {
+			pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
+			return false;
+		}
+
 		//执行更新语句(更新指定用户名的密码)
 		auto res = con->_session->sql("UPDATE user SET pwd = ? WHERE name = ?")
-			.bind(newpwd).bind(name).execute();
+			.bind(stored_pwd).bind(name).execute();
 
 		std::cout << "Updated rows: " << res.getAffectedItemsCount() << std::endl;
 		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
@@ -132,24 +147,19 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 		auto res = con->_session->sql("SELECT uid, name, pwd, email FROM user WHERE email = ?")
 			.bind(email).execute();
 
-		std::string origin_pwd = "";
 		auto row = res.fetchOne();
-		//遍历结果集
-		if (!row.isNull()) {
-			origin_pwd = row[2].get<std::string>(); //第2列为pwd
-			std::cout << "Password: " << origin_pwd << std::endl;
-		}
-
-		//如果查询结果中的密码与输入的密码不匹配, 则说明邮箱和密码不匹配, 返回false
-		if (pwd != origin_pwd)
+		//未查到该邮箱对应的用户, 按密码不匹配处理
+		if (row.isNull())
 			return false;
 
-		//如果邮箱和密码匹配, 则将查询结果中的用户信息存储在userInfo中, 返回true
+		std::string origin_pwd = row[2].get<std::string>(); //第2列为pwd
 		userInfo.name = row[1].get<std::string>();
 		userInfo.email = email;
 		userInfo.uid = row[0].get<int>();
 		userInfo.pwd = origin_pwd;
-		return true;
+
+		//库中 pwd 为 Argon2id 哈希串, 直接校验
+		return PasswordHash::Verify(pwd, origin_pwd);
 	}
 	catch (mysqlx::Error& e) {
 		std::cerr << "Mysqlx Error: " << e.what() << std::endl;

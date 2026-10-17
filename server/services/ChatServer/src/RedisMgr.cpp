@@ -328,6 +328,34 @@ bool RedisMgr::HDel(const std::string& key, const std::string& field)
 	return success;
 }
 
+bool RedisMgr::HIncrBy(const std::string& key, const std::string& hkey, long long increment, long long& value)
+{
+	auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
+	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+	if (connect == nullptr) {
+		return false;
+	}
+
+	//使用Defer对象确保在函数退出时归还连接对象
+	Defer defer([&connect, this]() {
+		_con_pool->returnConnection(connect);
+		});
+
+	//执行redis命令行, 对哈希表key中字段hkey的值做自增(负值为自减)
+	redisReply* reply = (redisReply*)redisCommand(connect, "HINCRBY %s %s %lld",
+		key.c_str(), hkey.c_str(), increment);
+	//如果返回NULL或者返回的类型不是整数, 则说明执行失败, 释放连接并返回false
+	if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER) {
+		std::cerr << "HINCRBY command failed" << std::endl;
+		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+		return false;
+	}
+
+	value = reply->integer; //自增后的值
+	freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+	return true;
+}
+
 bool RedisMgr::Del(const std::string& key)
 {
 	auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象

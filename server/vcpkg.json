@@ -13,6 +13,7 @@
     "boost-uuid",
     "hiredis",
     "jsoncpp",
+    "libsodium",
     "mysql-connector-cpp"
   ]
 }

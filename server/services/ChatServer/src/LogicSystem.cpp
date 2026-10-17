@@ -201,18 +201,10 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 
 	//从配置文件中获取自身服务器的名称
 	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
-	//从Redis中获取当前服务器的登录数量
-	auto rd_res = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server_name);
-	int count = 0;
-
-	//如果Redis中有登录数量记录
-	if (!rd_res.empty()) {
-		count = std::stoi(rd_res); //将登录数量字符串转换为整数
-	}
-
-	count++; //登录数量加1
-	auto count_str = std::to_string(count);
-	RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, count_str); //将更新后的登录数量写回Redis
+	//本实例的登录计数加一；HINCRBY 在 Redis 单条命令内完成，
+	//并发登录不会像"读-改-写"那样互相覆盖。断线时在 CServer::ClearSession 中减一
+	long long count = 0;
+	RedisMgr::GetInstance()->HIncrBy(LOGIN_COUNT, server_name, 1, count);
 	session->SetUserId(uid); //session绑定用户uid
 	std::string ipkey = USERIPPREFIX + uid_str; //为用户设置登录ip server的名字
 	RedisMgr::GetInstance()->Set(ipkey, server_name); //将用户登录ip server的名字写入Redis

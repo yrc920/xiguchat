@@ -47,7 +47,7 @@ xiguchat
 | 部分      | 技术                                                                                                 |
 | --------- | ---------------------------------------------------------------------------------------------------- |
 | 前端      | Qt 6.5（Core / Gui / Network / Widgets）、C++17                                                      |
-| 后端 C++  | C++20、gRPC、protobuf、boost::asio / boost::beast、hiredis、jsoncpp、mysql-connector-cpp（X DevAPI） |
+| 后端 C++  | C++20、gRPC、protobuf、boost::asio / boost::beast、hiredis、jsoncpp、libsodium（Argon2id 密码哈希）、mysql-connector-cpp（X DevAPI） |
 | 后端 Node | Node.js + gRPC（VerifyServer）                                                                       |
 | 数据库    | MySQL（3306）、Redis（6380）                                                                          |
 | 构建      | CMake ≥ 3.21 + Ninja、vcpkg（后端依赖管理）                                                            |
@@ -84,6 +84,20 @@ ChatServer 实例 chatserver2 (TCP 8091 + RPC 50056)
 
 > 后端依赖由 `server/vcpkg.json` 的 manifest 模式自动安装，无需手动装包。
 > 前端不依赖 vcpkg，Qt 路径通过 `QT_ROOT` 环境变量或 Qt Creator 的 Kit 提供。
+
+### 后端：vcpkg 构建依赖的系统前置
+
+`libsodium`（密码哈希）的端口在 macOS / Linux 上走 autotools 构建，这几项程序由 vcpkg 调用、
+但**不在 vcpkg 管理范围内**，需先由系统包管理器安装：
+
+| 平台 | 命令 |
+| ---- | ---- |
+| macOS | `brew install autoconf autoconf-archive automake libtool` |
+| Linux (Debian/Ubuntu) | `sudo apt install autoconf autoconf-archive automake libtool` |
+| Linux (Fedora/RHEL) | `sudo dnf install autoconf autoconf-archive automake libtool` |
+| Windows (MSVC) | 无需安装，该端口在 MSVC 下走自带的 VS 工程 |
+
+其余依赖（gRPC / protobuf / Boost / hiredis / jsoncpp / mysql-connector-cpp）均由 vcpkg 自行准备。
 
 ## 构建与运行
 

@@ -135,8 +135,7 @@ LogicSystem::LogicSystem() {
 		root["uid"] = uid;
 		root["email"] = email;
 		root["user"] = name;
-		root["passwd"] = pwd;
-        root["confirm"] = confirm;
+		//响应中不再回传密码与验证码
         root["verifycode"] = src_root["verifycode"].asString();
 		//将JSON数据转换为字符串, 并写入响应内容中
         std::string jsonstr = root.toStyledString();
@@ -219,11 +218,11 @@ LogicSystem::LogicSystem() {
         }
 
 		//如果更新密码成功, 则返回更新密码成功的响应
-        std::cout << "succeed to update password" << pwd << std::endl;
+        std::cout << "succeed to update password" << std::endl;
         root["error"] = 0;
         root["email"] = email;
         root["user"] = name;
-        root["passwd"] = pwd;
+		//响应中不再回传密码
         root["verifycode"] = src_root["verifycode"].asString();
 		//将JSON数据转换为字符串, 并写入响应内容中
 		std::string jsonstr = root.toStyledString();
