@@ -33,10 +33,14 @@ xiguchat
     └── services/
         ├── GateServer/     # HTTP 网关（8080）
         ├── StatusServer/   # 在线状态与路由（50052）
-        ├── ChatServer/     # 聊天服务实例 1（TCP 8090 + RPC 50055）
-        ├── ChatServer2/    # 聊天服务实例 2（TCP 8091 + RPC 50056）
+        ├── ChatServer/     # 聊天服务（一套代码多实例）
+        │   └── config/     # 每个 ini 对应一个实例：ChatServer.ini / ChatServer2.ini
         └── VerifyServer/   # Node.js 验证码服务（gRPC 50051）
 ```
+
+> **ChatServer 是一套代码、多实例部署**：`config/` 目录下每份 `*.ini` 会在构建后生成
+> 一个独立的运行目录 `bin/<实例名>/`（内含可执行文件与本实例的 config.ini）。
+> 新增第三个实例只需再放一份 ini，无需改动 CMake。
 
 ## 技术栈
 
@@ -57,14 +61,17 @@ xiguchat
 GateServer (HTTP 8080)  ──gRPC──►  VerifyServer (50051)
    │                                StatusServer (50052)
    ▼
-ChatServer  (TCP 8090 + RPC 50055)
-ChatServer2 (TCP 8091 + RPC 50056)
+ChatServer 实例 chatserver1 (TCP 8090 + RPC 50055)
+ChatServer 实例 chatserver2 (TCP 8091 + RPC 50056)
+        └────────── gRPC 互通 ──────────┘
 ```
 
 - **GateServer**：对外 HTTP 网关，处理注册、登录等请求，转发 gRPC 到 VerifyServer / StatusServer
 - **VerifyServer**（Node）：验证码生成与校验（gRPC）
-- **StatusServer**：维护用户在线状态，将消息路由到对应聊天实例（gRPC）
-- **ChatServer / ChatServer2**：两个独立实例（多线程），处理客户端 TCP 长连接与消息收发，服务间通过 gRPC 互通
+- **StatusServer**：维护用户在线状态，按最小连接数把客户端分配到某个聊天实例（gRPC）
+- **ChatServer**：处理客户端 TCP 长连接与消息收发（多线程）。代码只有一份，可同时起多
+  个实例；不同实例通过 Redis 的 `uip_<uid>` 判断收件人在哪个实例，本实例内直投，
+  跨实例则经 gRPC 转发
 
 ## 环境准备（三平台通用）
 
@@ -120,7 +127,7 @@ cmake --build --preset linux-gcc
 
 产物：`build/<预设>/bin/xiguchat`（macOS 为 `xiguchat.app`）。
 
-### 后端（4 个 C++ 服务）
+### 后端（3 个 C++ 服务）
 
 ```bash
 cd server
@@ -130,15 +137,27 @@ cmake --build --preset windows-msvc-debug
 ```
 
 产物：`build/<预设>/bin/<服务名>/`（已自动拷贝 config.ini 与运行时 DLL）。
+其中 ChatServer 会按 `config/*.ini` 生成多个实例目录：
+
+```
+bin/ChatServer/      # 实例 chatserver1：可执行文件 + config.ini
+bin/ChatServer2/     # 实例 chatserver2：可执行文件副本 + config.ini
+```
 
 依次运行（每个服务须在其自身目录下启动，config.ini 按当前工作目录读取）：
 
 ```
 bin/StatusServer/StatusServer      # 先启动
-bin/ChatServer/ChatServer          # 再启动两个聊天实例
-bin/ChatServer2/ChatServer2
+bin/ChatServer/ChatServer          # 再启动两个聊天实例（同一份可执行文件）
+bin/ChatServer2/ChatServer
 bin/GateServer/GateServer          # 最后启动网关
 ```
+
+> 两个聊天实例用的是**同一个可执行文件**，区别只在各自目录下的 config.ini
+> （`SelfServer` 的 Name / Port / RPCPort 与 `PeerServer` 指向）。
+> 想加第三个实例：复制一份 `services/ChatServer/config/ChatServer.ini` 改名为
+> `ChatServer3.ini`、改掉端口与 Name，重新 configure 即会自动生成 `bin/ChatServer3/`，
+> 同时记得把新实例名加进 `StatusServer/config.ini` 的 `[chatservers]` 列表。
 
 ### 验证码服务（Node，单独启动）
 
@@ -152,13 +171,13 @@ node src/server.js
 
 ## 端口一览
 
-| 服务         | 协议/端口            |
-| ------------ | -------------------- |
-| VerifyServer | gRPC 50051           |
-| StatusServer | RPC 50052            |
-| ChatServer   | TCP 8090 + RPC 50055 |
-| ChatServer2  | TCP 8091 + RPC 50056 |
-| GateServer   | HTTP 8080            |
+| 服务                      | 协议/端口            |
+| ------------------------- | -------------------- |
+| VerifyServer              | gRPC 50051           |
+| StatusServer              | RPC 50052            |
+| ChatServer 实例 chatserver1 | TCP 8090 + RPC 50055 |
+| ChatServer 实例 chatserver2 | TCP 8091 + RPC 50056 |
+| GateServer                | HTTP 8080            |
 
 ## 外部依赖
 

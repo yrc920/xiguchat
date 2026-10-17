@@ -5,8 +5,9 @@
 #          + jsoncpp + MySQL X DevAPI (mysql-connector-cpp)
 #  依赖:   vcpkg manifest（server/vcpkg.json），由 vcpkg
 #          toolchain 自动安装，版本由 vcpkg baseline 锁定
-#  目标:   GateServer / StatusServer / ChatServer / ChatServer2
-#          四个相互独立的可执行程序（微服务）
+#  目标:   GateServer / StatusServer / ChatServer
+#          三个相互独立的可执行程序（微服务）
+#          ChatServer 为一套代码多实例部署，实例由 config/*.ini 决定
 #  构建:   三平台预设（windows-msvc / macos-clang / linux-gcc），
 #          命令行：cmake --preset <平台预设> [-release]
 #                  cmake --build --preset <平台预设>[-release]
@@ -94,11 +95,10 @@ add_subdirectory(proto)
 add_subdirectory(services/GateServer)
 add_subdirectory(services/StatusServer)
 add_subdirectory(services/ChatServer)
-add_subdirectory(services/ChatServer2)
 
 # ---------- 统一补链接 ----------
-# 四个微服务都链接 mysql-connector-cpp（X DevAPI），
+# 三个微服务都链接 mysql-connector-cpp（X DevAPI），
 # 统一补上其静态库引用的 zstd 压缩符号（顺序在 mysql 之后）
-foreach(server IN ITEMS GateServer StatusServer ChatServer ChatServer2)
+foreach(server IN ITEMS GateServer StatusServer ChatServer)
     target_link_libraries(${server} PRIVATE zstd::libzstd LZ4::lz4)
 endforeach()
