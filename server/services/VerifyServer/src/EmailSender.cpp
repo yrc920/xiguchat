@@ -9,7 +9,41 @@
 #include <Poco/Net/SecureStreamSocket.h>
 #include <Poco/Net/SMTPClientSession.h>
 #include <Poco/Net/StringPartSource.h>
+#include <Poco/File.h>
 #include <Poco/Exception.h>
+
+namespace {
+
+// 解析 CA 证书包路径，三级回退：
+//   1. 配置显式给出且文件存在 -> 使用配置值（用于指定私有 CA 的场景）
+//   2. 配置显式给出但文件不存在 -> 告警后继续自动探测，
+//      保证同一份 config.ini 在 Windows / macOS / Linux 上都能直接启动
+//   3. 未配置 -> 探测各平台常见的系统 CA bundle 位置
+// 返回空串表示不指定 CA 文件，构造 SSL Context 时改用 OpenSSL 默认
+// 证书目录（Windows 没有系统级 PEM 证书库，通常会走到这一步）
+std::string ResolveCAPath(const std::string& configured)
+{
+	if (!configured.empty()) {
+		if (Poco::File(configured).exists())
+			return configured;
+		std::cerr << "CA file not found: " << configured
+		          << ", fallback to auto detection" << std::endl;
+	}
+
+	// Linux / macOS 常见的系统 CA bundle 位置
+	static const char* kKnownBundles[] = {
+		"/etc/ssl/cert.pem",                  // macOS / Alpine / 部分 Linux
+		"/etc/ssl/certs/ca-certificates.crt", // Debian / Ubuntu
+		"/etc/pki/tls/certs/ca-bundle.crt",   // RHEL / CentOS / Fedora
+	};
+	for (const char* path : kKnownBundles) {
+		if (Poco::File(path).exists())
+			return path;
+	}
+	return {};
+}
+
+} // namespace
 
 void EmailSender::InitSSL()
 {
@@ -37,7 +71,9 @@ bool EmailSender::Send(const std::string& to, const std::string& subject, const 
 	auto user = cfg["Email"]["User"]; //发件邮箱账号
 	auto pass = cfg["Email"]["Pass"]; //邮箱授权码
 	auto from = cfg["Email"]["From"]; //发件人地址（通常与账号相同）
-	auto ca_location = cfg["Email"]["CA"]; //CA 证书路径，留空则用 OpenSSL 默认证书目录
+	//CA 证书包路径：留空或配置的路径不存在时按平台自动探测，
+	//最终仍为空则由 OpenSSL 默认证书目录兜底（Windows 的常见情况）
+	auto ca_location = ResolveCAPath(cfg["Email"]["CA"]);
 
 	if (from.empty()) {
 		from = user; //未单独配置发件人时取账号
@@ -45,8 +81,8 @@ bool EmailSender::Send(const std::string& to, const std::string& subject, const 
 
 	try {
 		//构建客户端 SSL 上下文：
-		// TLS_CLIENT_USE 表示只做 TLS 客户端；loadDefaultCAs 打开内置 CA，
-		// CA 配置了具体路径时以该路径为准（Linux/macOS 常见 /etc/ssl/cert.pem）
+		// TLS_CLIENT_USE 表示只做 TLS 客户端；loadDefaultCAs 在 CA 为空时
+		// 打开 OpenSSL 默认证书目录，CA 指定了具体路径时则以该路径为准
 		Poco::Net::Context::Ptr pContext = new Poco::Net::Context(
 			Poco::Net::Context::TLS_CLIENT_USE,
 			ca_location,

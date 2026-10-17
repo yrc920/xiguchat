@@ -2,7 +2,7 @@
 #  ChatServer — TCP 长连接消息服务（boost::asio + gRPC）
 #
 #  一套代码、多实例部署：
-#    config/<实例名>.ini  ->  build/bin/<实例名>/（可执行文件副本 + config.ini）
+#    config/<实例名>.ini  ->  build/bin/<实例名>/（可执行文件 + 依赖库 + config.ini）
 #  新增实例只需往 config/ 下再放一份 ini，无需改动本文件。
 #
 #  依赖: xigu_proto（共享 proto 库）+ gRPC/protobuf + Boost
@@ -104,7 +104,7 @@ if(WIN32)
     target_link_libraries(${SERVER_NAME} PRIVATE ws2_32)
 endif()
 
-# 输出到主实例目录（其余实例在构建后复制可执行文件过去）
+# 输出到主实例目录（其余实例目录在构建后整目录复制这份产物）
 set_target_properties(${SERVER_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${CHAT_PRIMARY_NAME}")
 
@@ -128,32 +128,37 @@ endif()
 #   build/bin/ChatServer/   <- config/ChatServer.ini
 #   build/bin/ChatServer2/  <- config/ChatServer2.ini
 # 启动方式与单实例完全相同：进入各自目录运行 ChatServer。
+#
+# 各平台依赖的落盘方式不同，但结论一致：
+#   · Windows（vcpkg 动态三元组）：依赖 DLL 必须与可执行文件同目录。
+#     vcpkg applocal 会在链接后递归解析，把直接依赖和间接依赖的 DLL
+#     （如 mysqlcppconnx 依赖的 OpenSSL libssl/libcrypto、zlib）
+#     一并拷入主实例目录。
+#   · macOS / Linux（vcpkg 默认静态三元组）：第三方依赖静态链接进
+#     可执行文件，无需额外部署库文件；若将来改为动态链接，.dylib/.so
+#     同样只会落在主实例目录。
+# 即无论哪个平台，主实例目录都是唯一由构建系统完整填充的目录，
+# 因此非主实例直接整目录复制主实例产物，即可保证每个实例目录的
+# 内容完全一致，无需按平台分别处理依赖清单。
 foreach(cfg_path IN LISTS CHAT_INSTANCE_CONFIGS)
     get_filename_component(inst_name "${cfg_path}" NAME_WE)
     set(inst_dir "${CMAKE_BINARY_DIR}/bin/${inst_name}${CHAT_INSTANCE_DIR_SUFFIX}")
 
-    # 非主实例：先建目录，再把可执行文件复制过去
-    # （copy_if_different 会保留可执行权限，三平台一致）
+    # 非主实例：整目录复制主实例产物（可执行文件 + 全部依赖库）
     if(NOT inst_name STREQUAL CHAT_PRIMARY_NAME)
         add_custom_command(TARGET ${SERVER_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "${inst_dir}"
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "$<TARGET_FILE:${SERVER_NAME}>" "${inst_dir}/"
-            COMMENT "Deploy ChatServer executable -> bin/${inst_name}")
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_BINARY_DIR}/bin/${CHAT_PRIMARY_NAME}${CHAT_INSTANCE_DIR_SUFFIX}"
+                "${inst_dir}"
+            COMMENT "Deploy ChatServer -> bin/${inst_name}")
     endif()
 
-    # 每个实例部署自己的 config.ini（统一命名为 config.ini）
+    # 每个实例部署自己的 config.ini（统一命名为 config.ini）。
+    # 对非主实例，本命令排在上面的整目录复制之后执行，从而覆盖掉
+    # 主实例带过来的那份 config.ini，两条命令的顺序不能调换。
     add_custom_command(TARGET ${SERVER_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${cfg_path}" "${inst_dir}/config.ini"
         COMMENT "Deploy config.ini -> bin/${inst_name}")
-
-    # Windows：依赖的 DLL 必须与可执行文件同目录，逐实例复制
-    if(WIN32)
-        add_custom_command(TARGET ${SERVER_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                $<TARGET_RUNTIME_DLLS:${SERVER_NAME}> "${inst_dir}/"
-            COMMAND_EXPAND_LISTS
-            COMMENT "Copy runtime DLLs -> bin/${inst_name}")
-    endif()
 endforeach()
