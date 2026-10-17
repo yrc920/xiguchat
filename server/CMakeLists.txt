@@ -3,10 +3,11 @@
 #
 #  技术栈: C++20 + gRPC + protobuf + boost::asio/beast + hiredis
 #          + jsoncpp + MySQL X DevAPI (mysql-connector-cpp)
+#          + libsodium + Poco Net/NetSSL
 #  依赖:   vcpkg manifest（server/vcpkg.json），由 vcpkg
 #          toolchain 自动安装，版本由 vcpkg baseline 锁定
-#  目标:   GateServer / StatusServer / ChatServer
-#          三个相互独立的可执行程序（微服务）
+#  目标:   GateServer / StatusServer / ChatServer / VerifyServer
+#          四个相互独立的可执行程序（微服务）
 #          ChatServer 为一套代码多实例部署，实例由 config/*.ini 决定
 #  构建:   三平台预设（windows-msvc / macos-clang / linux-gcc），
 #          命令行：cmake --preset <平台预设> [-release]
@@ -52,6 +53,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # jsoncpp：JSON 序列化
 # libsodium：口令哈希（Argon2id）
 # unofficial-mysql-connector-cpp：MySQL X DevAPI 连接器
+# Poco Net/NetSSL：SMTP 客户端（验证码邮件，465 端口 SSL 直连）
 # Threads：跨平台线程库（std::thread 依赖）
 find_package(gRPC CONFIG REQUIRED)
 find_package(protobuf CONFIG REQUIRED)
@@ -61,6 +63,7 @@ find_package(jsoncpp CONFIG REQUIRED)
 # unofficial-sodium：libsodium 的口令哈希（Argon2id），用于密码加盐哈希
 find_package(unofficial-sodium CONFIG REQUIRED)
 find_package(unofficial-mysql-connector-cpp CONFIG REQUIRED)
+find_package(Poco CONFIG REQUIRED COMPONENTS Net NetSSL)
 find_package(Threads REQUIRED)
 # mysql-connector-cpp 的 X DevAPI 压缩功能依赖 zstd 与 lz4，
 # 但 vcpkg 的 unofficial 配置不会自动传递该依赖，需显式查找
@@ -89,18 +92,19 @@ include(XiguChatCommon)
 # ---------- proto 共享库 ----------
 # proto/CMakeLists.txt 定义 xigu_proto 静态库：
 # 构建期用 protoc 从 proto/message.proto 生成 C++ 代码，
-# 4 个服务共用同一份生成代码，避免各服务重复维护 proto
+# 各服务共用同一份生成代码，避免各服务重复维护 proto
 add_subdirectory(proto)
 
 # ---------- 微服务 ----------
 # 每个服务目录有独立的 CMakeLists.txt，声明各自的源码、
-# 头文件与链接库；四个服务相互独立、分别产出可执行文件
+# 头文件与链接库；各服务相互独立、分别产出可执行文件
 add_subdirectory(services/GateServer)
 add_subdirectory(services/StatusServer)
 add_subdirectory(services/ChatServer)
+add_subdirectory(services/VerifyServer)
 
 # ---------- 统一补链接 ----------
-# 三个微服务都链接 mysql-connector-cpp（X DevAPI），
+# 除 VerifyServer 外的服务都链接 mysql-connector-cpp（X DevAPI），
 # 统一补上其静态库引用的 zstd 压缩符号（顺序在 mysql 之后）
 foreach(server IN ITEMS GateServer StatusServer ChatServer)
     target_link_libraries(${server} PRIVATE zstd::libzstd LZ4::lz4)

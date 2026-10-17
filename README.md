@@ -24,7 +24,7 @@ xiguchat
 │   ├── resources/          # 图标与资源文件（qrc + .ico/.icns）
 │   ├── static/             # 运行时静态资源
 │   └── config.ini          # 客户端配置（网关地址）
-└── server/                 # 后端：C++ gRPC 微服务 + Node 验证服务
+└── server/                 # 后端：C++ gRPC 微服务
     ├── CMakeLists.txt      # 顶层 CMake
     ├── CMakePresets.json   # 三平台预设（windows-msvc / macos-clang / linux-gcc，Debug/Release）
     ├── vcpkg.json          # vcpkg manifest 依赖清单
@@ -35,7 +35,7 @@ xiguchat
         ├── StatusServer/   # 在线状态与路由（50052）
         ├── ChatServer/     # 聊天服务（一套代码多实例）
         │   └── config/     # 每个 ini 对应一个实例：ChatServer.ini / ChatServer2.ini
-        └── VerifyServer/   # Node.js 验证码服务（gRPC 50051）
+        └── VerifyServer/   # 验证码服务（gRPC 50051 + SMTP 发信）
 ```
 
 > **ChatServer 是一套代码、多实例部署**：`config/` 目录下每份 `*.ini` 会在构建后生成
@@ -47,8 +47,7 @@ xiguchat
 | 部分      | 技术                                                                                                 |
 | --------- | ---------------------------------------------------------------------------------------------------- |
 | 前端      | Qt 6.5（Core / Gui / Network / Widgets）、C++17                                                      |
-| 后端 C++  | C++20、gRPC、protobuf、boost::asio / boost::beast、hiredis、jsoncpp、libsodium（Argon2id 密码哈希）、mysql-connector-cpp（X DevAPI） |
-| 后端 Node | Node.js + gRPC（VerifyServer）                                                                       |
+| 后端      | C++20、gRPC、protobuf、boost::asio / boost::beast、hiredis、jsoncpp、libsodium（Argon2id 密码哈希）、mysql-connector-cpp（X DevAPI）、Poco Net/NetSSL（SMTP 发信） |
 | 数据库    | MySQL（3306）、Redis（6380）                                                                          |
 | 构建      | CMake ≥ 3.21 + Ninja、vcpkg（后端依赖管理）                                                            |
 
@@ -67,7 +66,7 @@ ChatServer 实例 chatserver2 (TCP 8091 + RPC 50056)
 ```
 
 - **GateServer**：对外 HTTP 网关，处理注册、登录等请求，转发 gRPC 到 VerifyServer / StatusServer
-- **VerifyServer**（Node）：验证码生成与校验（gRPC）
+- **VerifyServer**：生成验证码、写入 Redis（键 `code_<邮箱>`，有效期 600 秒），并通过 SMTP 发邮件（gRPC 50051）
 - **StatusServer**：维护用户在线状态，按最小连接数把客户端分配到某个聊天实例（gRPC）
 - **ChatServer**：处理客户端 TCP 长连接与消息收发（多线程）。代码只有一份，可同时起多
   个实例；不同实例通过 Redis 的 `uip_<uid>` 判断收件人在哪个实例，本实例内直投，
@@ -161,7 +160,8 @@ bin/ChatServer2/     # 实例 chatserver2：可执行文件副本 + config.ini
 依次运行（每个服务须在其自身目录下启动，config.ini 按当前工作目录读取）：
 
 ```
-bin/StatusServer/StatusServer      # 先启动
+bin/VerifyServer/VerifyServer      # 先启动验证码服务
+bin/StatusServer/StatusServer
 bin/ChatServer/ChatServer          # 再启动两个聊天实例（同一份可执行文件）
 bin/ChatServer2/ChatServer
 bin/GateServer/GateServer          # 最后启动网关
@@ -173,15 +173,22 @@ bin/GateServer/GateServer          # 最后启动网关
 > `ChatServer3.ini`、改掉端口与 Name，重新 configure 即会自动生成 `bin/ChatServer3/`，
 > 同时记得把新实例名加进 `StatusServer/config.ini` 的 `[chatservers]` 列表。
 
-### 验证码服务（Node，单独启动）
+### 验证码服务的邮件配置
 
-注册 / 重置密码依赖 VerifyServer，首次运行需安装依赖：
+`bin/VerifyServer/config.ini` 里 `[Email]` 段填写 SMTP 账号与授权码：
 
-```bash
-cd server/services/VerifyServer
-pnpm install        # 或 npm install
-node src/server.js
+```ini
+[Email]
+Host = smtp.qq.com      # SMTP 服务器
+Port = 465              # SSL 直连端口（465）；改用 STARTTLS 的 587 需改代码
+User = xxx@qq.com       # 发件邮箱账号
+Pass = <授权码>          # 邮箱授权码，不是登录密码
+From = xxx@qq.com       # 发件人，留空则与 User 相同
+CA = /etc/ssl/cert.pem  # CA 证书路径；留空则用 OpenSSL 默认证书目录
 ```
+
+`CA` 按部署环境填写：macOS 常见 `/etc/ssl/cert.pem`，Linux 常见 `/etc/ssl/certs`，
+Windows 可留空或指向本地 PEM。证书校验失败会直接导致发信失败。
 
 ## 端口一览
 
