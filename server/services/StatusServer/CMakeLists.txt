@@ -1,6 +1,6 @@
 # ============================================================
 #  StatusServer — 用户在线状态与路由聚合（gRPC）
-#  维护用户在线状态，将消息路由到对应聊天服务实例
+#  登录时签发 token 写入 Redis，并按各聊天实例的在线连接数挑选目标实例
 #
 #  依赖: xigu_proto（共享 proto 库）+ gRPC/protobuf + Boost
 #        + hiredis + jsoncpp + mysql-connector-cpp
@@ -11,8 +11,8 @@
 set(SERVER_NAME StatusServer)
 
 # ---------- 源文件清单 ----------
-# StatusServer 对外提供 gRPC 状态查询服务（StatusServiceImpl），
-# 同时作为客户端调用 ChatServer 转发消息（ChatGrpcClient）
+# StatusServer 对外提供 gRPC 服务（StatusServiceImpl）
+# ChatGrpcClient 目前暂无调用点，若启用需确认其端口取自对端 ChatServer 的 RPCPort
 set(SERVER_SOURCES
     src/StatusServer.cpp       # 主入口：启动 gRPC 服务
     src/StatusServiceImpl.cpp  # gRPC 服务实现：在线状态查询/路由

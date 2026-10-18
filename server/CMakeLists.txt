@@ -51,8 +51,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # Boost.filesystem：配置文件路径处理
 # hiredis：Redis 客户端
 # jsoncpp：JSON 序列化
-# libsodium：口令哈希（Argon2id）
-# unofficial-mysql-connector-cpp：MySQL X DevAPI 连接器
+# unofficial-sodium：libsodium，口令哈希（Argon2id，仅 GateServer 使用）
+# unofficial-mysql-connector-cpp：MySQL X DevAPI 连接器（除 VerifyServer 外均使用）
 # Poco Net/NetSSL：SMTP 客户端（验证码邮件，465 端口 SSL 直连）
 # Threads：跨平台线程库（std::thread 依赖）
 find_package(gRPC CONFIG REQUIRED)
@@ -60,7 +60,6 @@ find_package(protobuf CONFIG REQUIRED)
 find_package(Boost CONFIG REQUIRED COMPONENTS filesystem)
 find_package(hiredis CONFIG REQUIRED)
 find_package(jsoncpp CONFIG REQUIRED)
-# unofficial-sodium：libsodium 的口令哈希（Argon2id），用于密码加盐哈希
 find_package(unofficial-sodium CONFIG REQUIRED)
 find_package(unofficial-mysql-connector-cpp CONFIG REQUIRED)
 find_package(Poco CONFIG REQUIRED COMPONENTS Net NetSSL)

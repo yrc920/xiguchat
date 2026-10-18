@@ -11,7 +11,8 @@ int main()
 
     try
     {
-        unsigned short port = static_cast<unsigned short>(8080); //服务器监听的端口号
+        //服务器监听的端口号, 取自 config.ini 的 [GateServer].Port
+        unsigned short port = gate_port;
 		net::io_context ioc{ 1 }; //使用一个线程来运行io_context
         //创建一个信号集, 用于捕捉SIGINT和SIGTERM信号, 以便优雅地关闭服务器
 		boost::asio::signal_set signals(ioc, SIGINT, SIGTERM); 

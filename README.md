@@ -1,217 +1,297 @@
 # XiguChat
 
-一个跨平台的微信风格聊天项目：Qt 6 客户端 + gRPC 微服务后端。
+> 全 C++ 的即时通讯系统：Qt 6 桌面客户端 + gRPC 微服务后端，Windows / macOS / Linux 三平台本地构建运行。
 
-支持 **Windows（MinGW/MSVC）· macOS（AppleClang）· Linux（GCC）** 三平台本地构建运行，
-前端用 Qt Creator 或 CMake 预设打开，后端由 CMakePresets + vcpkg manifest 统一构建。
+XiguChat 是一个分布式即时通讯系统。客户端用 Qt 6 实现登录注册、好友管理与实时会话；后端拆成四个
+独立的 C++ 进程，分别负责 HTTP 网关、状态路由、长连接消息和验证码下发，服务之间用 gRPC 通信，
+运行时状态放在 Redis，持久化数据放在 MySQL。
 
-## 项目结构
+前端与后端均为 C++（客户端 C++17，服务端 C++20），两端各自用 CMake + CMakePresets 驱动，
+不含脚本语言或托管运行时。
 
-```
-xiguchat
-├── .gitignore
-├── LICENSE                 # GPL-3.0 开源协议
-├── backup/                 # 数据库备份（不入库）
-├── client/                 # 前端：Qt 6.5 桌面客户端
-│   ├── CMakeLists.txt      # CMake 工程
-│   ├── CMakePresets.json   # 三平台预设（windows-mingw / macos-clang / linux-gcc）
-│   ├── main.cpp
-│   ├── core/               # 全局定义、单例与公共数据结构
-│   ├── network/            # HTTP / TCP 长连接通信层
-│   ├── widgets/            # 自定义控件（气泡、列表、输入框等）
-│   ├── dialogs/            # 业务对话框与页面（登录、注册、聊天等）
-│   ├── views/              # 主窗口
-│   ├── resources/          # 图标与资源文件（qrc + .ico/.icns）
-│   ├── static/             # 运行时静态资源
-│   └── config.ini          # 客户端配置（网关地址）
-└── server/                 # 后端：C++ gRPC 微服务
-    ├── CMakeLists.txt      # 顶层 CMake
-    ├── CMakePresets.json   # 三平台预设（windows-msvc / macos-clang / linux-gcc，Debug/Release）
-    ├── vcpkg.json          # vcpkg manifest 依赖清单
-    ├── cmake/XiguChatCommon.cmake  # 公共部署规则（config.ini + 运行时 DLL）
-    ├── proto/              # 共享 proto 单一源（构建期生成 C++ 代码）
-    └── services/
-        ├── GateServer/     # HTTP 网关（8080）
-        ├── StatusServer/   # 在线状态与路由（50052）
-        ├── ChatServer/     # 聊天服务（一套代码多实例）
-        │   └── config/     # 每个 ini 对应一个实例：ChatServer.ini / ChatServer2.ini
-        └── VerifyServer/   # 验证码服务（gRPC 50051 + SMTP 发信）
-```
+---
 
-> **ChatServer 是一套代码、多实例部署**：`config/` 目录下每份 `*.ini` 会在构建后生成
-> 一个独立的运行目录 `bin/<实例名>/`（内含可执行文件与本实例的 config.ini）。
-> 新增第三个实例只需再放一份 ini，无需改动 CMake。
+## 目录
 
-## 技术栈
+- [核心特性](#核心特性)
+- [系统架构](#系统架构)
+- [目录结构](#目录结构)
+- [技术栈](#技术栈)
+- [快速开始](#快速开始)
+- [端口一览](#端口一览)
+- [外部依赖](#外部依赖)
+- [文档](#文档)
+- [工程约定](#工程约定)
+- [已知限制](#已知限制)
+- [开源协议](#开源协议)
 
-| 部分      | 技术                                                                                                 |
-| --------- | ---------------------------------------------------------------------------------------------------- |
-| 前端      | Qt 6.5（Core / Gui / Network / Widgets）、C++17                                                      |
-| 后端      | C++20、gRPC、protobuf、boost::asio / boost::beast、hiredis、jsoncpp、libsodium（Argon2id 密码哈希）、mysql-connector-cpp（X DevAPI）、Poco Net/NetSSL（SMTP 发信） |
-| 数据库    | MySQL（3306）、Redis（6380）                                                                          |
-| 构建      | CMake ≥ 3.21 + Ninja、vcpkg（后端依赖管理）                                                            |
+---
+
+## 核心特性
+
+| 类别 | 说明 |
+| --- | --- |
+| 全 C++ 技术栈 | 客户端 Qt 6 / C++17，服务端 gRPC / Boost.Asio / C++20，无 Node、无脚本层 |
+| 分布式聊天 | ChatServer 一套代码多实例部署，跨实例消息经 gRPC 转发，对客户端透明 |
+| 最小连接数调度 | StatusServer 依据 Redis 中各实例的在线连接数分配 ChatServer |
+| 双通道通信 | HTTP 短连接处理注册/登录/验证码，TCP 长连接处理实时消息与通知 |
+| 连接级会话管理 | 每会话独立 UUID，uid↔session 双向绑定，支持按 uid 定位并推送 |
+| 资源池化 | io_context 线程池（= CPU 核心数）、Redis 连接池、gRPC Stub 连接池 |
+| 口令安全 | libsodium Argon2id 哈希存储，DAO 层统一加盐哈希 |
+| 跨平台构建 | CMakePresets 覆盖三平台 × Debug/Release；后端由 vcpkg manifest 锁定依赖版本 |
+
+---
 
 ## 系统架构
 
+```mermaid
+flowchart TB
+    Client["Qt 6 客户端 xiguchat"]
+
+    subgraph access["接入层"]
+        Gate["GateServer<br/>Boost.Beast · HTTP 8080"]
+    end
+
+    subgraph auxiliary["支撑服务"]
+        Verify["VerifyServer<br/>gRPC 50051"]
+        Status["StatusServer<br/>gRPC 50052"]
+    end
+
+    subgraph message["消息层（一套代码多实例）"]
+        Chat1["ChatServer chatserver1<br/>TCP 8090 · gRPC 50055"]
+        Chat2["ChatServer chatserver2<br/>TCP 8091 · gRPC 50056"]
+    end
+
+    Redis[("Redis 6380")]
+    MySQL[("MySQL<br/>X Protocol 33060")]
+    Mail["邮箱服务商<br/>SMTP 465 SSL"]
+
+    Client -->|"HTTP：注册 / 登录 / 改密 / 验证码"| Gate
+    Client -->|"TCP 长连接：消息 / 好友申请"| Chat1
+    Client -->|"TCP 长连接"| Chat2
+
+    Gate -->|"gRPC GetVerifyCode"| Verify
+    Gate -->|"gRPC GetChatServer"| Status
+    Gate --> MySQL
+    Gate --> Redis
+
+    Verify -->|"SETEX code_"| Redis
+    Verify --> Mail
+
+    Status -->|"读写 utoken_ / logincount"| Redis
+
+    Chat1 <-->|"gRPC 跨实例转发"| Chat2
+    Chat1 --> MySQL
+    Chat1 --> Redis
+    Chat2 --> MySQL
+    Chat2 --> Redis
 ```
-客户端 (Qt)
-   │  TCP 长连接 (8090 / 8091)
-   ▼
-GateServer (HTTP 8080)  ──gRPC──►  VerifyServer (50051)
-   │                                StatusServer (50052)
-   ▼
-ChatServer 实例 chatserver1 (TCP 8090 + RPC 50055)
-ChatServer 实例 chatserver2 (TCP 8091 + RPC 50056)
-        └────────── gRPC 互通 ──────────┘
+
+四个服务各司其职：
+
+| 服务 | 职责 |
+| --- | --- |
+| **GateServer** | HTTP 网关。暴露 `/get_verifycode`、`/user_register`、`/reset_pwd`、`/user_login`，向 VerifyServer / StatusServer 发起 RPC，自身不持有长连接 |
+| **VerifyServer** | 生成 4 位验证码，写入 Redis（`code_<email>`，TTL 600s），经 SMTP SSL 投递到用户邮箱 |
+| **StatusServer** | 登录时签发 UUID token 写入 Redis；按最小连接数挑一个 ChatServer，连 host/port/token 一起返回 |
+| **ChatServer** | 维护 TCP 会话、校验 token、处理好友申请与文本消息；本实例直投，跨实例走 gRPC 转发 |
+
+---
+
+## 目录结构
+
+```
+xiguchat
+├── README.md                   # 项目入口（本文件）
+├── LICENSE                     # GPL-3.0
+├── backup/                     # 数据库备份（含建表与 reg_user 存储过程，可直接复现库结构）
+├── client/                     # 客户端：Qt 6 桌面程序
+│   ├── CMakeLists.txt
+│   ├── CMakePresets.json       # windows-mingw / macos-clang / linux-gcc × Debug/Release
+│   ├── config.ini              # 网关地址
+│   ├── main.cpp                # 入口：加载 QSS、读取网关地址
+│   ├── core/                   # 全局定义、单例、用户数据与管理
+│   ├── network/                # HTTP 短连接与 TCP 长连接通信层
+│   ├── widgets/                # 自定义控件（气泡、列表项、输入框等）
+│   ├── dialogs/                # 业务页面（登录/注册/重置/聊天/好友）
+│   ├── views/                  # 主窗口与页面切换
+│   ├── resources/              # 图标、QSS、qrc 资源
+│   └── static/                 # 运行时静态资源（随产物拷贝）
+├── server/                     # 后端：C++ gRPC 微服务
+│   ├── CMakeLists.txt
+│   ├── CMakePresets.json       # windows-msvc / macos-clang / linux-gcc
+│   ├── vcpkg.json              # vcpkg manifest 依赖清单（baseline 锁定）
+│   ├── cmake/
+│   │   └── XiguChatCommon.cmake# 公共部署规则（config.ini + 运行时 DLL）
+│   ├── proto/
+│   │   ├── message.proto       # 共享 proto 单一源
+│   │   └── CMakeLists.txt      # 构建期生成代码并打包为 xigu_proto 静态库
+│   └── services/
+│       ├── GateServer/         # HTTP 网关
+│       ├── StatusServer/       # 状态路由
+│       ├── ChatServer/         # 长连接消息服务（一套代码多实例）
+│       │   └── config/         # 每份 *.ini 对应一个运行实例
+│       └── VerifyServer/       # 验证码服务
+└── docs/                       # 深度技术文档（见下）
 ```
 
-- **GateServer**：对外 HTTP 网关，处理注册、登录等请求，转发 gRPC 到 VerifyServer / StatusServer
-- **VerifyServer**：生成验证码、写入 Redis（键 `code_<邮箱>`，有效期 600 秒），并通过 SMTP 发邮件（gRPC 50051）
-- **StatusServer**：维护用户在线状态，按最小连接数把客户端分配到某个聊天实例（gRPC）
-- **ChatServer**：处理客户端 TCP 长连接与消息收发（多线程）。代码只有一份，可同时起多
-  个实例；不同实例通过 Redis 的 `uip_<uid>` 判断收件人在哪个实例，本实例内直投，
-  跨实例则经 gRPC 转发
+ChatServer 是"一套代码、配置驱动多实例"：`services/ChatServer/config/` 下每份 `*.ini`
+会在构建后生成独立运行目录 `bin/<实例名>/`。新增实例只需再放一份 ini（并登记到
+`StatusServer/config.ini` 的 `[chatservers]`），不必改 CMake。
 
-## 环境准备（三平台通用）
+---
 
-| 工具 | 要求 |
-| ---- | ---- |
-| CMake | ≥ 3.21（CMakePresets / 运行时 DLL 部署所需） |
-| Ninja | 后端 macos-clang / linux-gcc 预设需要 |
-| vcpkg | 后端依赖管理，需设置环境变量 `VCPKG_ROOT` |
-| Qt | 6.5.x（前端） |
+## 技术栈
 
-> 后端依赖由 `server/vcpkg.json` 的 manifest 模式自动安装，无需手动装包。
-> 前端不依赖 vcpkg，Qt 路径通过 `QT_ROOT` 环境变量或 Qt Creator 的 Kit 提供。
+| 层次 | 技术 |
+| --- | --- |
+| 客户端 | Qt 6.5（Core / Gui / Widgets / Network）、C++17、Qt 样式表（QSS）、Qt 资源系统（qrc） |
+| 服务端 | C++20、gRPC + protobuf、Boost.Asio / Boost.Beast、Boost.PropertyTree、Boost.Uuid |
+| 存储 | MySQL 8（X DevAPI / X Protocol 33060）、Redis（hiredis） |
+| 安全 | libsodium（Argon2id 口令哈希）、Poco NetSSL（SMTP over SSL） |
+| 构建 | CMake ≥ 3.21、Ninja / Visual Studio、vcpkg（manifest 模式） |
 
-### 后端：vcpkg 构建依赖的系统前置
+---
 
-`libsodium`（密码哈希）的端口在 macOS / Linux 上走 autotools 构建，这几项程序由 vcpkg 调用、
-但**不在 vcpkg 管理范围内**，需先由系统包管理器安装：
+## 快速开始
 
-| 平台 | 命令 |
-| ---- | ---- |
-| macOS | `brew install autoconf autoconf-archive automake libtool` |
-| Linux (Debian/Ubuntu) | `sudo apt install autoconf autoconf-archive automake libtool` |
-| Linux (Fedora/RHEL) | `sudo dnf install autoconf autoconf-archive automake libtool` |
-| Windows (MSVC) | 无需安装，该端口在 MSVC 下走自带的 VS 工程 |
-
-其余依赖（gRPC / protobuf / Boost / hiredis / jsoncpp / mysql-connector-cpp）均由 vcpkg 自行准备。
-
-## 构建与运行
-
-### 数据库（Docker，可选本机安装）
+### 1. 准备外部服务
 
 ```bash
-# MySQL：端口 3306，root/123456，库 xigu（utf8mb4）
+# MySQL：暴露 3306（经典协议）与 33060（X 协议，后端实际使用）
 docker run -d --name chat-mysql -p 3306:3306 -p 33060:33060 \
-  -e MYSQL_ROOT_PASSWORD=123456 mysql:latest
+  -e MYSQL_ROOT_PASSWORD=123456 mysql:8
 
 # Redis：项目配置使用 6380 端口，密码 123456
 docker run -d --name chat-redis -p 6380:6379 -v redis-data:/data \
   redis:latest redis-server --requirepass 123456
 ```
 
-首次运行需创建库并导入 `backup/xigu.sql`（备份不入库，可从仓库备份恢复）。
-
-### 前端（客户端）
-
-**Qt Creator（推荐）**：打开 `client/CMakeLists.txt`，选择本机 Qt 6.5 Kit 构建运行。
-Windows 使用 **MinGW** Kit；macOS / Linux 使用系统编译器 Kit。
-
-**命令行**（三平台同一套预设）：
+创建 schema `xigu` 后直接导入仓库自带的 `backup/xigu.sql`，即可一次性得到
+全部表结构、`reg_user` 存储过程与初始数据，无需手工建表：
 
 ```bash
-cd client
-# Windows:  需设置 QT_ROOT（Qt 6.5 目录）与 QT_MINGW_ROOT（Qt 配套 MinGW）
-#           如 setx QT_ROOT "D:\Qt\6.5.3\mingw_64"
-#             setx QT_MINGW_ROOT "D:\Qt\Tools\mingw1120_64"
-#           QT_MINGW_ROOT 必须是与 Qt 版本对应的 MinGW（Qt 6.5 对应 11.2，
-#           即 Qt 安装包自带的 mingw1120_64），其他版本 ABI 不兼容
-cmake --preset windows-mingw     # 或 windows-mingw-release
-cmake --build --preset windows-mingw
-# macOS:
-cmake --preset macos-clang       # 或 macos-clang-release
-cmake --build --preset macos-clang
-# Linux:
-cmake --preset linux-gcc         # 或 linux-gcc-release
-cmake --build --preset linux-gcc
+docker exec -i chat-mysql mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS xigu
+  DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+docker exec -i chat-mysql mysql -uroot -p123456 xigu < backup/xigu.sql
 ```
 
-产物：`build/<预设>/bin/xiguchat`（macOS 为 `xiguchat.app`）。
-
-### 后端（3 个 C++ 服务）
+### 2. 构建后端
 
 ```bash
 cd server
-export VCPKG_ROOT=/path/to/vcpkg      # Windows: set VCPKG_ROOT=...
-cmake --preset windows-msvc           # macOS: macos-clang | Linux: linux-gcc
-cmake --build --preset windows-msvc-debug
+export VCPKG_ROOT=/path/to/vcpkg          # Windows: set VCPKG_ROOT=D:\vcpkg
+
+cmake --preset macos-clang                # 或 windows-msvc / linux-gcc
+cmake --build --preset macos-clang
 ```
 
-产物：`build/<预设>/bin/<服务名>/`（已自动拷贝 config.ini 与运行时 DLL）。
-其中 ChatServer 会按 `config/*.ini` 生成多个实例目录：
+macOS / Linux 上 `libsodium` 走 autotools 构建，需系统预装
+`autoconf autoconf-archive automake libtool`（详见 `docs/02-build.md`）；Windows 不需要。
 
-```
-bin/ChatServer/      # 实例 chatserver1：可执行文件 + config.ini
-bin/ChatServer2/     # 实例 chatserver2：可执行文件副本 + config.ini
-```
+### 3. 构建客户端
 
-依次运行（每个服务须在其自身目录下启动，config.ini 按当前工作目录读取）：
-
-```
-bin/VerifyServer/VerifyServer      # 先启动验证码服务
-bin/StatusServer/StatusServer
-bin/ChatServer/ChatServer          # 再启动两个聊天实例（同一份可执行文件）
-bin/ChatServer2/ChatServer
-bin/GateServer/GateServer          # 最后启动网关
+```bash
+cd client
+cmake --preset macos-clang                # 或 windows-mingw / linux-gcc
+cmake --build --preset macos-clang
 ```
 
-> 两个聊天实例用的是**同一个可执行文件**，区别只在各自目录下的 config.ini
-> （`SelfServer` 的 Name / Port / RPCPort 与 `PeerServer` 指向）。
-> 想加第三个实例：复制一份 `services/ChatServer/config/ChatServer.ini` 改名为
-> `ChatServer3.ini`、改掉端口与 Name，重新 configure 即会自动生成 `bin/ChatServer3/`，
-> 同时记得把新实例名加进 `StatusServer/config.ini` 的 `[chatservers]` 列表。
+命令行构建时可用 `QT_ROOT` 指定 Qt 安装；Windows MinGW 还需 `QT_MINGW_ROOT`
+（必须为 Qt 6.5 配套的 `mingw1120_64`）。Qt Creator 用户直接打开 `client/CMakeLists.txt` 选 Kit 即可。
 
-### 验证码服务的邮件配置
+### 4. 启动
 
-`bin/VerifyServer/config.ini` 里 `[Email]` 段填写 SMTP 账号与授权码：
+每个服务都按当前工作目录读取 `config.ini`，所以必须进入各自目录启动：
 
-```ini
-[Email]
-Host = smtp.qq.com      # SMTP 服务器
-Port = 465              # SSL 直连端口（465）；改用 STARTTLS 的 587 需改代码
-User = xxx@qq.com       # 发件邮箱账号
-Pass = <授权码>          # 邮箱授权码，不是登录密码
-From = xxx@qq.com       # 发件人，留空则与 User 相同
-CA = /etc/ssl/cert.pem  # CA 证书路径；留空则用 OpenSSL 默认证书目录
+```bash
+cd build/macos-clang/bin
+
+./VerifyServer/VerifyServer
+./StatusServer/StatusServer
+./ChatServer/ChatServer          # 实例 chatserver1
+./ChatServer2/ChatServer         # 实例 chatserver2（同一份可执行文件）
+./GateServer/GateServer
 ```
 
-`CA` 按部署环境填写：macOS 常见 `/etc/ssl/cert.pem`，Linux 常见 `/etc/ssl/certs`，
-Windows 可留空或指向本地 PEM。证书校验失败会直接导致发信失败。
+启动顺序建议：VerifyServer → StatusServer → ChatServer（各实例）→ GateServer。
+
+### 5. 配置邮件（可选但推荐）
+
+编辑 `bin/VerifyServer/config.ini` 的 `[Email]` 段，填入 SMTP 账号与授权码。
+`CA` 留空时按平台自动探测系统 CA bundle，证书校验失败会直接导致发信失败。
+完整配置项见 `docs/05-configuration.md`。
+
+---
 
 ## 端口一览
 
-| 服务                      | 协议/端口            |
-| ------------------------- | -------------------- |
-| VerifyServer              | gRPC 50051           |
-| StatusServer              | RPC 50052            |
-| ChatServer 实例 chatserver1 | TCP 8090 + RPC 50055 |
-| ChatServer 实例 chatserver2 | TCP 8091 + RPC 50056 |
-| GateServer                | HTTP 8080            |
+| 服务 / 组件 | 协议 | 端口 | 说明 |
+| --- | --- | --- | --- |
+| GateServer | HTTP | 8080 | 客户端 HTTP 接口 |
+| VerifyServer | gRPC | 50051 | 验证码下发 |
+| StatusServer | gRPC | 50052 | 状态路由 / 令牌校验 |
+| ChatServer `chatserver1` | TCP + gRPC | 8090 / 50055 | TCP 面向客户端，gRPC 面向服务间 |
+| ChatServer `chatserver2` | TCP + gRPC | 8091 / 50056 | 同上 |
+| MySQL | 经典 / X 协议 | 3306 / 33060 | 后端使用 **X 协议 33060** |
+| Redis | RESP | 6380 | 密码 123456 |
+
+---
 
 ## 外部依赖
 
-运行前需保证以下服务在线：
+| 依赖 | 地址 | 用途 |
+| --- | --- | --- |
+| MySQL | `127.0.0.1:33060`（X 协议） | 用户、好友、好友申请持久化；schema `xigu` |
+| Redis | `127.0.0.1:6380` | token、用户缓存、实例位置、连接计数、验证码 |
 
-- MySQL：`127.0.0.1:3306`（root/123456，Schema `xigu`）
-- Redis：`127.0.0.1:6380`（密码 123456）
+---
 
-## 编码约定
+## 文档
 
-- 全部源码使用 **UTF-8（无 BOM）**编码，中文注释与文案均按 UTF-8 保存
-- 跨平台分支（`WIN32` / `APPLE` / `UNIX`）注释说明均与三平台行为对应
+深度技术文档位于 [`docs/`](docs/README.md)：
+
+| 文档 | 内容 |
+| --- | --- |
+| [docs/README.md](docs/README.md) | 文档索引与阅读路径 |
+| [01-架构设计](docs/01-architecture.md) | 分层、线程模型、三条核心流程时序、消息路由 |
+| [02-构建与部署](docs/02-build.md) | CMake 预设、vcpkg、多实例机制、产物布局、跨平台差异 |
+| [03-通信协议](docs/03-protocol.md) | TCP 私有协议、HTTP 接口、gRPC 接口、错误码总表 |
+| [04-数据模型](docs/04-data-model.md) | MySQL 表结构与存储过程、Redis 键空间设计 |
+| [05-配置参考](docs/05-configuration.md) | 全部 `config.ini` 段落与字段说明 |
+| [06-客户端](docs/06-client.md) | Qt 客户端模块划分、通信层、UI 层、资源与样式 |
+| [07-GateServer](docs/07-gate-server.md) | HTTP 网关实现细节 |
+| [08-StatusServer](docs/08-status-server.md) | 状态路由与令牌服务 |
+| [09-ChatServer](docs/09-chat-server.md) | 长连接服务、会话管理、跨实例转发 |
+| [10-VerifyServer](docs/10-verify-server.md) | 验证码服务与 SMTP 发信 |
+| [11-已知限制](docs/11-known-limitations.md) | 技术债与改进方向 |
+
+---
+
+## 工程约定
+
+- **编码**：全部源码 UTF-8 无 BOM，中文注释按 UTF-8 保存。
+- **标准**：服务端 C++20，客户端 C++17；禁用编译器扩展（`CMAKE_CXX_EXTENSIONS OFF`）。
+- **跨平台**：涉及平台差异时（`WIN32` / `APPLE` / `UNIX`、单配置与多配置生成器）
+  必须同时保证三平台行为正确，注释中注明各自行为。
+- **协议同步**：消息 ID 在服务端 `include/const.h` 的 `MSG_IDS` 与客户端 `core/global.h`
+  的 `ReqId` 中各有一份定义，**修改协议必须同步两端**。
+- **配置读取**：所有服务按当前工作目录读取 `config.ini`，启动时须 `cd` 到自身目录。
+
+---
+
+## 已知限制
+
+本项目定位为学习与工程实践项目，以下为已知的功能与安全缺口（完整清单见
+[docs/11-known-limitations.md](docs/11-known-limitations.md)）：
+
+- 密码在 HTTP 链路上为可逆 XOR 变形，非加密传输；网关未启用 TLS。
+- Token 无有效期、无刷新与吊销机制。
+- 无心跳与断线重连；无离线消息存储与送达确认。
+- `StatusServer::Login` RPC 已实现但尚未被 ChatServer 调用（后者直接读 Redis 校验 token）。
+
+---
 
 ## 开源协议
 
-本项目采用 **GNU GPL-3.0** 开源协议，见 [LICENSE](LICENSE)。
+本项目采用 **GNU General Public License v3.0**，详见 [LICENSE](LICENSE)。
