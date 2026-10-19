@@ -1,0 +1,11 @@
+# 语言统计规则：GitHub / Gitee 均使用 Linguist 读取本文件
+# backup/ 只存放数据库备份，不属于项目源码，整体排除出语言统计
+backup/** linguist-vendored
+backup/** linguist-generated
+backup/** -linguist-detectable
+
+# 头文件统一按 C++ 统计（默认规则会把 .h 归为 C）
+*.h linguist-language=C++
+
+# SQL 文件仍按 SQL 语法高亮
+*.sql linguist-language=SQL
