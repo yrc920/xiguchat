@@ -16,7 +16,7 @@ public:
 	std::shared_ptr<CSession> GetSession(int uid); //根据用户ID获取对应的会话对象
 	//将用户ID和会话对象关联起来, 存储在UserMgr中
 	void SetUserSession(int uid, std::shared_ptr<CSession> session);
-	void RmvUserSession(int uid); //根据用户ID移除对应的会话对象
+	void RmvUserSession(int uid, std::string session_id); //根据用户ID和会话ID移除对应的会话对象
 
 private:
 	UserMgr();

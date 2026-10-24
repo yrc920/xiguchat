@@ -6,13 +6,15 @@
 #include <json/value.h>
 #include <json/reader.h>
 #include "LogicSystem.h"
+#include "RedisMgr.h"
 
 CSession::CSession(boost::asio::io_context& io_context, CServer* server) :
-	_socket(io_context), _server(server), _b_close(false), _b_head_parse(false)
+	_socket(io_context), _server(server), _b_close(false), _b_head_parse(false), _user_uid(0)
 {
 	boost::uuids::uuid a_uuid = boost::uuids::random_generator()(); //生成一个随机的UUID
 	_session_id = boost::uuids::to_string(a_uuid); //将UUID转换为字符串形式
 	_recv_head_node = std::make_shared<MsgNode>(HEAD_TOTAL_LEN); //分配头部节点内存
+    _last_heartbeat = std::time(nullptr); //初始化上次接受数据的时间为当前时间
 }
 
 CSession::~CSession() {
@@ -104,7 +106,7 @@ void CSession::HandleWrite(const boost::system::error_code& error,
 		if (error) {
 			std::cout << "handle write failed, error is " << error.what() << std::endl;
 			Close(); //关闭连接
-			_server->ClearSession(_session_id); //清除会话
+			DealExceptionSession(); //处理异常连接
 		}
 		
 		std::lock_guard<std::mutex> lock(_send_lock); //使用互斥锁保护发送队列，确保线程安全
@@ -135,7 +137,7 @@ void CSession::AsyncReadBody(int total_len)
 				if (ec) {
 					std::cout << "handle read failed, error is " << ec.what() << std::endl;
 					Close(); //关闭连接
-					_server->ClearSession(_session_id); //清除会话
+					DealExceptionSession(); //处理异常连接
 					return;
 				}
 
@@ -148,6 +150,12 @@ void CSession::AsyncReadBody(int total_len)
 					_server->ClearSession(_session_id); //清除会话
 					return;
 				}
+
+			    //判断连接无效
+            if (!_server->CheckValid(_session_id)) {
+                Close();
+                return;
+            }
 
 				memcpy(_recv_msg_node->_data, _data, bytes_transfered); //将读取到的数据复制到消息节点内
 				_recv_msg_node->_cur_len += bytes_transfered; //更新消息节点的当前长度
@@ -178,7 +186,7 @@ void CSession::AsyncReadHead(int total_len)
 			if (ec) {
 				std::cout << "handle read failed, error is " << ec.what() << std::endl;
 				Close(); //关闭连接
-				_server->ClearSession(_session_id); //清除会话
+				DealExceptionSession(); //处理异常连接
 				return;
 			}
 
@@ -191,6 +199,12 @@ void CSession::AsyncReadHead(int total_len)
 				_server->ClearSession(_session_id); //清除会话
 				return;
 			}
+
+		    //判断连接无效
+            if (!_server->CheckValid(_session_id)) {
+                Close();
+                return;
+            }
 
 			_recv_head_node->Clear(); //清空头部节点数据
 			memcpy(_recv_head_node->_data, _data, bytes_transfered); //将读取到的数据复制到头部节点内
@@ -232,6 +246,17 @@ void CSession::AsyncReadHead(int total_len)
 	});
 }
 
+void CSession::NotifyOffline(int uid)
+{
+    Json::Value rtvalue; //创建一个Json对象，用于存储返回的结果
+    rtvalue["error"] = ErrorCodes::Success;
+    rtvalue["uid"] = uid;
+
+    std::string return_str = rtvalue.toStyledString(); //将Json对象转换为字符串形式
+    Send(return_str, ID_NOTIFY_OFF_LINE_REQ); //调用Send函数发送离线通知消息给客户端
+    return;
+}
+
 //读取完整长度
 void CSession::asyncReadFull(std::size_t maxLength,
 	std::function<void(const boost::system::error_code&, std::size_t)> handler)
@@ -266,6 +291,38 @@ void CSession::asyncReadLen(std::size_t read_len, std::size_t total_len,
 			self->asyncReadLen(read_len + bytesTransfered, total_len, handler);
 		});
 }
+
+void CSession::DealExceptionSession()
+{
+    auto self = shared_from_this();
+    //加锁清除session
+    auto uid_str = std::to_string(_user_uid);
+    auto lock_key = LOCK_PREFIX + uid_str;
+    auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
+
+    Defer defer([identifier, lock_key, self, this]() {
+        _server->ClearSession(_session_id);
+        RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
+        });
+
+    if (identifier.empty())
+        return;
+
+    std::string redis_session_id = "";
+    auto bsuccess = RedisMgr::GetInstance()->Get(USER_SESSION_PREFIX + uid_str, redis_session_id);
+    if (!bsuccess)
+        return;
+
+    if (redis_session_id != _session_id) {
+        //说明有客户在其他服务器异地登录了
+        return;
+    }
+
+    RedisMgr::GetInstance()->Del(USER_SESSION_PREFIX + uid_str);
+    //清除用户登录信息
+    RedisMgr::GetInstance()->Del(USERIPPREFIX + uid_str);
+}
+
 
 LogicNode::LogicNode(std::shared_ptr<CSession> session, std::shared_ptr<RecvNode> recvnode)
 	: _session(session), _recvnode(recvnode) {

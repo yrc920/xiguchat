@@ -16,6 +16,7 @@ public:
 	CServer(boost::asio::io_context& io_context, short port);
 	~CServer();
 	void ClearSession(std::string); //清除指定uuid的会话
+    bool CheckValid(std::string); //检查指定uuid的会话是否存在
 
 private:
 	//处理接受连接的回调函数

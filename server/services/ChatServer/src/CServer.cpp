@@ -66,7 +66,7 @@ void CServer::ClearSession(std::string session_id)
 	}
 
 	//移除用户和session的关联
-	UserMgr::GetInstance()->RmvUserSession(uid);
+	UserMgr::GetInstance()->RmvUserSession(uid, session_id);
 
 	//本实例的登录计数减一, 与登录时的自增配对, 供 StatusServer 做最小连接数分配
 	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
@@ -75,4 +75,15 @@ void CServer::ClearSession(std::string session_id)
 		//计数异常时兜底归零, 避免负值长期影响分配
 		RedisMgr::GetInstance()->HSet(LOGIN_COUNT, server_name, "0");
 	}
+}
+
+bool CServer::CheckValid(std::string uuid)
+{
+    std::lock_guard<std::mutex> lock(_mutex); //保护_sessions的互斥锁
+    auto it = _sessions.find(uuid); //查找指定uuid的会话
+    //如果找到了, 说明会话存在, 返回true; 否则返回false
+    if (it != _sessions.end())
+        return true;
+
+    return false;
 }

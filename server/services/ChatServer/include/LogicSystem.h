@@ -24,6 +24,7 @@ class LogicSystem :public Singleton<LogicSystem>
 public:
 	~LogicSystem(); //使基类析构时可以访问派生类的析构函数
 	void PostMsgToQue(std::shared_ptr<LogicNode> msg); //将消息节点添加到消息队列中，供逻辑处理线程处理
+    void SetServer(std::shared_ptr<CServer> pserver);
 
 private:
 	LogicSystem();
@@ -57,4 +58,5 @@ private:
 
 	//消息ID到处理函数的映射表，用于根据消息ID分发消息到对应的处理函数
 	std::map<short, FunCallBack> _fun_callbacks;
+    std::shared_ptr<CServer> _p_server; //CServer对象的智能指针，用于在逻辑处理过程中访问服务器相关功能
 };

@@ -33,6 +33,8 @@ public:
 	std::shared_ptr<CSession> SharedSelf(); //返回一个指向当前对象的shared_ptr
 	void AsyncReadBody(int length); //异步读取消息体
 	void AsyncReadHead(int total_len); //异步读取消息头
+    void NotifyOffline(int uid); //通知用户离线
+    void DealExceptionSession(); //处理异常连接
 
 private:
 	//读取完整长度
@@ -46,8 +48,7 @@ private:
 
 	tcp::socket _socket; //套接字
 	std::string _session_id; //会话ID, 用于唯一标识一个会话(token)
-    // 用户ID, 0 表示尚未登录(uid 由发号表递增产生, 最小为 1001, 0 不会是合法值)
-    int _user_uid = 0;
+    int _user_uid; //用户ID, 用于标识当前会话对应的用户
 	char _data[MAX_LENGTH]; //接收缓冲区
 	CServer* _server; //指向服务器对象的指针
 	bool _b_close; //会话是否关闭
@@ -56,6 +57,10 @@ private:
 	std::shared_ptr<RecvNode> _recv_msg_node; //收到的消息结构
 	bool _b_head_parse; //是否已经解析头部
 	std::shared_ptr<MsgNode> _recv_head_node; //收到的头部结构
+    //记录上次接受数据的时间
+    std::atomic<time_t> _last_heartbeat;
+    //session 锁
+    std::mutex _session_mtx;
 };
 
 class LogicNode {

@@ -1,5 +1,6 @@
 #include "RedisMgr.h"
 #include "ConfigMgr.h"
+#include "DistLock.h"
 
 RedisMgr::RedisMgr()
 {
@@ -8,8 +9,8 @@ RedisMgr::RedisMgr()
 	auto host = gCfgMgr["Redis"]["Host"];
 	auto port = gCfgMgr["Redis"]["Port"];
 	auto pwd = gCfgMgr["Redis"]["Passwd"];
-	//初始化连接池对象, 连接池大小为5
-	_con_pool.reset(new RedisConPool(5, host.c_str(), atoi(port.c_str()), pwd.c_str()));
+	//初始化连接池对象, 连接池大小为10
+	_con_pool.reset(new RedisConPool(10, host.c_str(), atoi(port.c_str()), pwd.c_str()));
 }
 
 bool RedisMgr::Get(const std::string& key, std::string& value)
@@ -78,6 +79,58 @@ bool RedisMgr::Set(const std::string& key, const std::string& value)
 	freeReplyObject(reply);
 	_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 	return true;
+}
+
+bool RedisMgr::Del(const std::string& key)
+{
+    auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
+    //如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+    if (connect == nullptr) {
+        return false;
+    }
+
+    //执行redis命令行, 删除key
+    auto reply = (redisReply*)redisCommand(connect, "DEL %s", key.c_str());
+
+    //如果返回NULL或者返回的类型不是整数, 则说明执行失败, 释放连接并返回false
+    if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER) {
+        std::cout << "Execut command [ Del " << key << " ] failure ! " << std::endl;
+        freeReplyObject(reply);
+        _con_pool->returnConnection(connect);
+        return false;
+    }
+
+    //执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
+    std::cout << "Execut command [ Del " << key << " ] success ! " << std::endl;
+    freeReplyObject(reply);
+    _con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
+    return true;
+}
+
+bool RedisMgr::ExistsKey(const std::string& key)
+{
+    auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
+    //如果连接池返回空指针, 则说明连接池已停止, 直接返回false
+    if (connect == nullptr) {
+        return false;
+    }
+
+    //执行redis命令行, 检查key是否存在
+    auto reply = (redisReply*)redisCommand(connect, "exists %s", key.c_str());
+
+    //如果返回NULL或者返回的类型不是整数, 则说明执行失败, 释放连接并返回false
+    if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER || reply->integer == 0) {
+        std::cout << "Not Found [ Key " << key << " ]  ! " << std::endl;
+        freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+        _con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
+        return false;
+    }
+
+    //执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
+    std::cout << " Found [ Key " << key << " ] exists ! " << std::endl;
+    freeReplyObject(reply);
+    _con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
+    return true;
 }
 
 bool RedisMgr::LPush(const std::string& key, const std::string& value)
@@ -356,56 +409,35 @@ bool RedisMgr::HIncrBy(const std::string& key, const std::string& hkey, long lon
 	return true;
 }
 
-bool RedisMgr::Del(const std::string& key)
+std::string RedisMgr::acquireLock(const std::string& lockName, int lockTimeout, int acquireTimeout)
 {
-	auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
-	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
-	if (connect == nullptr) {
-		return false;
-	}
+    auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
+    if (connect == nullptr) {
+        return "";
+    }
 
-	//执行redis命令行, 删除key
-	auto reply = (redisReply*)redisCommand(connect, "DEL %s", key.c_str());
+    Defer defer([&connect, this]() {
+        _con_pool->returnConnection(connect);
+    });
 
-	//如果返回NULL或者返回的类型不是整数, 则说明执行失败, 释放连接并返回false
-	if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER) {
-		std::cout << "Execut command [ Del " << key << " ] failure ! " << std::endl;
-		freeReplyObject(reply);
-		_con_pool->returnConnection(connect);
-		return false;
-	}
-
-	//执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
-	std::cout << "Execut command [ Del " << key << " ] success ! " << std::endl;
-	freeReplyObject(reply);
-	_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
-	return true;
+    return DistLock::Inst().acquireLock(connect, lockName, lockTimeout, acquireTimeout);
 }
 
-bool RedisMgr::ExistsKey(const std::string& key)
+bool RedisMgr::releaseLock(const std::string& lockName, const std::string& identifier)
 {
-	auto connect = _con_pool->getConnection(); //从连接池中获取一个可用的redisContext对象
-	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
-	if (connect == nullptr) {
-		return false;
-	}
+    if (identifier.empty()) {
+        return true;
+    }
+    auto connect = _con_pool->getConnection();
+    if (connect == nullptr) {
+        return false;
+    }
 
-	//执行redis命令行, 检查key是否存在
-	auto reply = (redisReply*)redisCommand(connect, "exists %s", key.c_str());
+    Defer defer([&connect, this]() {
+        _con_pool->returnConnection(connect);
+        });
 
-	//如果返回NULL或者返回的类型不是整数, 则说明执行失败, 释放连接并返回false
-	if (reply == nullptr || reply->type != REDIS_REPLY_INTEGER || reply->integer == 0) {
-		std::cout << "Not Found [ Key " << key << " ]  ! " << std::endl;
-		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
-		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
-		return false;
-	}
-
-	//执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
-	std::cout << " Found [ Key " << key << " ] exists ! " << std::endl;
-	freeReplyObject(reply);
-	_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
-	return true;
+    return DistLock::Inst().releaseLock(connect, lockName, identifier);
 }
 
 void RedisMgr::Close()

@@ -32,6 +32,7 @@ set(SERVER_SOURCES
     src/UserMgr.cpp            # 在线用户管理（uid -> session 映射）
     src/ChatGrpcClient.cpp     # 调用对端聊天实例的 gRPC 客户端
     src/StatusGrpcClient.cpp   # 调用 StatusServer 的 gRPC 客户端
+    src/DistLock.cpp
 )
 
 # ---------- 头文件清单 ----------
@@ -53,6 +54,7 @@ set(SERVER_HEADERS
     include/Singleton.h
     include/const.h
     include/data.h
+    include/DistLock.h
 )
 
 # ---------- 实例清单 ----------

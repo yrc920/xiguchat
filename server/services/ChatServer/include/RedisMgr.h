@@ -37,6 +37,10 @@ public:
 	//对哈希表key中字段hkey做原子自增(HINCRBY)，increment 可为负数，value 返回自增后的值
 	//自增在 Redis 单条命令内完成，多个进程/线程同时增减不会互相覆盖
 	bool HIncrBy(const std::string& key, const std::string& hkey, long long increment, long long& value);
+    //获取分布式锁，返回锁的唯一标识符，如果获取失败返回空字符串
+    std::string acquireLock(const std::string& lockName, int lockTimeout, int acquireTimeout);
+    //释放锁，只有持有锁的客户端才能释放锁，防止误删其他客户端的锁
+    bool releaseLock(const std::string& lockName, const std::string& identifier);
 	
 	void Close(); //关闭连接池, 释放资源
 

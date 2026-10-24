@@ -2,120 +2,217 @@ syntax = "proto3";
 
 package message;
 
+// 邮箱验证码服务，由 GateServer 在客户端注册/找回密码时调用，客户端不直接访问。
+// 通用约定：gRPC 调用本身始终返回 OK，业务结果放在响应报文的 error 字段里。
 service VerifyService {
+  // 为指定邮箱生成验证码并发送邮件；验证码在有效期内重复申请会复用同一个，不会重复生成
   rpc GetVerifyCode (GetVerifyReq) returns (GetVerifyRsp) {}
 }
 
+// 获取邮箱验证码的请求
 message GetVerifyReq {
+  // 接收验证码的邮箱，同时作为 Redis 缓存键 code_<email> 的组成部分
   string email = 1;
 }
 
+// 获取邮箱验证码的响应
 message GetVerifyRsp {
+  // 业务错误码，0 表示成功；Redis 不可用、发信失败等取值见 VerifyServer 的 VerifyCodes
   int32 error = 1;
+  // 回显请求中的邮箱，便于调用方把异步结果和请求对上
   string email = 2;
+  // 预留字段：当前实现不回填，验证码只通过邮件下发，不返回给调用方
   string code = 3;
 }
 
+// 状态服务，由 GateServer 调用，负责给用户分配 ChatServer 并签发会话令牌
+service StatusService {
+  // 按各实例在线人数为用户挑选一台 ChatServer，同时签发本次会话的 token
+  rpc GetChatServer (GetChatServerReq) returns (GetChatServerRsp) {}
+  // 校验 uid 与 token 是否匹配；当前登录链路由 ChatServer 自己比对 Redis，本方法暂无调用方
+  rpc Login (LoginReq) returns (LoginRsp) {}
+}
+
+// 申请分配 ChatServer 的请求
 message GetChatServerReq {
+  // 已通过密码校验的用户 ID，分配结果与它无关，仅用于日志和令牌绑定
   int32 uid = 1;
 }
 
+// 分配 ChatServer 的响应
 message GetChatServerRsp {
+  // 业务错误码，0 表示成功
   int32 error = 1;
+  // 分配到的 ChatServer 地址，客户端据此建立 TCP 长连接
   string host = 2;
+  // ChatServer 的 TCP 端口，配置里以字符串形式保存，故此处也用 string
   string port = 3;
+  // 本次会话令牌，由 StatusServer 生成并写入 Redis 的 utoken_<uid>，客户端拿它向 ChatServer 证明身份
   string token = 4;
 }
 
-message LoginReq{
-	int32 uid = 1;
-	string token= 2;
+// 校验登录态的请求
+message LoginReq {
+  // 待校验的用户 ID
+  int32 uid = 1;
+  // 待校验的会话令牌，应与 Redis 中 utoken_<uid> 的值一致
+  string token = 2;
 }
 
+// 校验登录态的响应
 message LoginRsp {
-	int32 error = 1;
-	int32 uid = 2;
-	string token = 3;
+  // 业务错误码，0 表示成功；uid 不存在或 token 不匹配时返回对应错误码
+  int32 error = 1;
+  // 校验通过时回显用户 ID
+  int32 uid = 2;
+  // 校验通过时回显会话令牌
+  string token = 3;
 }
 
-service StatusService {
-	rpc GetChatServer (GetChatServerReq) returns (GetChatServerRsp) {}
-	rpc Login(LoginReq) returns(LoginRsp);
-}
-
-message AddFriendReq {
-	int32  applyuid = 1;
-	string name = 2;
-	string desc = 3;
-	string icon = 4;
-	string nick = 5;
-	int32  sex = 6;
-	int32  touid = 7;
-}
-
-message AddFriendRsp {
-	int32 error = 1;
-	int32 applyuid = 2;
-	int32 touid = 3;
-}
-
-message RplyFriendReq {
-	int32 rplyuid = 1;
-	bool  agree = 2;
-	int32 touid = 3;
-}
-
-message RplyFriendRsp {
-	int32 error = 1;
-	int32 rplyuid = 2;
-	int32 touid = 3;
-}
-
-message SendChatMsgReq{
-		int32 fromuid = 1;
-		int32 touid = 2;
-		string message = 3;
-}
-
-message SendChatMsgRsp{
-		int32 error = 1;
-		int32 fromuid = 2;
-		int32 touid = 3;
-}
-
-message AuthFriendReq{
-	int32 fromuid = 1;
-	int32 touid = 2;
-}
-
-message AuthFriendRsp{
-	int32 error = 1;
-	int32 fromuid = 2;
-	int32 touid = 3;
-}
-
-message TextChatMsgReq {
-	int32 fromuid = 1;
-    int32 touid = 2;
-	repeated TextChatData textmsgs = 3;
-}
-
-message TextChatData{
-	string msgid = 1;
-	string msgcontent = 2;
-}
-
-message TextChatMsgRsp {
-	int32 error = 1;
-	int32 fromuid = 2;
-	int32 touid = 3; 
-	repeated TextChatData textmsgs = 4;
-}
-
+// 聊天服务，仅在 ChatServer 实例之间互相调用，客户端不直接访问。
+// 每个实例既是服务端也是客户端：先查 Redis 的 uip_<uid> 得到对方实例名，再按配置里的地址发起调用。
+// 通用约定：RPC 调用成功不代表业务成功，具体结果看响应报文的 error 字段。
 service ChatService {
-	rpc NotifyAddFriend(AddFriendReq) returns (AddFriendRsp) {}
-	rpc RplyAddFriend(RplyFriendReq) returns (RplyFriendRsp) {}
-	rpc SendChatMsg(SendChatMsgReq) returns (SendChatMsgRsp) {}
-	rpc NotifyAuthFriend(AuthFriendReq) returns (AuthFriendRsp) {}
-	rpc NotifyTextChatMsg(TextChatMsgReq) returns (TextChatMsgRsp){}
+  // 跨实例通知：有人申请加你为好友，由申请人所在实例发给被申请人所在实例
+  rpc NotifyAddFriend (AddFriendReq) returns (AddFriendRsp) {}
+  // 预留：同意/拒绝好友申请。当前客户端走 TCP 的 ID_AUTH_FRIEND_REQ，由 AuthFriendApply 处理，未使用本方法
+  rpc RplyAddFriend (RplyFriendReq) returns (RplyFriendRsp) {}
+  // 预留：单条文本消息投递。当前聊天走 NotifyTextChatMsg，一次可携带多条消息，未使用本方法
+  rpc SendChatMsg (SendChatMsgReq) returns (SendChatMsgRsp) {}
+  // 跨实例通知：对方已通过你的好友申请，由通过方所在实例发给申请方所在实例
+  rpc NotifyAuthFriend (AuthFriendReq) returns (AuthFriendRsp) {}
+  // 跨实例转发聊天消息，接收方不在本实例时使用
+  rpc NotifyTextChatMsg (TextChatMsgReq) returns (TextChatMsgRsp) {}
+  // 跨实例踢人：同账号在另一实例登录后，通知旧实例把该用户的旧连接踢下线
+  rpc NotifyKickUser (KickUserReq) returns (KickUserRsp) {}
+}
+
+// 好友申请通知
+message AddFriendReq {
+  // 发起申请的用户 ID
+  int32 applyuid = 1;
+  // 申请人用户名，接收方直接展示，免去再查一次用户资料
+  string name = 2;
+  // 申请附言，当前调用点固定传空串，字段保留
+  string desc = 3;
+  // 申请人头像地址，随通知一起带给接收方
+  string icon = 4;
+  // 申请人昵称，随通知一起带给接收方
+  string nick = 5;
+  // 申请人性别，随通知一起带给接收方
+  int32 sex = 6;
+  // 被申请人（接收通知的一方）的用户 ID
+  int32 touid = 7;
+}
+
+// 好友申请通知的响应
+message AddFriendRsp {
+  // 业务错误码，0 表示成功；接收方不在线时也按成功处理
+  int32 error = 1;
+  // 回显申请人 ID，便于调用方匹配在途请求
+  int32 applyuid = 2;
+  // 回显被申请人 ID，便于调用方匹配在途请求
+  int32 touid = 3;
+}
+
+// 预留：处理好友申请的请求
+message RplyFriendReq {
+  // 处理申请的一方，即原被申请人
+  int32 rplyuid = 1;
+  // 处理结果，true 为同意，false 为拒绝
+  bool agree = 2;
+  // 原申请人的用户 ID
+  int32 touid = 3;
+}
+
+// 预留：处理好友申请的响应
+message RplyFriendRsp {
+  // 业务错误码，0 表示成功
+  int32 error = 1;
+  // 回显处理人 ID
+  int32 rplyuid = 2;
+  // 回显申请人 ID
+  int32 touid = 3;
+}
+
+// 预留：单条文本消息投递的请求
+message SendChatMsgReq {
+  // 发送方用户 ID
+  int32 fromuid = 1;
+  // 接收方用户 ID
+  int32 touid = 2;
+  // 文本内容
+  string message = 3;
+}
+
+// 预留：单条文本消息投递的响应
+message SendChatMsgRsp {
+  // 业务错误码，0 表示成功
+  int32 error = 1;
+  // 回显发送方 ID
+  int32 fromuid = 2;
+  // 回显接收方 ID
+  int32 touid = 3;
+}
+
+// 好友申请通过的请求
+message AuthFriendReq {
+  // 通过申请的一方，即原被申请人
+  int32 fromuid = 1;
+  // 被添加的一方，即原申请人，需要收到"对方已通过"的通知
+  int32 touid = 2;
+}
+
+// 好友申请通过的响应
+message AuthFriendRsp {
+  // 业务错误码，0 表示成功
+  int32 error = 1;
+  // 回显通过方 ID
+  int32 fromuid = 2;
+  // 回显被添加方 ID
+  int32 touid = 3;
+}
+
+// 跨实例转发文本消息的请求
+message TextChatMsgReq {
+  // 发送方用户 ID
+  int32 fromuid = 1;
+  // 接收方用户 ID
+  int32 touid = 2;
+  // 本次要投递的消息段，允许一次携带多条
+  repeated TextChatData textmsgs = 3;
+}
+
+// 单条文本消息
+message TextChatData {
+  // 客户端生成的消息唯一标识，用于去重和回执关联
+  string msgid = 1;
+  // 消息正文
+  string msgcontent = 2;
+}
+
+// 跨实例转发文本消息的响应
+message TextChatMsgRsp {
+  // 业务错误码，0 表示成功
+  int32 error = 1;
+  // 回显发送方 ID
+  int32 fromuid = 2;
+  // 回显接收方 ID
+  int32 touid = 3;
+  // 回显本次投递的消息段，便于发送方确认哪些消息已被转发
+  repeated TextChatData textmsgs = 4;
+}
+
+// 跨实例踢人的请求
+message KickUserReq {
+  // 需要被踢下线的用户 ID
+  int32 uid = 1;
+}
+
+// 跨实例踢人的响应
+message KickUserRsp {
+  // 业务错误码，0 表示成功；该用户已不在目标实例上时同样按成功返回
+  int32 error = 1;
+  // 回显被踢用户 ID
+  int32 uid = 2;
 }

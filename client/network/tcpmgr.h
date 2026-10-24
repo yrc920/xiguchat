@@ -23,6 +23,7 @@ class TcpMgr : public QObject, public Singleton<TcpMgr>,
 
 public:
     ~TcpMgr(); //使基类析构时可以访问派生类的析构函数
+    void CloseConnection();
 
 private:
     friend class Singleton<TcpMgr>; //使基类创建实例时可以访问私有构造函数
@@ -54,6 +55,7 @@ signals:
     void sig_add_auth_friend(std::shared_ptr<AuthInfo>); //对方同意好友申请的信号
     void sig_auth_rsp(std::shared_ptr<AuthRsp>); //同意好友申请的响应信号
     void sig_text_chat_msg(std::shared_ptr<TextChatMsg>); //收到文本消息的信号
+    void sig_notify_offline(); //收到服务器踢人消息的信号
 };
 
 #endif // TCPMGR_H

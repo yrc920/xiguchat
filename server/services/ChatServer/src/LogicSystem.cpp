@@ -6,8 +6,9 @@
 #include "UserMgr.h"
 #include "ChatGrpcClient.h"
 #include "ConfigMgr.h"
+#include "CServer.h"
 
-LogicSystem::LogicSystem() :_b_stop(false)
+LogicSystem::LogicSystem() :_b_stop(false), _p_server(nullptr)
 {
 	RegisterCallBacks(); //注册消息处理函数
 	//启动逻辑处理线程，执行DealMsg函数，处理消息队列中的消息
@@ -38,6 +39,10 @@ void LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> msg)
 		unique_lk.unlock(); //释放锁，允许逻辑处理线程访问消息队列
 		_consume.notify_one(); //发送通知信号，唤醒逻辑处理线程
 	}
+}
+
+void LogicSystem::SetServer(std::shared_ptr<CServer> pserver) {
+    _p_server = pserver; //将CServer对象注册到LogicSystem中，方便在逻辑处理过程中访问服务器相关功能
 }
 
 void LogicSystem::DealMsg() {
@@ -196,20 +201,65 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 		obj["sex"] = friend_ele->sex;
 		obj["desc"] = friend_ele->desc;
 		obj["back"] = friend_ele->back;
-		rtvalue["friend_list"].append(obj);
+		rtvalue["friend_list"].append(obj); //将好友信息添加到Json值对象的friend_list数组中
 	}
 
 	//从配置文件中获取自身服务器的名称
 	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
-	//本实例的登录计数加一；HINCRBY 在 Redis 单条命令内完成，
-	//并发登录不会像"读-改-写"那样互相覆盖。断线时在 CServer::ClearSession 中减一
-	long long count = 0;
-	RedisMgr::GetInstance()->HIncrBy(LOGIN_COUNT, server_name, 1, count);
-	session->SetUserId(uid); //session绑定用户uid
-	std::string ipkey = USERIPPREFIX + uid_str; //为用户设置登录ip server的名字
-	RedisMgr::GetInstance()->Set(ipkey, server_name); //将用户登录ip server的名字写入Redis
-	//uid和session绑定管理, 方便以后踢人操作
-	UserMgr::GetInstance()->SetUserSession(uid, session);
+    {
+	    //此处添加分布式锁，让该线程独占登录
+	    //拼接用户ip对应的key
+	    auto lock_key = LOCK_PREFIX + uid_str;
+	    auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
+
+	    //利用defer解锁
+	    Defer defer2([this, identifier, lock_key]() {
+            RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
+            });
+	    //此处判断该用户是否在别处或者本服务器登录
+
+	    std::string uid_ip_value = "";
+	    auto uid_ip_key = USERIPPREFIX + uid_str;
+	    bool b_ip = RedisMgr::GetInstance()->Get(uid_ip_key, uid_ip_value);
+	    //说明用户已经登录了，此处应该踢掉之前的用户登录状态
+	    if (b_ip) {
+	        //获取当前服务器ip信息
+	        auto& cfg = ConfigMgr::Inst();
+	        auto self_name = cfg["SelfServer"]["Name"];
+	        //如果之前登录的服务器和当前相同，则直接在本服务器踢掉
+	        if (uid_ip_value == self_name) {
+	            //查找旧有的连接
+	            auto old_session = UserMgr::GetInstance()->GetSession(uid);
+
+	            //此处应该发送踢人消息
+	            if (old_session) {
+	                old_session->NotifyOffline(uid);
+	                //清除旧的连接
+	                _p_server->ClearSession(old_session->GetSessionId());
+	            }
+	        }
+	        else {
+	            //如果不是本服务器，则通知grpc通知其他服务器踢掉
+	            //发送通知
+                KickUserReq kick_req;
+	            kick_req.set_uid(uid);
+	            ChatGrpcClient::GetInstance()->NotifyKickUser(uid_ip_value, kick_req);
+	        }
+	    }
+
+	    //本实例的登录计数加一；HINCRBY 在 Redis 单条命令内完成，
+	    //并发登录不会像"读-改-写"那样互相覆盖。断线时在 CServer::ClearSession 中减一
+	    long long count = 0;
+	    RedisMgr::GetInstance()->HIncrBy(LOGIN_COUNT, server_name, 1, count);
+
+	    session->SetUserId(uid); //session绑定用户uid
+	    std::string ipkey = USERIPPREFIX + uid_str; //为用户设置登录ip server的名字
+	    RedisMgr::GetInstance()->Set(ipkey, server_name); //将用户登录ip server的名字写入Redis
+	    UserMgr::GetInstance()->SetUserSession(uid, session); //将用户ID和会话对象绑定，方便踢人操作
+	    std::string uid_session_key = USER_SESSION_PREFIX + uid_str; //为用户设置session的名字
+	    //将用户session的名字写入Redis
+	    RedisMgr::GetInstance()->Set(uid_session_key, session->GetSessionId());
+    }
 
 	return;
 }
