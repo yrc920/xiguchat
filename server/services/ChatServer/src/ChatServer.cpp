@@ -21,7 +21,7 @@ int main()
                 RedisMgr::GetInstance()->Close();
             });
 
-	    boost::asio::io_context  io_context;
+	    boost::asio::io_context io_context;
 	    auto port_str = cfg["SelfServer"]["Port"];
 	    //创建Cserver智能指针
 	    auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()));

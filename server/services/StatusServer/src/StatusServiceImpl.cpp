@@ -58,38 +58,38 @@ ChatServer StatusServiceImpl::getChatServer()
 	std::lock_guard<std::mutex> guard(_server_mtx); //加锁保护服务器列表的访问
 	auto minServer = _servers.begin()->second; //假设第一个服务器的连接数最少
 
-	// //从Redis中获取第一个服务器的连接数
-	// auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
-	// if (count_str.empty()) {
-	// 	//不存在则默认设置为最大
-	// 	minServer.con_count = INT_MAX;
-	// }
-	// else {
-	// 	minServer.con_count = std::stoi(count_str); //将连接数字符串转换为整数
-	// }
-	//
-	// for (auto& server : _servers)
-	// {
-	// 	//如果当前服务器的名称与假设的最小连接数服务器的名称相同, 则跳过该服务器
-	// 	if (server.second.name == minServer.name) {
-	// 		continue;
-	// 	}
-	//
-	// 	//从Redis中获取当前服务器的连接数
-	// 	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server.second.name);
-	// 	if (count_str.empty()) {
-	// 		//不存在则默认设置为最大
-	// 		server.second.con_count = INT_MAX;
-	// 	}
-	// 	else {
-	// 		server.second.con_count = std::stoi(count_str); //将连接数字符串转换为整数
-	// 	}
-	//
-	// 	//如果当前服务器的连接数小于假设的最小连接数服务器的连接数, 则更新最小连接数服务器为当前服务器
-	// 	if (server.second.con_count < minServer.con_count) {
-	// 		minServer = server.second;
-	// 	}
-	// }
+	//从Redis中获取第一个服务器的连接数
+	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
+	if (count_str.empty()) {
+		//不存在则默认设置为最大
+		minServer.con_count = INT_MAX;
+	}
+	else {
+		minServer.con_count = std::stoi(count_str); //将连接数字符串转换为整数
+	}
+
+	for (auto& server : _servers)
+	{
+		//如果当前服务器的名称与假设的最小连接数服务器的名称相同, 则跳过该服务器
+		if (server.second.name == minServer.name) {
+			continue;
+		}
+
+		//从Redis中获取当前服务器的连接数
+		auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server.second.name);
+		if (count_str.empty()) {
+			//不存在则默认设置为最大
+			server.second.con_count = INT_MAX;
+		}
+		else {
+			server.second.con_count = std::stoi(count_str); //将连接数字符串转换为整数
+		}
+
+		//如果当前服务器的连接数小于假设的最小连接数服务器的连接数, 则更新最小连接数服务器为当前服务器
+		if (server.second.con_count < minServer.con_count) {
+			minServer = server.second;
+		}
+	}
 	return minServer; //返回连接数最少的服务器信息
 }
 

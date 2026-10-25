@@ -32,7 +32,7 @@ set(SERVER_SOURCES
     src/UserMgr.cpp            # 在线用户管理（uid -> session 映射）
     src/ChatGrpcClient.cpp     # 调用对端聊天实例的 gRPC 客户端
     src/StatusGrpcClient.cpp   # 调用 StatusServer 的 gRPC 客户端
-    src/DistLock.cpp
+    src/DistLock.cpp           # 分布式锁（Redis 实现）
 )
 
 # ---------- 头文件清单 ----------

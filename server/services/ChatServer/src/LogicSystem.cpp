@@ -260,7 +260,6 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	    //将用户session的名字写入Redis
 	    RedisMgr::GetInstance()->Set(uid_session_key, session->GetSessionId());
     }
-
 	return;
 }
 

@@ -68,7 +68,6 @@ enum MSG_IDS {
 #define NAME_INFO "nameinfo_" //用户名基本信息的名字前缀
 #define LOCK_PREFIX "lock_"
 #define USER_SESSION_PREFIX "usession_"
-#define LOCK_COUNT "lockcount"
 
 #define LOCK_TIME_OUT 10 //分布式锁的持有时间
 #define ACQUIRE_TIME_OUT 5 //分布式锁的重试时间
