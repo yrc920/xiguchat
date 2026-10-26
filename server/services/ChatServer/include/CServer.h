@@ -10,13 +10,18 @@
 
 using boost::asio::ip::tcp;
 
-class CServer
+class CServer : public std::enable_shared_from_this<CServer>
 {
 public:
 	CServer(boost::asio::io_context& io_context, short port);
 	~CServer();
 	void ClearSession(std::string); //清除指定uuid的会话
     bool CheckValid(std::string); //检查指定uuid的会话是否存在
+    std::shared_ptr<CSession> GetSession(std::string); //根据uid获取session
+
+    void on_timer(const boost::system::error_code& ec);
+    void StartTimer();
+    void StopTimer();
 
 private:
 	//处理接受连接的回调函数
@@ -28,5 +33,6 @@ private:
 	tcp::acceptor _acceptor; //acceptor对象, 用于接受连接
 	std::map<std::string, std::shared_ptr<CSession>> _sessions; //存储所有会话
 	std::mutex _mutex; //保护_sessions的互斥锁
+    boost::asio::steady_timer _timer; //定时器, 用于定时清理无效会话
 };
 

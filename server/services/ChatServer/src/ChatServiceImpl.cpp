@@ -171,6 +171,7 @@ bool ChatServiceImpl::GetBaseInfo(std::string base_key, int uid, std::shared_ptr
 Status ChatServiceImpl::NotifyKickUser(::grpc::ServerContext* context,
     const KickUserReq* request, KickUserRsp* reply)
 {
+    //此处不需要加锁，因为此grpc服务调用前已加锁，再次加锁会引发死锁
     //查找用户是否在本服务器
     auto uid = request->uid();
     auto session = UserMgr::GetInstance()->GetSession(uid);

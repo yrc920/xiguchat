@@ -40,6 +40,7 @@ int CSession::GetUserId()
 }
 
 void CSession::Close() {
+    std::lock_guard<std::mutex> lock(_session_mtx);
 	_socket.close(); //关闭套接字
 	_b_close = true; //标记会话为关闭状态
 }
@@ -152,10 +153,10 @@ void CSession::AsyncReadBody(int total_len)
 				}
 
 			    //判断连接无效
-            if (!_server->CheckValid(_session_id)) {
-                Close();
-                return;
-            }
+                if (!_server->CheckValid(_session_id)) {
+                    Close();
+                    return;
+                }
 
 				memcpy(_recv_msg_node->_data, _data, bytes_transfered); //将读取到的数据复制到消息节点内
 				_recv_msg_node->_cur_len += bytes_transfered; //更新消息节点的当前长度
@@ -163,6 +164,7 @@ void CSession::AsyncReadBody(int total_len)
 				_recv_msg_node->_data[_recv_msg_node->_total_len] = '\0';
 				std::cout << "receive data is " << _recv_msg_node->_data << std::endl;
 
+                UpdateHeartbeat(); //更新session心跳时间
 				//此处将消息投递到逻辑队列中
 				LogicSystem::GetInstance()->PostMsgToQue(
 					std::make_shared<LogicNode>(shared_from_this(), _recv_msg_node));
@@ -290,6 +292,21 @@ void CSession::asyncReadLen(std::size_t read_len, std::size_t total_len,
 			//没有错误，且长度不足则继续读取
 			self->asyncReadLen(read_len + bytesTransfered, total_len, handler);
 		});
+}
+
+bool CSession::IsHeartbeatExpired(std::time_t& now) {
+    double diff_sec = std::difftime(now, _last_heartbeat);
+    if (diff_sec > HEART_THRESHOLD) {
+        std::cout << "heartbeat expired, session id is  " << _session_id << std::endl;
+        return true;
+    }
+    return false;
+}
+
+void CSession::UpdateHeartbeat()
+{
+    time_t now = std::time(nullptr);
+    _last_heartbeat = now;
 }
 
 void CSession::DealExceptionSession()

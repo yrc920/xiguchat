@@ -54,5 +54,6 @@ public slots:
     void SlotSwitchLoginFromReset(); //从重置密码界面切换到登录界面槽函数
     void SlotSwitchChat(); //切换到聊天界面槽函数
     void SlotOffline(); //处理被踢下线的槽函数
+    void SlotExcepConOffline(); //处理异常断开连接的槽函数
 };
 #endif // MAINWINDOW_H

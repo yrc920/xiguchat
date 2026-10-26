@@ -1,12 +1,14 @@
 #include "chatdialog.h"
 #include "ui_chatdialog.h"
 #include <QAction>
+#include <QJsonDocument>
 #include <QRandomGenerator>
 #include "chatuserwid.h"
 #include "loadingdlg.h"
 #include "tcpmgr.h"
 #include "usermgr.h"
 #include "conuseritem.h"
+#include <QTimer>
 
 ChatDialog::ChatDialog(QWidget *parent)
     : QDialog(parent)
@@ -126,10 +128,23 @@ ChatDialog::ChatDialog(QWidget *parent)
     //连接对端消息通知
     connect(TcpMgr::GetInstance().get(), &TcpMgr::sig_text_chat_msg,
         this, &ChatDialog::slot_text_chat_msg);
+
+    _timer = new QTimer(this);
+    connect(_timer, &QTimer::timeout, this, [this]() {
+        auto user_info = UserMgr::GetInstance()->GetUserInfo();
+        QJsonObject textObj;
+        textObj["fromuid"] = user_info->_uid;
+        QJsonDocument doc(textObj);
+        QByteArray jsonData = doc.toJson(QJsonDocument::Compact);
+        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_HEART_BEAT_REQ, jsonData);
+        });
+
+    _timer->start(10000);
 }
 
 ChatDialog::~ChatDialog()
 {
+    _timer->stop();
     delete ui;
 }
 

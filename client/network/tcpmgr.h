@@ -56,6 +56,7 @@ signals:
     void sig_auth_rsp(std::shared_ptr<AuthRsp>); //同意好友申请的响应信号
     void sig_text_chat_msg(std::shared_ptr<TextChatMsg>); //收到文本消息的信号
     void sig_notify_offline(); //收到服务器踢人消息的信号
+    void sig_connection_closed(); //连接断开的信号
 };
 
 #endif // TCPMGR_H

@@ -25,6 +25,7 @@ int main()
 	    auto port_str = cfg["SelfServer"]["Port"];
 	    //创建Cserver智能指针
 	    auto pointer_server = std::make_shared<CServer>(io_context, atoi(port_str.c_str()));
+	    pointer_server->StartTimer(); //启动定时器
 
 		//从配置文件中获取服务器的主机地址和RPC端口号，构成服务器的监听地址
 		std::string server_address(cfg["SelfServer"]["Host"] + ":" + cfg["SelfServer"]["RPCPort"]);
@@ -58,6 +59,7 @@ int main()
 		io_context.run(); //运行io_context，开始处理事件循环，直到接收到停止信号
 
 		grpc_server_thread.join(); //等待grpc服务线程结束
+	    pointer_server->StopTimer(); //停止定时器
 	    return 0;
 	}
 	catch (std::exception& e) {

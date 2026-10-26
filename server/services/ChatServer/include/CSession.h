@@ -34,6 +34,8 @@ public:
 	void AsyncReadBody(int length); //异步读取消息体
 	void AsyncReadHead(int total_len); //异步读取消息头
     void NotifyOffline(int uid); //通知用户离线
+    bool IsHeartbeatExpired(std::time_t& now); //判断心跳是否过期
+    void UpdateHeartbeat(); //更新心跳
     void DealExceptionSession(); //处理异常连接
 
 private:
@@ -57,10 +59,8 @@ private:
 	std::shared_ptr<RecvNode> _recv_msg_node; //收到的消息结构
 	bool _b_head_parse; //是否已经解析头部
 	std::shared_ptr<MsgNode> _recv_head_node; //收到的头部结构
-    //记录上次接受数据的时间
-    std::atomic<time_t> _last_heartbeat;
-    //session 锁
-    std::mutex _session_mtx;
+    std::atomic<time_t> _last_heartbeat; //记录上次接受数据的时间
+    std::mutex _session_mtx; //session 锁
 };
 
 class LogicNode {

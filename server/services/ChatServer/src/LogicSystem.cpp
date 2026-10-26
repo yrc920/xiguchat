@@ -113,6 +113,9 @@ void LogicSystem::RegisterCallBacks()
 
 	_fun_callbacks[ID_TEXT_CHAT_MSG_REQ] = std::bind(&LogicSystem::DealChatTextMsg, this,
 		std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+
+    _fun_callbacks[ID_HEART_BEAT_REQ] = std::bind(&LogicSystem::HeartBeatHandler, this,
+        std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 }
 
 void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
@@ -246,11 +249,6 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	            ChatGrpcClient::GetInstance()->NotifyKickUser(uid_ip_value, kick_req);
 	        }
 	    }
-
-	    //本实例的登录计数加一；HINCRBY 在 Redis 单条命令内完成，
-	    //并发登录不会像"读-改-写"那样互相覆盖。断线时在 CServer::ClearSession 中减一
-	    long long count = 0;
-	    RedisMgr::GetInstance()->HIncrBy(LOGIN_COUNT, server_name, 1, count);
 
 	    session->SetUserId(uid); //session绑定用户uid
 	    std::string ipkey = USERIPPREFIX + uid_str; //为用户设置登录ip server的名字
@@ -525,6 +523,18 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 	ChatGrpcClient::GetInstance()->NotifyTextChatMsg(to_ip_value, text_msg_req, rtvalue);
 }
 
+void LogicSystem::HeartBeatHandler(std::shared_ptr<CSession> session,
+    const short& msg_id, const std::string& msg_data)
+{
+    Json::Reader reader;
+    Json::Value root;
+    reader.parse(msg_data, root);
+    auto uid = root["fromuid"].asInt();
+    std::cout << "receive heart beat msg, uid is " << uid << std::endl;
+    Json::Value  rtvalue;
+    rtvalue["error"] = ErrorCodes::Success;
+    session->Send(rtvalue.toStyledString(), ID_HEARTBEAT_RSP);
+}
 
 bool LogicSystem::isPureDigit(const std::string& str)
 {
