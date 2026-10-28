@@ -3,15 +3,15 @@
 
  Source Server         : mysql
  Source Server Type    : MySQL
- Source Server Version : 90700 (9.7.0)
+ Source Server Version : 90704 (9.7.4)
  Source Host           : localhost:3306
  Source Schema         : xigu
 
  Target Server Type    : MySQL
- Target Server Version : 90700 (9.7.0)
+ Target Server Version : 90704 (9.7.4)
  File Encoding         : 65001
 
- Date: 18/10/2026 21:04:15
+ Date: 28/10/2026 18:57:31
 */
 
 SET NAMES utf8mb4;
@@ -28,15 +28,18 @@ CREATE TABLE `friend` (
   `back` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT '',
   PRIMARY KEY (`id`) USING BTREE,
   UNIQUE KEY `self_friend` (`self_id`,`friend_id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
 -- ----------------------------
 -- Records of friend
 -- ----------------------------
 BEGIN;
-INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (1, 1055, 1054, 'sqy');
-INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (4, 1003, 1004, 'test');
-INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (5, 1004, 1003, '');
+INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (1, 1002, 1001, '西故');
+INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (2, 1001, 1002, '霄宫');
+INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (3, 1004, 1003, 'test1');
+INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (4, 1003, 1004, 'test2');
+INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (5, 1004, 1005, 'test3');
+INSERT INTO `friend` (`id`, `self_id`, `friend_id`, `back`) VALUES (6, 1005, 1004, 'test2');
 COMMIT;
 
 -- ----------------------------
@@ -56,9 +59,10 @@ CREATE TABLE `friend_apply` (
 -- Records of friend_apply
 -- ----------------------------
 BEGIN;
-INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (1, 1023, 1002, 0);
-INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (2, 1004, 1005, 0);
-INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (4, 1004, 1003, 1);
+INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (1, 1001, 1002, 1);
+INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (2, 1003, 1004, 1);
+INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (3, 1005, 1004, 1);
+INSERT INTO `friend_apply` (`id`, `from_uid`, `to_uid`, `status`) VALUES (4, 1005, 1003, 0);
 COMMIT;
 
 -- ----------------------------
@@ -79,17 +83,17 @@ CREATE TABLE `user` (
   UNIQUE KEY `uid` (`uid`) USING BTREE,
   UNIQUE KEY `email` (`email`) USING BTREE,
   KEY `name` (`name`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
 -- ----------------------------
 -- Records of user
 -- ----------------------------
 BEGIN;
-INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (2, 1002, 'xigu', '13939927271@163.com', '$argon2id$v=19$m=262144,t=3,p=1$7XDT8OsoKjmeCf87mn08Uw$MdY5hLxz1xL9EeZ+yymr63HtoNYn34TNqg+jCgJCIeI', 'xigu', '', 0, ':/res/head_1.jpg');
-INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (3, 1003, '宵宫', '3099154616@qq.com', '$argon2id$v=19$m=262144,t=3,p=1$QNa1wGxsL3NPeSU/OJQgeQ$1zsbjcUvJ1ZAlUnREyytNEaNANXS6c867S4uSfWwxn8', '烟花', '', 1, ':/res/head_1.jpg');
-INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (4, 1004, 'test', '123@123.com', '$argon2id$v=19$m=262144,t=3,p=1$6Aqhng8GVsv4a74WMcBSBw$FIXS69UYC9CgLhHIl7UNyo0m+0hjFRXmESI90x2AQMI', '', '', 0, '');
-INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (5, 1005, 'test2', '456@456.com', '$argon2id$v=19$m=262144,t=3,p=1$z3UTKM2OqOnbYbg8rnMCwQ$BLxn9snebYF/KXkaAS7JQdQKGkJ++bdinDinH3QIrXw', '', '', 0, '');
-INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (9, 1006, 'test3', '789@789.com', '$argon2id$v=19$m=262144,t=3,p=1$fwsRs0vMX4osdc3hM/omxA$M0iswUz4y1WOXNL6iSla78PC8wDtTEW99lPfIUcL+KY', '', '', 0, '');
+INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (1, 1001, '西故', '3099154616@qq.com', '$argon2id$v=19$m=262144,t=3,p=1$bD899q54K8vMwy+5fc7JKA$/jVJP8RyQj0mFzJqY/56T2F9f3SB74NSBm9Lxc0XoZ8', 'xigu', '', 0, ':/res/head_1.jpg');
+INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (2, 1002, '霄宫', 'xigu920@163.com', '$argon2id$v=19$m=262144,t=3,p=1$o/CzQVrUYHFP1kQbYhSztw$7KdjCxJlu0I7uDrmqqIivmuBUfII15hYy66h3Q6H870', '烟花', '', 1, ':/res/head_1.jpg');
+INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (3, 1003, 'test1', '123@123.com', '$argon2id$v=19$m=262144,t=3,p=1$UhGmcWrXNJq/tMMW6g0gAQ$3SzQ/AyU/+Y7Vb+byrI9At5yXz9imXbNcrmZ7W4HNCU', '', '', 0, '');
+INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (4, 1004, 'test2', '456@456.com', '$argon2id$v=19$m=262144,t=3,p=1$9plVfbgTD5bk1C99b6hlXA$jCdqshgcsz52get45glPtwwXX5zPjxEgbRs8rwcRAwk', '', '', 0, '');
+INSERT INTO `user` (`id`, `uid`, `name`, `email`, `pwd`, `nick`, `desc`, `sex`, `icon`) VALUES (5, 1005, 'test3', '789@789.com', '$argon2id$v=19$m=262144,t=3,p=1$a+JGv9GlxLHO9ZOZbK0Nmw$kU0hSeyL/bAy8YielfzDMq3nYs+pKfeeCUqRXRvaN7A', '', '', 0, '');
 COMMIT;
 
 -- ----------------------------
@@ -105,7 +109,7 @@ CREATE TABLE `user_id` (
 -- Records of user_id
 -- ----------------------------
 BEGIN;
-INSERT INTO `user_id` (`id`) VALUES (1006);
+INSERT INTO `user_id` (`id`) VALUES (1005);
 COMMIT;
 
 -- ----------------------------

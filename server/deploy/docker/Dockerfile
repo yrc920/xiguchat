@@ -50,7 +50,7 @@ RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https:
  && rm -rf /var/lib/apt/lists/*
 
 # ---------- 2. CMake ----------
-# Ubuntu 22.04 自带 CMake 3.22，低于 CMakePresets.json 要求的 3.27，改用 Kitware 官方二进制
+# Ubuntu 22.04 仓库的 CMake 是 3.22，不满足 CMakePresets.json 要求的 3.27，这里装 Kitware 官方二进制
 RUN export http_proxy="${PROXY}" https_proxy="${PROXY}" \
  && curl -fsSL -o /tmp/cmake.tar.gz \
       "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
@@ -84,9 +84,9 @@ RUN --mount=type=cache,target=/opt/vcpkg/downloads \
  && rm -rf /opt/vcpkg/packages
 
 # ---------- 5. MySQL 8 ----------
-# 项目用 X DevAPI 连接 MySQL（33060 端口）。X 插件只有 MySQL 官方发行版内置，
-# Ubuntu 仓库的 mysql-server 在编译时裁掉了它，因此改用 MySQL 官方 APT 源。
-# 安装后清空数据目录：首次启动由 init_db.sh 以空口令初始化，避免包自带的口令。
+# 项目用 X DevAPI 连接 MySQL（33060 端口），需要 X 插件。Ubuntu 仓库的 mysql-server
+# 不含该插件，因此从 MySQL 官方 APT 源安装；官方包把 X 插件编进了 mysqld，无需单独加载。
+# 安装后清空数据目录：首次启动由 init_db.sh 以空口令初始化，避免包初始化时的随机口令。
 COPY deploy/docker/mysql.cnf /etc/mysql/conf.d/xigu.cnf
 RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
  && chmod +x /usr/sbin/policy-rc.d \

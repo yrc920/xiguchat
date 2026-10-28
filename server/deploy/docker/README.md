@@ -29,16 +29,17 @@ cp server/services/ChatServer/config/ChatServer2.ini.example server/services/Cha
 在 `server` 目录下执行（构建上下文就是 `server` 目录）：
 
 ```bash
-docker build -f deploy/docker/Dockerfile -t xiguchat-server:amd64 .
+docker build --platform linux/amd64 -f deploy/docker/Dockerfile -t xiguchat-server:amd64 .
 ```
 
-首次约 1 小时 —— 时间主要花在 vcpkg 编译第三方依赖上；Apple 芯片的 Mac 是在
-x86 模拟环境里编译，比同配置的 Linux 机器慢不少。以后再构建会命中缓存。
+产物固定是 x86_64 架构，与云服务器一致；在 Apple 芯片的 Mac 上构建时容器以模拟方式
+运行，速度比同配置的 Linux 机器慢。首次约 1 小时，时间主要花在 vcpkg 编译第三方依赖，
+之后再构建会命中缓存。
 
 网络受限导致容器内下载失败时，可把宿主机代理传进去：
 
 ```bash
-docker build --build-arg PROXY=http://host.docker.internal:7890 \
+docker build --platform linux/amd64 --build-arg PROXY=http://host.docker.internal:7890 \
   -f deploy/docker/Dockerfile -t xiguchat-server:amd64 .
 ```
 
@@ -160,4 +161,4 @@ ssh -N -L 33060:127.0.0.1:33060 ubuntu@<服务器IP>
   直接改容器里 `/workspace/.../config.ini` 没用，每次启动都会被模板覆盖。
 - **MySQL 数据在哪**：数据卷 `mysql-data`，删容器不影响数据。
 - **为什么 MySQL 用官方源装**：项目通过 X DevAPI 访问数据库（33060 端口），
-  X 插件只有 MySQL 官方发行版内置，Ubuntu 仓库的 `mysql-server` 编译时裁掉了它。
+  需要 X 插件，Ubuntu 仓库的 `mysql-server` 不含该插件。
