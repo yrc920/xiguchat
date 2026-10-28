@@ -7,6 +7,7 @@
 #include <queue>
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
 #include "Singleton.h"
 class RedisConPool; //连接池类, 用于管理Redis连接(前置声明)
 

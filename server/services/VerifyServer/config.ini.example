@@ -1,3 +1,5 @@
+# VerifyServer 配置模板：复制为 config.ini 后填写，授权码在 QQ 邮箱
+# 「设置 → 账号 → POP3/SMTP 服务」里生成
 [VerifyServer]
 Host = 0.0.0.0
 Port = 50051
@@ -10,9 +12,9 @@ Passwd = 123456
 [Email]
 Host = smtp.qq.com
 Port = 465
-User = 3099154616@qq.com
-Pass = zleynztkjbgadebj
-From = 3099154616@qq.com
+User = your_email@qq.com
+Pass = your_smtp_auth_code
+From = your_email@qq.com
 # CA 证书包路径。留空 = 按平台自动探测系统 CA bundle
 # （macOS/Linux 常见 /etc/ssl/cert.pem、/etc/ssl/certs/ca-certificates.crt；
 # Windows 无系统 PEM 证书库，保持留空即可）。

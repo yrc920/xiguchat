@@ -3,6 +3,7 @@
 //
 
 #include "const.h"
+#include <condition_variable>
 class RedisConPool; //连接池类, 用于管理 Redis 连接(前置声明)
 
 class RedisMgr : public Singleton<RedisMgr>,

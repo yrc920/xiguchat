@@ -63,9 +63,19 @@ set(SERVER_HEADERS
 file(GLOB CHAT_INSTANCE_CONFIGS CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/config/*.ini")
 if(NOT CHAT_INSTANCE_CONFIGS)
-    message(FATAL_ERROR
-        "services/ChatServer/config/ 下未找到任何 *.ini，"
-        "至少需要一份实例配置（如 config/ChatServer.ini）")
+    # 实例配置含本机地址与密钥，仓库只有 *.ini.example；
+    # 首次构建据此生成实例配置，clone 后无需手工准备即可构建运行
+    file(GLOB CHAT_INSTANCE_EXAMPLES "${CMAKE_CURRENT_SOURCE_DIR}/config/*.ini.example")
+    if(NOT CHAT_INSTANCE_EXAMPLES)
+        message(FATAL_ERROR
+            "services/ChatServer/config/ 下既没有 *.ini 也没有 *.ini.example，"
+            "至少需要从一份示例配置复制出实例配置")
+    endif()
+    foreach(example_path IN LISTS CHAT_INSTANCE_EXAMPLES)
+        string(REPLACE ".example" "" instance_config "${example_path}")
+        configure_file("${example_path}" "${instance_config}" COPYONLY)
+        list(APPEND CHAT_INSTANCE_CONFIGS "${instance_config}")
+    endforeach()
 endif()
 list(SORT CHAT_INSTANCE_CONFIGS)
 

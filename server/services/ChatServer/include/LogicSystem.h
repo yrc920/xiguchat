@@ -13,6 +13,7 @@
 #include <json/reader.h>
 #include <map>
 #include <unordered_map>
+#include <condition_variable>
 
 //定义一个函数类型，用于处理不同消息ID的回调函数，参数包括会话对象、消息ID和消息数据
 typedef std::function<void(std::shared_ptr<CSession>,

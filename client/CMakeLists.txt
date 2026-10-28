@@ -268,9 +268,15 @@ endif()
 #  拷到产物同目录（Windows/Linux 为 bin/，macOS 为 .app/Contents/MacOS/），
 #  保证程序可直接运行
 # ------------------------------------------------------------
+# config.ini 含服务器地址与密钥，仓库只有 config.ini.example，缺失时用它代替
+set(XIGUCHAT_CLIENT_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")
+if(NOT EXISTS "${XIGUCHAT_CLIENT_CONFIG}")
+    set(XIGUCHAT_CLIENT_CONFIG "${CMAKE_CURRENT_SOURCE_DIR}/config.ini.example")
+endif()
+
 add_custom_command(TARGET xiguchat POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
+        "${XIGUCHAT_CLIENT_CONFIG}"
         "$<TARGET_FILE_DIR:xiguchat>/config.ini"
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         "${CMAKE_CURRENT_SOURCE_DIR}/static"

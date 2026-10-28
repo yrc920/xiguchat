@@ -1,3 +1,4 @@
+# ChatServer 实例 2 配置模板：复制为 ChatServer2.ini 后按本机修改
 [GateServer]
 Port = 8080
 [VerifyServer]
@@ -8,10 +9,10 @@ Host = 127.0.0.1
 Port = 50052
 
 [SelfServer]
-Name = chatserver1
+Name = chatserver2
 Host = 0.0.0.0
-Port = 8090
-RPCPort = 50055
+Port = 8091
+RPCPort = 50056
 
 [Mysql]
 Host = 127.0.0.1
@@ -26,9 +27,9 @@ Port = 6380
 Passwd = 123456
 
 [PeerServer]
-Servers = chatserver2
+Servers = chatserver1
 
-[chatserver2]
-Name = chatserver2
+[chatserver1]
+Name = chatserver1
 Host = 127.0.0.1
-Port = 50056
+Port = 50055

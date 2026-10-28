@@ -1,0 +1,30 @@
+# XiguChat 后端容器编排。以下变量都取自同目录的 .env：
+#   PUBLIC_HOST  客户端实际访问的地址（必填）
+#   EMAIL_*      验证码邮件的发送账号
+# 用法：
+#   docker compose up -d      启动
+#   docker compose logs -f    查看日志
+#   docker compose down       停止（数据卷保留）
+services:
+  xiguchat:
+    image: xiguchat-server:amd64
+    container_name: xiguchat
+    ports:
+      - "8080:8080"   # GateServer HTTP 接口
+      - "8090:8090"   # chatserver1 TCP
+      - "8091:8091"   # chatserver2 TCP
+    environment:
+      PUBLIC_HOST: "${PUBLIC_HOST:-127.0.0.1}"
+      EMAIL_HOST: "${EMAIL_HOST:-smtp.qq.com}"
+      EMAIL_PORT: "${EMAIL_PORT:-465}"
+      EMAIL_USER: "${EMAIL_USER:-}"
+      EMAIL_PASS: "${EMAIL_PASS:-}"
+      EMAIL_FROM: "${EMAIL_FROM:-${EMAIL_USER:-}}"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - workspace:/workspace
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  workspace:

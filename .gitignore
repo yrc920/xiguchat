@@ -16,6 +16,13 @@ logs/
 .idea/
 *.user
 
+# ============ 本机运行配置（含服务器地址与密钥）============
+# 仓库只提供同名 *.ini.example 与 .env.example 作为模板
+client/config.ini
+server/services/*/config.ini
+server/services/ChatServer/config/*.ini
+server/deploy/docker/.env
+
 # ============ 系统文件 ============
 .DS_Store
 Thumbs.db

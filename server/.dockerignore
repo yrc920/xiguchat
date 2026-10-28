@@ -1,0 +1,8 @@
+# 排除体积大且与编译无关的内容：本地构建产物、依赖安装目录、仓库历史
+build/
+build-*/
+**/build/
+vcpkg_installed/
+**/vcpkg_installed/
+.git/
+**/.DS_Store

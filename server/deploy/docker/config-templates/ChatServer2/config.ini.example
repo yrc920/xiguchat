@@ -7,6 +7,7 @@ Port = 50051
 Host = 127.0.0.1
 Port = 50052
 
+# 自身监听地址必须是 0.0.0.0，否则客户端经端口映射连不进来
 [SelfServer]
 Name = chatserver2
 Host = 0.0.0.0
@@ -25,6 +26,7 @@ Host = 127.0.0.1
 Port = 6380
 Passwd = 123456
 
+# 对端聊天实例走容器内部 RPC
 [PeerServer]
 Servers = chatserver1
 

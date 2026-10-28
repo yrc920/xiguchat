@@ -17,7 +17,15 @@ using message::GetChatServerRsp;
 using message::LoginReq;
 using message::LoginRsp;
 using message::StatusService;
-struct ChatServer; //聊天服务器信息(前置声明)
+// ChatServer 结构必须在使用它的成员声明之前完整定义：
+// 作为 unordered_map 的 value 类型，其定义需要是完整的，
+// 只做前置声明在 libstdc++（Linux）下会报 incomplete type。
+struct ChatServer {
+	std::string host; //IP地址
+	std::string port; //端口号
+	std::string name; //服务器名称
+	int con_count; //连接数
+};
 
 class StatusServiceImpl final : public StatusService::Service
 {
@@ -35,11 +43,4 @@ private:
 	std::unordered_map<std::string, ChatServer> _servers; //服务器列表, key为服务器名称, value为服务器信息
 	std::mutex _server_mtx; //服务器列表的互斥锁, 保护_servers的线程安全
 
-};
-
-struct ChatServer {
-	std::string host; //IP地址
-	std::string port; //端口号
-	std::string name; //服务器名称
-	int con_count; //连接数
 };

@@ -17,6 +17,13 @@
 
 function(xiguchat_deploy TARGET)
     # ---- 1. config.ini（三平台都需要：服务按当前工作目录读取配置） ----
+    # config.ini 含本机地址与密钥，仓库只有 config.ini.example；
+    # 缺失时用示例生成一份，clone 后无需手工准备即可构建运行
+    if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config.ini"
+       AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config.ini.example")
+        configure_file("${CMAKE_CURRENT_SOURCE_DIR}/config.ini.example"
+                       "${CMAKE_CURRENT_SOURCE_DIR}/config.ini" COPYONLY)
+    endif()
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config.ini")
         add_custom_command(TARGET ${TARGET} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different

@@ -1,0 +1,8 @@
+# 开启 X 插件：项目用 X DevAPI 访问 MySQL，端口 33060 与传统 3306 不是同一个
+[mysqld]
+bind-address = 0.0.0.0
+plugin_load_add = mysqlx
+mysqlx = ON
+mysqlx-bind-address = 0.0.0.0
+mysqlx-port = 33060
+default-authentication-plugin = mysql_native_password

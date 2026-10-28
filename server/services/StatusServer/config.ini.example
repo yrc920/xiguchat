@@ -1,3 +1,4 @@
+# StatusServer 配置模板：复制为 config.ini 后按本机修改
 [StatusServer]
 Host = 127.0.0.1
 Port = 50052

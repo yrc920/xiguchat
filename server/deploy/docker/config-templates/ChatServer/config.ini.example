@@ -1,0 +1,36 @@
+[GateServer]
+Port = 8080
+[VerifyServer]
+Host = 127.0.0.1
+Port = 50051
+[StatusServer]
+Host = 127.0.0.1
+Port = 50052
+
+# 自身监听地址必须是 0.0.0.0，否则客户端经端口映射连不进来
+[SelfServer]
+Name = chatserver1
+Host = 0.0.0.0
+Port = 8090
+RPCPort = 50055
+
+[Mysql]
+Host = 127.0.0.1
+XPort = 33060
+User = root
+Passwd = 123456
+Schema = xigu
+
+[Redis]
+Host = 127.0.0.1
+Port = 6380
+Passwd = 123456
+
+# 对端聊天实例走容器内部 RPC
+[PeerServer]
+Servers = chatserver2
+
+[chatserver2]
+Name = chatserver2
+Host = 127.0.0.1
+Port = 50056

@@ -9,6 +9,7 @@
 #include <memory>
 #include <queue>
 #include <mutex>
+#include <condition_variable>
 #include <atomic>
 class SqlConnection; //封装MySQL连接对象, 包含连接对象和上次操作时间(前置声明)
 class MySqlPool; //MySQL连接池, 提供获取和归还连接的接口(前置声明)

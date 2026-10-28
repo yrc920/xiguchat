@@ -55,6 +55,19 @@
         "VCPKG_TARGET_TRIPLET": "x64-linux",
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "linux-docker",
+      "displayName": "Linux Docker 镜像（Release，依赖预装 + ccache）",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/linux-docker",
+      "cacheVariables": {
+        "VCPKG_TARGET_TRIPLET": "x64-linux",
+        "CMAKE_BUILD_TYPE": "Release",
+        "VCPKG_INSTALLED_DIR": "/opt/xiguchat/vcpkg_installed",
+        "CMAKE_C_COMPILER_LAUNCHER": "ccache",
+        "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+      }
     }
   ],
   "buildPresets": [
@@ -83,6 +96,10 @@
     {
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release"
+    },
+    {
+      "name": "linux-docker",
+      "configurePreset": "linux-docker"
     }
   ]
 }
