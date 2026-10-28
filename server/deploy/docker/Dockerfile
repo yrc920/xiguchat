@@ -29,12 +29,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     CCACHE_DIR=/opt/xiguchat/ccache \
     PATH="/opt/cmake/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-# ---------- 1. 系统工具 ----------
-# policy-rc.d：容器内没有 systemd，阻止 apt 安装 mysql/redis 时自动拉起服务
+# ---------- 1. 编译工具链 ----------
 RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
       > /etc/apt/apt.conf.d/99-retries \
- && printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
- && chmod +x /usr/sbin/policy-rc.d \
  && export http_proxy="${PROXY}" https_proxy="${PROXY}" \
  && apt-get update \
  && apt-get install -y --no-install-recommends \
@@ -43,19 +40,17 @@ RUN printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https:
       pkg-config \
       ca-certificates \
       curl \
+      gnupg \
       git \
       zip unzip tar xz-utils bzip2 file \
       procps net-tools iproute2 less tzdata locales \
       ccache \
       autoconf autoconf-archive automake libtool patch make \
-      mysql-server \
-      redis-server \
  && locale-gen zh_CN.UTF-8 \
- && rm -rf /var/lib/apt/lists/* \
- && rm -f /usr/sbin/policy-rc.d
+ && rm -rf /var/lib/apt/lists/*
 
 # ---------- 2. CMake ----------
-# Ubuntu 22.04 自带 CMake 3.22，低于项目要求的 3.27，改用 Kitware 官方二进制
+# Ubuntu 22.04 自带 CMake 3.22，低于 CMakePresets.json 要求的 3.27，改用 Kitware 官方二进制
 RUN export http_proxy="${PROXY}" https_proxy="${PROXY}" \
  && curl -fsSL -o /tmp/cmake.tar.gz \
       "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-x86_64.tar.gz" \
@@ -70,11 +65,7 @@ RUN export http_proxy="${PROXY}" https_proxy="${PROXY}" \
  && git -C /opt/vcpkg checkout ${VCPKG_COMMIT} \
  && /opt/vcpkg/bootstrap-vcpkg.sh -disableMetrics
 
-# ---------- 4. MySQL ----------
-# 开启 X 插件：项目用 X DevAPI 访问 MySQL，端口 33060 与传统 3306 不同
-COPY deploy/docker/mysql.cnf /etc/mysql/conf.d/xigu.cnf
-
-# ---------- 5. 预编译第三方依赖 ----------
+# ---------- 4. 预编译第三方依赖 ----------
 # 本层只依赖 vcpkg.json，与项目源码无关：改代码重建镜像时命中缓存，不会重跑。
 # overlay triplet 把依赖限制为 release 变体（项目以 Release 构建，Debug 用不到），
 # 可省掉近一半编译时间。
@@ -92,14 +83,43 @@ RUN --mount=type=cache,target=/opt/vcpkg/downloads \
         --triplet=x64-linux \
  && rm -rf /opt/vcpkg/packages
 
-# ---------- 6. 脚本与配置模板 ----------
+# ---------- 5. MySQL 8 ----------
+# 项目用 X DevAPI 连接 MySQL（33060 端口）。X 插件只有 MySQL 官方发行版内置，
+# Ubuntu 仓库的 mysql-server 在编译时裁掉了它，因此改用 MySQL 官方 APT 源。
+# 安装后清空数据目录：首次启动由 init_db.sh 以空口令初始化，避免包自带的口令。
+COPY deploy/docker/mysql.cnf /etc/mysql/conf.d/xigu.cnf
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
+ && chmod +x /usr/sbin/policy-rc.d \
+ && export http_proxy="${PROXY}" https_proxy="${PROXY}" \
+ && curl -fsSL https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 \
+      | gpg --dearmor > /usr/share/keyrings/mysql.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/mysql.gpg] http://repo.mysql.com/apt/ubuntu/ jammy mysql-8.0" \
+      > /etc/apt/sources.list.d/mysql.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends mysql-community-server \
+ && rm -rf /var/lib/apt/lists/* \
+ && find /var/lib/mysql -mindepth 1 -delete \
+ && chown mysql:mysql /var/lib/mysql \
+ && rm -f /usr/sbin/policy-rc.d
+
+# ---------- 6. Redis ----------
+# Ubuntu 仓库的 redis-server 已够用，与项目配置一致监听 6380（见 entrypoint.sh）
+RUN printf '#!/bin/sh\nexit 101\n' > /usr/sbin/policy-rc.d \
+ && chmod +x /usr/sbin/policy-rc.d \
+ && export http_proxy="${PROXY}" https_proxy="${PROXY}" \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends redis-server \
+ && rm -rf /var/lib/apt/lists/* \
+ && rm -f /usr/sbin/policy-rc.d
+
+# ---------- 7. 脚本与配置模板 ----------
 COPY deploy/docker/scripts /opt/xiguchat/scripts
 COPY deploy/docker/config-templates /opt/xiguchat/config-templates
 RUN chmod +x /opt/xiguchat/scripts/*.sh \
  && mkdir -p /var/log/xigu /workspace /var/run/mysqld /var/lib/redis \
  && ccache -M 2G
 
-# ---------- 7. 编译校验 + 预热 ccache ----------
+# ---------- 8. 编译校验 + 预热 ccache ----------
 # 验证镜像内的工具链能编译本项目；同时填充 ccache，让容器里首次编译更快。
 # 源码不留在镜像中，运行时的代码来自仓库拉取或外部挂载。
 COPY . /opt/xiguchat/src

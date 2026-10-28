@@ -13,6 +13,11 @@ services:
       - "8080:8080"   # GateServer HTTP 接口
       - "8090:8090"   # chatserver1 TCP
       - "8091:8091"   # chatserver2 TCP
+      # 数据库只绑回环地址，公网访问不到。异地连接走 SSH 隧道：
+      #   ssh -N -L 33060:127.0.0.1:33060 ubuntu@<服务器IP>
+      # 之后本机连 127.0.0.1:33060 即等同连到容器内的 MySQL
+      - "127.0.0.1:33060:33060"   # MySQL X 协议
+      - "127.0.0.1:6380:6380"     # Redis
     environment:
       PUBLIC_HOST: "${PUBLIC_HOST:-127.0.0.1}"
       EMAIL_HOST: "${EMAIL_HOST:-smtp.qq.com}"

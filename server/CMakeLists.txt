@@ -104,7 +104,14 @@ add_subdirectory(services/VerifyServer)
 
 # ---------- 统一补链接 ----------
 # 除 VerifyServer 外的服务都链接 mysql-connector-cpp（X DevAPI），
-# 统一补上其静态库引用的 zstd 压缩符号（顺序在 mysql 之后）
+# vcpkg 的 unofficial 配置不会传递它的部分间接依赖，需在此显式补上：
+#   zstd/lz4 —— X DevAPI 压缩功能用到，三平台都缺
+#   resolv   —— X DevAPI 做域名 SRV 解析时用到 ns_initparse/ns_parserr，
+#               这两个符号在 Linux 的 libresolv 里；macOS 无此库
+#               （解析接口在 libc 中），Windows 无此符号
 foreach(server IN ITEMS GateServer StatusServer ChatServer)
     target_link_libraries(${server} PRIVATE zstd::libzstd LZ4::lz4)
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(${server} PRIVATE resolv)
+    endif()
 endforeach()

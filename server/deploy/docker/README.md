@@ -125,8 +125,19 @@ docker exec xiguchat /opt/xiguchat/scripts/update.sh
 | 8080 | GateServer HTTP 接口 | 是 |
 | 8090 / 8091 | 两个聊天实例的 TCP 长连接 | 是 |
 | 50051 / 50052 / 50055 / 50056 | 服务间 gRPC | 否，仅容器内部 |
-| 33060 | MySQL X 协议 | 否，仅容器内部 |
-| 6380 | Redis | 否，仅容器内部 |
+| 33060 | MySQL X 协议 | 否，只绑服务器本机回环 |
+| 6380 | Redis | 否，只绑服务器本机回环 |
+
+数据库端口刻意不做公网映射：MySQL / Redis 一旦暴露在公网，会被扫描器持续爆破，
+Redis 更是常见的入侵入口（写入 SSH 公钥或定时任务即可拿到 shell），复杂密码也挡不住漏洞。
+需要在别的电脑上管理数据库时，用 SSH 隧道，不要开端口：
+
+```bash
+ssh -N -L 33060:127.0.0.1:33060 ubuntu@<服务器IP>
+```
+
+保持这条命令运行，本机连 `127.0.0.1:33060` 就等于连到服务器容器里的 MySQL
+（Navicat / DBeaver 等工具也可在连接设置里直接填 SSH 隧道，效果相同）。
 
 ---
 
@@ -148,3 +159,5 @@ docker exec xiguchat /opt/xiguchat/scripts/update.sh
 - **改了配置想生效**：改 `server/deploy/docker/config-templates/` 下的模板后重建镜像。
   直接改容器里 `/workspace/.../config.ini` 没用，每次启动都会被模板覆盖。
 - **MySQL 数据在哪**：数据卷 `mysql-data`，删容器不影响数据。
+- **为什么 MySQL 用官方源装**：项目通过 X DevAPI 访问数据库（33060 端口），
+  X 插件只有 MySQL 官方发行版内置，Ubuntu 仓库的 `mysql-server` 编译时裁掉了它。
