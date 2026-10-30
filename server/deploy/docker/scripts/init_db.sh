@@ -32,16 +32,21 @@ if ! wait_ready; then
 fi
 echo "[mysql] mysqld 已就绪"
 
-# root 在首次启动时还没有口令，之后再启动已经有了，两种情况都要通过校验
+# 首次启动时 root 尚无口令，先补上口令
 if mysql -uroot -e 'SELECT 1' >/dev/null 2>&1; then
     mysql -uroot <<'SQL'
 ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '123456';
-CREATE USER IF NOT EXISTS 'root'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '123456';
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'127.0.0.1' WITH GRANT OPTION;
+SQL
+fi
+
+# 远程账号：经发布端口从容器外连进来时源地址不是 localhost，需要单独授权。
+# 每次启动都执行，幂等。
+mysql -uroot -p"${ROOT_PWD}" <<'SQL'
+CREATE USER IF NOT EXISTS 'root'@'%' IDENTIFIED WITH mysql_native_password BY '123456';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 CREATE DATABASE IF NOT EXISTS xigu DEFAULT CHARACTER SET utf8mb4;
 FLUSH PRIVILEGES;
 SQL
-fi
 if ! mysql -uroot -p"${ROOT_PWD}" -e 'SELECT 1' >/dev/null 2>&1; then
     echo "[mysql] 错误：root 账号不可用"
     exit 1
