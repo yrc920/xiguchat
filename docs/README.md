@@ -11,12 +11,13 @@
 | 03 | [通信协议](03-protocol.md) | TCP 私有协议帧格式、HTTP 接口清单、gRPC 接口清单、错误码总表 |
 | 04 | [数据模型](04-data-model.md) | MySQL 表结构与 `reg_user` 存储过程、Redis 键空间、缓存读写策略 |
 | 05 | [配置参考](05-configuration.md) | 各服务 `config.ini` 段落字段说明与常见变更场景 |
-| 06 | [客户端](06-client.md) | Qt 客户端分层、网络层、UI 层、自定义控件、资源与 HiDPI 处理 |
+| 06 | [客户端](06-client.md) | Qt/QML 客户端分层、网络层、QML 层设计、bridge 契约、资源与已知缺口 |
 | 07 | [GateServer](07-gate-server.md) | HTTP 网关：Beast 连接管理、URL 路由、四个接口的完整逻辑 |
 | 08 | [StatusServer](08-status-server.md) | 状态路由：token 签发、最小连接数选路、Login 校验 |
 | 09 | [ChatServer](09-chat-server.md) | 长连接服务：会话生命周期、逻辑队列、好友与消息处理、跨实例 gRPC 转发 |
 | 10 | [VerifyServer](10-verify-server.md) | 验证码服务：编码生成、Redis 复用策略、SMTP SSL 发信与 CA 解析 |
 | 11 | [已知限制](11-known-limitations.md) | 技术债清单、风险点、改进优先级建议 |
+| 12 | [QML 界面约定](12-qml-guide.md) | 目录结构、页面与代码的对应关系、bridge 契约、QML 编码规范 |
 
 ## 建议阅读路径
 

@@ -1,7 +1,8 @@
 #ifndef SINGLETON_H
 #define SINGLETON_H
 
-#include <global.h>
+#include <memory>
+#include <mutex>
 /******************************************************************************
  *
  * @file       singleton.h
@@ -31,14 +32,7 @@ public:
         return _instance;
     }
 
-    //打印单例实例的地址
-    void PrintAddress(){
-        std::cout << _instance.get() << std::endl;
-    }
-
-    ~Singleton(){
-        std::cout << "this is singleton destruct" << std::endl;
-    }
+    ~Singleton() = default;
 };
 
 //初始化静态成员变量

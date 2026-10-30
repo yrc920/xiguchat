@@ -19,9 +19,10 @@ Redis 只承担跨节点寻址与登录计数，持久化交给 MySQL。
 ```mermaid
 flowchart TB
     subgraph presentation["表现层 · client/"]
-        UI["LoginDialog / RegisterDialog / ResetDialog<br/>ChatDialog / ChatPage / MainWindow"]
+        UI["qml/：Main + Login / Register / Reset<br/>ChatWindow / ChatBubble / SideButton"]
+        Bridge["bridge/：ShellBridge / LoginBridge / ChatBridge<br/>FriendListModel / ApplyListModel / MessageModel"]
         CMgr["HttpMgr（QNetworkAccessManager）<br/>TcpMgr（QTcpSocket + 自定义帧）"]
-        UI --- CMgr
+        UI --- Bridge --- CMgr
     end
 
     subgraph access["接入层 · GateServer"]

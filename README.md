@@ -109,14 +109,12 @@ xiguchat
 │   ├── CMakeLists.txt
 │   ├── CMakePresets.json       # windows-mingw / macos-clang / linux-gcc × Debug/Release
 │   ├── config.ini              # 网关地址
-│   ├── main.cpp                # 入口：加载 QSS、读取网关地址
-│   ├── core/                   # 全局定义、单例、用户数据与管理
+│   ├── main.cpp                # 入口：读取网关地址、加载 QML 根窗口
+│   ├── core/                   # 全局定义、单例、用户数据与管理、HTTP/TCP 之上的服务层
 │   ├── network/                # HTTP 短连接与 TCP 长连接通信层
-│   ├── widgets/                # 自定义控件（气泡、列表项、输入框等）
-│   ├── dialogs/                # 业务页面（登录/注册/重置/聊天/好友）
-│   ├── views/                  # 主窗口与页面切换
-│   ├── resources/              # 图标、QSS、qrc 资源
-│   └── static/                 # 运行时静态资源（随产物拷贝）
+│   ├── bridge/                 # QML 与 C++ 的边界：页面桥接对象、列表模型
+│   ├── qml/                    # 界面：Main.qml + 各页面 + 组件 + Theme 设计令牌
+│   └── resources/              # 图标与 qrc 资源
 ├── server/                     # 后端：C++ gRPC 微服务
 │   ├── CMakeLists.txt
 │   ├── CMakePresets.json       # windows-msvc / macos-clang / linux-gcc
@@ -145,7 +143,7 @@ ChatServer 是"一套代码、配置驱动多实例"：`services/ChatServer/conf
 
 | 层次 | 技术 |
 | --- | --- |
-| 客户端 | Qt 6.5（Core / Gui / Widgets / Network）、C++17、Qt 样式表（QSS）、Qt 资源系统（qrc） |
+| 客户端 | Qt 6.5（Core / Gui / Network / Quick）、C++17、QML + Qt 资源系统（qrc） |
 | 服务端 | C++20、gRPC + protobuf、Boost.Asio / Boost.Beast、Boost.PropertyTree、Boost.Uuid |
 | 存储 | MySQL 8（X DevAPI / X Protocol 33060）、Redis（hiredis） |
 | 安全 | libsodium（Argon2id 口令哈希）、Poco NetSSL（SMTP over SSL） |

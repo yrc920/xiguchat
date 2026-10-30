@@ -1,5 +1,8 @@
 #include "httpmgr.h"
 
+#include <QDebug>
+#include <QNetworkReply>
+
 HttpMgr::HttpMgr()
 {
     //将http请求完成的信号连接到对应的槽函数,槽函数再根据模块分发到对应的模块处理(解耦合)
@@ -16,6 +19,7 @@ void HttpMgr::PostHttpReq(QUrl url, QJsonObject json, ReqId req_id, Modules mod)
     QByteArray data = QJsonDocument(json).toJson(); //将json对象转换为字节数组
     //设置请求头，指定内容类型为json，并设置内容长度
     QNetworkRequest request(url);
+    request.setTransferTimeout(12000);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     request.setHeader(QNetworkRequest::ContentLengthHeader, QByteArray::number(data.length()));
 

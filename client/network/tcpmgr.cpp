@@ -1,7 +1,7 @@
 #include "tcpmgr.h"
 #include <QAbstractSocket>
+#include <QDebug>
 #include <QJsonDocument>
-#include "usermgr.h"
 
 TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), _message_len(0)
 {
@@ -11,12 +11,19 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
         emit sig_con_success(true); //连接成功后发出信号通知界面更新状态
     });
 
+    //连接层面的失败（地址不可达、端口拒绝、超时）此前没有任何出口，
+    //界面只能干等；这里把它接出来，让调用方能立即给出提示
+    QObject::connect(&_socket, &QAbstractSocket::errorOccurred, this,
+        [this](QAbstractSocket::SocketError err) {
+            if (err == QAbstractSocket::RemoteHostClosedError)
+                return; //对端正常断开由 sig_connection_closed 处理
+            qWarning() << "[tcp] connect error:" << err << _socket.errorString();
+            emit sig_con_failed(_socket.errorString());
+        });
+
     QObject::connect(&_socket, &QTcpSocket::readyRead, [&]() {
         //当有数据可读时，读取所有数据并追加到缓冲区
         _buffer.append(_socket.readAll());
-
-        QDataStream stream(&_buffer, QIODevice::ReadOnly); //创建一个QDataStream对象来读取缓冲区中的数据
-        stream.setVersion(QDataStream::Qt_5_0); //设置数据流的版本，以确保数据格式的一致性
 
         forever {
             //先解析头部
@@ -25,6 +32,8 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
                 if (_buffer.size() < static_cast<int>(sizeof(quint16) * 2))
                     return; //数据不够，等待更多数据
 
+                QDataStream stream(_buffer.left(sizeof(quint16) * 2));
+                stream.setByteOrder(QDataStream::BigEndian);
                 stream >> _message_id >> _message_len; //预读取消息ID和消息长度，但不从缓冲区中移除
                 _buffer = _buffer.mid(sizeof(quint16) * 2); //将buffer中的前四个字节移除
                 qDebug() << "Message ID:" << _message_id << ", Length:" << _message_len;
@@ -69,7 +78,11 @@ TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), 
 }
 
 void TcpMgr::CloseConnection(){
-    _socket.close();
+    _socket.abort();
+    _buffer.clear();
+    _b_recv_pending = false;
+    _message_id = 0;
+    _message_len = 0;
 }
 
 TcpMgr::~TcpMgr(){
@@ -112,29 +125,7 @@ void TcpMgr::initHandlers()
             return;
         }
 
-        //登录成功，保存用户信息
-        auto uid = jsonObj["uid"].toInt();
-        auto name = jsonObj["name"].toString();
-        auto nick = jsonObj["nick"].toString();
-        auto icon = jsonObj["icon"].toString();
-        auto sex = jsonObj["sex"].toInt();
-        auto user_info = std::make_shared<UserInfo>(uid, name, nick, icon, sex);
-
-        UserMgr::GetInstance()->SetUserInfo(user_info); //将用户信息保存到用户管理器中
-        UserMgr::GetInstance()->SetToken(jsonObj["token"].toString());
-
-        //如果服务器返回了好友申请列表
-        if(jsonObj.contains("apply_list")){
-            //将好友申请列表追加到用户管理器中
-            UserMgr::GetInstance()->AppendApplyList(jsonObj["apply_list"].toArray());
-        }
-
-        //添加好友列表
-        if (jsonObj.contains("friend_list")) {
-            UserMgr::GetInstance()->AppendFriendList(jsonObj["friend_list"].toArray());
-        }
-
-        emit sig_swich_chatdlg(); //发出切换到聊天界面的信号，进入聊天界面
+        emit sig_login_success(jsonObj);
     });
 
     //注册处理用户搜索响应的消息处理函数
@@ -469,11 +460,17 @@ void TcpMgr::slot_tcp_connect(ServerInfo si)
     qDebug() << "Connecting to server...";
     _host = si.Host; //服务器地址
     _port = static_cast<uint16_t>(si.Port.toUInt()); //服务器端口
+    CloseConnection();
     _socket.connectToHost(si.Host, _port); //连接到服务器(异步)
 }
 
 void TcpMgr::slot_send_data(ReqId reqId, QByteArray dataBytes)
 {
+    if (_socket.state() != QAbstractSocket::ConnectedState || dataBytes.size() > 2048) {
+        qWarning() << "Cannot send frame: disconnected or payload exceeds 2048 bytes";
+        return;
+    }
+
     uint16_t id = reqId; //将ReqId转换为uint16_t类型的消息ID
     quint16 len = static_cast<quint16>(dataBytes.size()); //计算长度(使用网络字节序转换)
 

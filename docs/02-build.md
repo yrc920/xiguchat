@@ -232,8 +232,23 @@ Qt 查找顺序：先按默认路径 `find_package(Qt6 6.5 QUIET COMPONENTS ...)
 
 ### Qt 自动化
 
-`CMAKE_AUTOMOC / AUTOUIC / AUTORCC` 全部开启：`Q_OBJECT` 类的 moc 代码、`.ui` 编译、`.qrc` 资源
-编译均由 CMake 自动完成，源文件清单里只需列出 `.ui` / `.qrc` 即可。
+`CMAKE_AUTOMOC / AUTORCC` 全部开启：`Q_OBJECT` 类的 moc 代码、`.qrc` 资源编译均由 CMake
+自动完成，源文件清单里只需列出 `.qrc` 即可。
+
+### 目标划分
+
+客户端拆成两个目标，分隔业务与界面：
+
+| 目标 | 类型 | 内容 | 链接 |
+| --- | --- | --- | --- |
+| `xiguchat_core` | 静态库 | `core/`（全局定义、数据模型、服务层）+ `network/`（HTTP / TCP） | `Qt6::Core` `Qt6::Network` |
+| `xiguchat` | 可执行 | `main.cpp` + `bridge/`（QML 边界）+ `qml/` + `resources/` | `xiguchat_core` + `Qt6::Gui` + `Qt6::Quick` |
+
+`xiguchat_core` 的 include 目录以 `PUBLIC` 导出，桥接层源码里的 `#include "usermgr.h"`
+无需改写。core 只认识 Qt Core 与 Network，**界面相关模块完全不进入 core**：core 一旦出现
+窗口或 QML 代码，链接期即报未定义符号。带 `QML_ELEMENT` 的类必须留在可执行目标
+（`bridge/`），放进静态库会与 `qt_add_qml_module` 各生成一份 moc，链接期符号重复。
+
 
 ### 平台差异化处理
 
@@ -241,9 +256,8 @@ Qt 查找顺序：先按默认路径 `find_package(Qt6 6.5 QUIET COMPONENTS ...)
 | --- | --- |
 | 子系统 | `add_executable(xiguchat WIN32 ...)`：Windows 生成 GUI 子系统程序（无控制台黑窗），入口仍为 `main()`；macOS/Linux 忽略该标志 |
 | macOS 图标 | `MACOSX_BUNDLE` + `MACOSX_BUNDLE_ICON_FILE xiguchat.icns`，icns 打进 `Resources/`。macOS Dock 不读 Qt 资源，必须用 bundle + icns；`setWindowIcon` 在 macOS 窗口标题栏无效 |
-| MSVC 编码 | `target_compile_options(... /utf-8 /wd4819)`，避免中文源码产生 C4819 与乱码 |
-| Windows Qt 运行库 | POST_BUILD 调用 `windeployqt --compiler-runtime --no-translations`，把 Qt6 DLL、平台插件与 MinGW 运行时拷到产物目录 |
-| 运行时资源 | `config.ini` 与 `static/` 目录拷贝到 `$<TARGET_FILE_DIR:xiguchat>`（Windows/Linux 为 `bin/`，macOS 为 `.app/Contents/MacOS/`） |
+| Windows Qt 运行库 | POST_BUILD 调用 `windeployqt --compiler-runtime --no-translations --qmldir <qml目录>`，把 Qt6 DLL、平台插件与 MinGW 运行时拷到产物目录 |
+| 运行时资源 | `config.ini` 拷贝到 `$<TARGET_FILE_DIR:xiguchat>`（Windows/Linux 为 `bin/`，macOS 为 `.app/Contents/MacOS/`） |
 
 产物：`build/<预设>/bin/xiguchat`（macOS 为 `xiguchat.app`）。
 

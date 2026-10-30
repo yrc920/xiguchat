@@ -156,6 +156,9 @@ struct TextChatData{
     }
     QString _msg_id;
     QString _msg_content;
+    QString _imageSource; // 仅用于本地预览，不进入文本协议
+    int _imageWidth = 0;
+    int _imageHeight = 0;
     int _from_uid;
     int _to_uid;
 };

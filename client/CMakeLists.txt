@@ -1,15 +1,31 @@
 # ============================================================
 #  XiguChat Client — 聊天客户端（Qt6 桌面程序）
 #
-#  技术栈: Qt 6.5 (Core / Gui / Network / Widgets) + C++17
+#  技术栈: Qt 6.5 (Core / Gui / Network / Quick) + C++17
+#
+#  目标划分（库边界由链接器强制，不靠自觉）:
+#    xiguchat_core  静态库：core/ 业务与数据 + network/ HTTP/TCP 传输
+#                   只链接 Qt Core / Network，
+#                   不依赖界面头与 Gui/Quick，保持无界面测试能力
+#    xiguchat       可执行：main.cpp + bridge/ + qml/ 界面层
+#
+#  界面用 QML 描述：qml/ 放页面与组件，bridge/ 是 QML 与 core 的唯一通道
+#  （Q_PROPERTY / Q_INVOKABLE / QAbstractListModel）。
+#
+#  构建入口（两条路径共用本文件）:
+#    1) Qt Creator：选择 Qt 6.5 Kit 打开工程，Kit 自动注入编译器与 Qt 路径
+#    2) 命令行：cmake --preset <平台预设> && cmake --build --preset <平台预设>
+#       三平台均为单配置生成器（Ninja），Debug/Release 由预设区分
 # ============================================================
 cmake_minimum_required(VERSION 3.16)
 
 # 编译器（跨平台统一由 Kit 或系统提供）：macOS/Linux 使用系统 clang/gcc，
-# 无需任何设置；仅 Windows 需要显式指定 Qt 配套 MinGW。MinGW 两种来源
-# （任选其一，互不覆盖）：
-#  1) Qt Creator：MinGW Kit 通过 -D 指定编译器
+# 无需任何设置；Windows 使用 Qt 安装包自带的 MinGW 11.2（mingw1120_64），
+# 两种来源任选其一，互不覆盖：
+#  1) Qt Creator：选择 Qt 6.5 MinGW Kit 打开工程，Kit 直接指定编译器
 #  2) 命令行/VSCode：QT_MINGW_ROOT 环境变量（在 project() 之前设置）
+# 注意：Windows 端不使用 MSVC——Qt 官方安装包的 Windows 桌面套件是
+# MinGW 构建，与 MSVC 编译出的库 ABI 不兼容，两者不能混用。
 if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     if(NOT DEFINED ENV{QT_MINGW_ROOT})
         message(FATAL_ERROR
@@ -31,11 +47,10 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ---------- Qt 自动工具 ----------
-# Qt 的 moc（元对象编译）/ uic（.ui 编译）/ rcc（资源编译）
-# 由 CMake 自动处理：源码中出现的 Q_OBJECT 类、.ui 文件、.qrc 文件
-# 都不用手写额外步骤，AUTOMOC/AUTOUIC/AUTORCC 会自动生成并编译
+# moc（元对象编译）与 rcc（资源编译）由 CMake 自动处理：
+# 源码中出现的 Q_OBJECT 类、.qrc 文件都不用手写额外步骤。
+# 静态库与可执行目标共用这些开关，xiguchat_core 中的 Q_OBJECT 类同样会被 moc。
 set(CMAKE_AUTOMOC ON)
-set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 # 让编译器默认在当前目录找头文件（配合下方 include 目录使用）
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -44,14 +59,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # Qt 安装路径两种来源（任选其一，互不覆盖）：
 #  1) Qt Creator：选择本机 Qt 6.5 Kit（三平台通用），Kit 自动注入 CMAKE_PREFIX_PATH
 #  2) 命令行/VSCode：QT_ROOT 环境变量
-find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Widgets)
+find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Quick)
 if(NOT Qt6_FOUND AND DEFINED ENV{QT_ROOT})
     list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_ROOT}")
-    find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Widgets)
+    find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Quick)
 endif()
 if(NOT Qt6_FOUND)
     message(FATAL_ERROR
-        "找不到 Qt 6.5（Core/Gui/Network/Widgets），两种方式任选其一：\n"
+        "找不到 Qt 6.5（Core/Gui/Network/Quick），两种方式任选其一：\n"
         "  1) Qt Creator：选择本机 Qt 6.5 Kit 打开工程\n"
         "  2) 命令行/VSCode：设置 QT_ROOT 环境变量\n"
         "       macOS/Linux: export QT_ROOT=~/Qt/6.5.3/macos\n"
@@ -59,23 +74,32 @@ if(NOT Qt6_FOUND)
 endif()
 
 # ------------------------------------------------------------
-#  core/ — 全局定义、单例与公共数据结构
+#  xiguchat_core — 业务与传输层静态库
+#
+#  只链接 Qt Core / Network：这里没有一行界面代码，
+#  界面层的一切（QML / 窗口 / 绘图）都在这个库之外。
 # ------------------------------------------------------------
 set(CORE_SOURCES
     core/global.cpp
     core/userdata.cpp
     core/usermgr.cpp
+    core/service/authservice.cpp
+    core/service/sessionservice.cpp
+    core/service/chatservice.cpp
+    core/service/friendservice.cpp
 )
+
 set(CORE_HEADERS
     core/global.h
     core/singleton.h
     core/userdata.h
     core/usermgr.h
+    core/service/authservice.h
+    core/service/sessionservice.h
+    core/service/chatservice.h
+    core/service/friendservice.h
 )
 
-# ------------------------------------------------------------
-#  network/ — 网络通信层 (HTTP / TCP 长连接)
-# ------------------------------------------------------------
 set(NETWORK_SOURCES
     network/httpmgr.cpp
     network/tcpmgr.cpp
@@ -85,126 +109,58 @@ set(NETWORK_HEADERS
     network/tcpmgr.h
 )
 
-# ------------------------------------------------------------
-#  widgets/ — 自定义控件（聊天气泡、列表项、输入框等）
-# ------------------------------------------------------------
-set(WIDGET_SOURCES
-    widgets/adduseritem.cpp
-    widgets/applyfrienditem.cpp
-    widgets/bubbleframe.cpp
-    widgets/chatitembase.cpp
-    widgets/chatuserlist.cpp
-    widgets/chatuserwid.cpp
-    widgets/chatview.cpp
-    widgets/clickedbtn.cpp
-    widgets/clickedlabel.cpp
-    widgets/clickedoncelabel.cpp
-    widgets/conuseritem.cpp
-    widgets/customizeedit.cpp
-    widgets/friendlabel.cpp
-    widgets/grouptipitem.cpp
-    widgets/listitembase.cpp
-    widgets/messagetextedit.cpp
-    widgets/picturebubble.cpp
-    widgets/searchlist.cpp
-    widgets/statewidget.cpp
-    widgets/textbubble.cpp
-    widgets/timerbtn.cpp
+add_library(xiguchat_core STATIC
+    ${CORE_SOURCES} ${CORE_HEADERS}
+    ${NETWORK_SOURCES} ${NETWORK_HEADERS}
 )
-set(WIDGET_HEADERS
-    widgets/adduseritem.h
-    widgets/applyfrienditem.h
-    widgets/bubbleframe.h
-    widgets/chatitembase.h
-    widgets/chatuserlist.h
-    widgets/chatuserwid.h
-    widgets/chatview.h
-    widgets/clickedbtn.h
-    widgets/clickedlabel.h
-    widgets/clickedoncelabel.h
-    widgets/conuseritem.h
-    widgets/customizeedit.h
-    widgets/friendlabel.h
-    widgets/grouptipitem.h
-    widgets/listitembase.h
-    widgets/messagetextedit.h
-    widgets/picturebubble.h
-    widgets/searchlist.h
-    widgets/statewidget.h
-    widgets/textbubble.h
-    widgets/timerbtn.h
+
+# 让 IDE（Qt Creator / VS / Xcode）按真实目录树展示源文件，
+# 而不是默认的 "Header Files / Source Files" 两堆
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}"
+    FILES ${CORE_SOURCES} ${CORE_HEADERS} ${NETWORK_SOURCES} ${NETWORK_HEADERS})
+
+# PUBLIC：链接 xiguchat_core 的目标自动获得这三个头文件搜索路径，
+# 源码里 #include "usermgr.h" / "httpmgr.h" 保持原样
+target_include_directories(xiguchat_core PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/core
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/service
+    ${CMAKE_CURRENT_SOURCE_DIR}/network
 )
-# .ui 文件：AUTOUIC 会自动把它们转成 ui_xxx.h 并参与编译
-set(WIDGET_FORMS
-    widgets/adduseritem.ui
-    widgets/applyfrienditem.ui
-    widgets/chatuserwid.ui
-    widgets/conuseritem.ui
-    widgets/friendlabel.ui
-    widgets/grouptipitem.ui
+
+target_link_libraries(xiguchat_core PUBLIC
+    Qt6::Core
+    Qt6::Network
 )
 
 # ------------------------------------------------------------
-#  dialogs/ — 业务对话框与页面（登录、注册、聊天主界面等）
+#  bridge/ — QML 与 core 的边界
+#
+#  页面桥接对象与列表模型：Q_PROPERTY 暴露状态、Q_INVOKABLE 暴露动作、
+#  QAbstractListModel 暴露列表。带 QML_ELEMENT 的类必须编译进可执行目标，
+#  放进静态库会与 qt_add_qml_module 各生成一份 moc，链接期符号重复。
 # ------------------------------------------------------------
-set(DIALOG_SOURCES
-    dialogs/applyfriend.cpp
-    dialogs/applyfriendlist.cpp
-    dialogs/applyfriendpage.cpp
-    dialogs/authenfriend.cpp
-    dialogs/chatdialog.cpp
-    dialogs/chatpage.cpp
-    dialogs/contactuserlist.cpp
-    dialogs/findfaildlg.cpp
-    dialogs/findsuccessdlg.cpp
-    dialogs/friendinfopage.cpp
-    dialogs/loadingdlg.cpp
-    dialogs/logindialog.cpp
-    dialogs/registerdialog.cpp
-    dialogs/resetdialog.cpp
+set(BRIDGE_SOURCES
+    bridge/shellbridge.cpp
+    bridge/loginbridge.cpp
+    bridge/registerbridge.cpp
+    bridge/resetbridge.cpp
+    bridge/friendlistmodel.cpp
+    bridge/applylistmodel.cpp
+    bridge/messagemodel.cpp
+    bridge/composerbridge.cpp
+    bridge/chatbridge.cpp
 )
-set(DIALOG_HEADERS
-    dialogs/applyfriend.h
-    dialogs/applyfriendlist.h
-    dialogs/applyfriendpage.h
-    dialogs/authenfriend.h
-    dialogs/chatdialog.h
-    dialogs/chatpage.h
-    dialogs/contactuserlist.h
-    dialogs/findfaildlg.h
-    dialogs/findsuccessdlg.h
-    dialogs/friendinfopage.h
-    dialogs/loadingdlg.h
-    dialogs/logindialog.h
-    dialogs/registerdialog.h
-    dialogs/resetdialog.h
-)
-set(DIALOG_FORMS
-    dialogs/applyfriend.ui
-    dialogs/applyfriendpage.ui
-    dialogs/authenfriend.ui
-    dialogs/chatdialog.ui
-    dialogs/chatpage.ui
-    dialogs/findfaildlg.ui
-    dialogs/findsuccessdlg.ui
-    dialogs/friendinfopage.ui
-    dialogs/loadingdlg.ui
-    dialogs/logindialog.ui
-    dialogs/registerdialog.ui
-    dialogs/resetdialog.ui
-)
-
-# ------------------------------------------------------------
-#  views/ — 主窗口
-# ------------------------------------------------------------
-set(VIEW_SOURCES
-    views/mainwindow.cpp
-)
-set(VIEW_HEADERS
-    views/mainwindow.h
-)
-set(VIEW_FORMS
-    views/mainwindow.ui
+set(BRIDGE_HEADERS
+    bridge/shellbridge.h
+    bridge/pagebridge.h
+    bridge/loginbridge.h
+    bridge/registerbridge.h
+    bridge/resetbridge.h
+    bridge/friendlistmodel.h
+    bridge/applylistmodel.h
+    bridge/messagemodel.h
+    bridge/composerbridge.h
+    bridge/chatbridge.h
 )
 
 # ------------------------------------------------------------
@@ -214,33 +170,64 @@ set(VIEW_FORMS
 # ------------------------------------------------------------
 add_executable(xiguchat WIN32
     main.cpp
-    ${CORE_SOURCES} ${CORE_HEADERS}
-    ${NETWORK_SOURCES} ${NETWORK_HEADERS}
-    ${WIDGET_SOURCES} ${WIDGET_HEADERS} ${WIDGET_FORMS}
-    ${DIALOG_SOURCES} ${DIALOG_HEADERS} ${DIALOG_FORMS}
-    ${VIEW_SOURCES} ${VIEW_HEADERS} ${VIEW_FORMS}
+    ${BRIDGE_SOURCES} ${BRIDGE_HEADERS}
     resources/rc.qrc
 )
 
-# 各模块目录加入头文件搜索路径，源码内 #include "xxx.h" 可直接引用
 target_include_directories(xiguchat PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/core
-    ${CMAKE_CURRENT_SOURCE_DIR}/network
-    ${CMAKE_CURRENT_SOURCE_DIR}/widgets
-    ${CMAKE_CURRENT_SOURCE_DIR}/dialogs
-    ${CMAKE_CURRENT_SOURCE_DIR}/views
+    ${CMAKE_CURRENT_SOURCE_DIR}/bridge
 )
 
-# 链接 Qt 模块库（必须是 find_package 列出的那 4 个）
-target_link_libraries(xiguchat PRIVATE Qt6::Core Qt6::Gui Qt6::Network Qt6::Widgets)
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}"
+    FILES main.cpp ${BRIDGE_SOURCES} ${BRIDGE_HEADERS} resources/rc.qrc)
 
-# 源码统一为 UTF-8 编码：仅 MSVC 默认按系统代码页解析，需显式告知
-# （/utf-8），否则含中文的源码会产生 C4819 警告或乱码；
-# MinGW/clang/gcc 默认按 UTF-8 解析，无需额外设置
-if(MSVC)
-    target_compile_options(xiguchat PRIVATE /utf-8 /wd4819)
-endif()
+# ------------------------------------------------------------
+#  qml/ — 界面描述层
+#
+#  根窗口 Main.qml 只负责选页面、定尺寸、提示掉线；
+#  颜色、字号、间距集中在 Theme.qml 单例。
+#  单例声明必须写在 qt_add_qml_module 之前，否则属性全读成 undefined。
+# ------------------------------------------------------------
+set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
+
+set(QML_FILES
+    qml/Main.qml
+    qml/Theme.qml
+    qml/AuthPage.qml
+    qml/Login.qml
+    qml/Register.qml
+    qml/Reset.qml
+    qml/ChatWindow.qml
+    qml/FriendDialogs.qml
+    qml/ChatPage.qml
+    qml/FriendInfoPage.qml
+    qml/ApplyFriendPage.qml
+    qml/ChatBubble.qml
+    qml/Avatar.qml
+    qml/IconButton.qml
+    qml/ToolIcon.qml
+    qml/SideButton.qml
+    qml/AppInput.qml
+    qml/AppButton.qml
+    qml/AppLink.qml
+    qml/CodeButton.qml
+    qml/Spacer.qml
+)
+
+qt_add_qml_module(xiguchat
+    URI XiguChat
+    VERSION 1.0
+    RESOURCE_PREFIX /qt/qml
+    QML_FILES ${QML_FILES}
+    SOURCES ${BRIDGE_HEADERS}
+)
+
+# 链接关系即分层关系：可执行依赖业务库与 Quick，业务库不认识它们
+target_link_libraries(xiguchat PRIVATE
+    xiguchat_core
+    Qt6::Gui
+    Qt6::Quick
+)
 
 # 输出目录：构建目录下的 bin/（三平台产物统一在 build/<preset>/bin/ 下）
 set_target_properties(xiguchat PROPERTIES
@@ -250,7 +237,7 @@ set_target_properties(xiguchat PROPERTIES
 # 应用图标（跨平台）：Windows/Linux 图标由 Qt 资源 rc.qrc 提供即可；
 # 仅 macOS 的 Dock 不读 Qt 资源，必须打成 .app bundle 并附带 .icns
 # （macOS 窗口标题栏也不显示图标，setWindowIcon 在 mac 上无效）。
-# xiguchat.icns 由 resources/Facebook.ico（128x128）转换生成。
+# xiguchat.icns 由 resources/Facebook.ico 转换生成。
 if(APPLE)
     set_target_properties(xiguchat PROPERTIES
         MACOSX_BUNDLE TRUE
@@ -264,8 +251,8 @@ if(APPLE)
 endif()
 
 # ------------------------------------------------------------
-#  构建后部署（三平台统一）：把运行必需的 config.ini 与 static/ 资源
-#  拷到产物同目录（Windows/Linux 为 bin/，macOS 为 .app/Contents/MacOS/），
+#  构建后部署（三平台统一）：把运行必需的 config.ini 拷到产物同目录
+#  （Windows/Linux 为 bin/，macOS 为 .app/Contents/MacOS/），
 #  保证程序可直接运行
 # ------------------------------------------------------------
 # config.ini 含服务器地址与密钥，仓库只有 config.ini.example，缺失时用它代替
@@ -278,10 +265,7 @@ add_custom_command(TARGET xiguchat POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${XIGUCHAT_CLIENT_CONFIG}"
         "$<TARGET_FILE_DIR:xiguchat>/config.ini"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_CURRENT_SOURCE_DIR}/static"
-        "$<TARGET_FILE_DIR:xiguchat>/static"
-    COMMENT "Copy config.ini and static/ to output"
+    COMMENT "Copy config.ini to output"
 )
 
 # ------------------------------------------------------------
@@ -299,6 +283,7 @@ if(WIN32)
         add_custom_command(TARGET xiguchat POST_BUILD
             COMMAND "${WINDEPLOYQT_EXECUTABLE}"
                     --compiler-runtime --no-translations
+                    --qmldir "${CMAKE_CURRENT_SOURCE_DIR}/qml"
                     "$<TARGET_FILE:xiguchat>"
             COMMENT "Deploy Qt runtime libraries via windeployqt")
     endif()

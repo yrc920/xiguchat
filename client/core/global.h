@@ -1,20 +1,8 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-#include <QWidget>
 #include <functional>
-#include <QRegularExpression>
-#include "QStyle"
-#include <memory>
-#include <iostream>
-#include <mutex>
-#include <QDebug>
-#include <QByteArray>
-#include <QNetworkReply>
-#include <QJsonObject>
-#include <QDir>
-#include <QSettings>
-#include <QPixmap>
+#include <QString>
 /******************************************************************************
  *
  * @file       global.h
@@ -24,11 +12,6 @@
  * @date       2026/04/20
  * @history
  *****************************************************************************/
-
-/**
- * @brief repolish 用来刷新qss
- */
-extern std::function<void(QWidget*)> repolish;
 
 //简单的异或加密函数, 输入一个字符串, 返回加密后的字符串
 extern std::function<QString(QString)> xorString;
@@ -64,28 +47,11 @@ enum Modules{
     LOGINMOD = 2, //登录模块
 };
 
-//错误提示
-enum TipErr{
-    TIP_SUCCESS = 0, //成功
-    TIP_EMAIL_ERR = 1, //邮箱错误
-    TIP_PWD_ERR = 2, //密码错误
-    TIP_CONFIRM_ERR = 3, //确认密码错误
-    TIP_PWD_CONFIRM = 4, //密码和确认密码不匹配
-    TIP_VERIFY_ERR = 5, //验证码错误
-    TIP_USER_ERR = 6 //用户名错误
-};
-
 //错误码
 enum ErrorCodes{
     SUCCESS = 0, //成功
     ERR_JSON = 1, //json解析失败
     ERR_NETWORK = 2, //网络错误
-};
-
-//点击标签的状态
-enum ClickLbState{
-    Normal = 0, //正常状态
-    Selected = 1 //选中状态
 };
 
 extern QString gate_url_prefix; //网关服务器的URL前缀,从配置文件中读取
@@ -97,82 +63,5 @@ struct ServerInfo{
     QString Token; //用户令牌
     int Uid; //用户ID
 };
-
-//聊天界面几种模式
-enum ChatUIMode{
-    SearchMode, //搜索模式
-    ChatMode, //聊天模式
-    ContactMode //联系人模式
-};
-
-//聊天项的角色
-enum class ChatRole
-{
-    Self, //自己
-    Other //别人
-};
-
-//消息信息结构体, 用于存储用户输入的文本、图片和文件等消息内容
-struct MsgInfo{
-    QString msgFlag; //"text, image, file"
-    QString content; //表示文件和图像的url, 文本信息
-    QPixmap pixmap; //文件和图片的缩略图
-};
-
-//自定义QListWidgetItem的几种类型
-enum ListItemType{
-    CHAT_USER_ITEM, //聊天用户
-    CONTACT_USER_ITEM, //联系人用户
-    SEARCH_USER_ITEM, //搜索到的用户
-    ADD_USER_TIP_ITEM, //提示添加用户
-    INVALID_ITEM,  //不可点击条目
-    GROUP_TIP_ITEM, //分组提示条目
-    LINK_ITEM, //分割线
-    APPLY_FRIEND_ITEM, //好友申请
-};
-
-const int MIN_APPLY_LABEL_ED_LEN = 40; //申请好友标签输入框最低长度
-const QString add_prefix = "添加标签 ";
-const int tip_offset = 5; //标签之间的间距
-
-// 将图片缩放到目标显示尺寸，并按设备像素比（HiDPI）预渲染，
-// 避免高分屏下按逻辑像素缩放导致的模糊
-inline QPixmap scalePixmapForLabel(const QPixmap &src, const QSize &targetSize, qreal dpr)
-{
-    if (src.isNull()) {
-        return src;
-    }
-    QPixmap scaled = src.scaled(targetSize * dpr, Qt::KeepAspectRatio,
-                                Qt::SmoothTransformation);
-    scaled.setDevicePixelRatio(dpr);
-    return scaled;
-}
-
-const std::vector<QString>  strs ={"hello world !",
-                                   "nice to meet u",
-                                   "New year，new life",
-                                   "You have to love yourself",
-                                   "My love is written in the wind ever since the whole world is you"};
-
-const std::vector<QString> heads = {
-    ":/res/head_1.jpg",
-    ":/res/head_2.jpg",
-    ":/res/head_3.jpg",
-    ":/res/head_4.jpg",
-    ":/res/head_5.jpg"
-};
-
-const std::vector<QString> names = {
-    "C++",
-    "Java",
-    "Python",
-    "Go",
-    "Nodejs",
-    "Rust",
-    "Swift",
-    "Kotlin",
-};
-
-const int CHAT_COUNT_PER_PAGE = 13; //每页加载的聊天用户数量
 
 #endif // GLOBAL_H

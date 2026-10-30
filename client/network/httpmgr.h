@@ -1,6 +1,7 @@
 #ifndef HTTPMGR_H
 #define HTTPMGR_H
 
+#include "global.h"
 #include "singleton.h"
 #include <QString>
 #include <QUrl>

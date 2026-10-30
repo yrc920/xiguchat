@@ -47,8 +47,9 @@ public slots:
 
 signals:
     void sig_con_success(bool bsuccess); //连接成功的信号
+    void sig_con_failed(const QString &message); //连接失败（DNS/拒绝/超时），带可展示的原因
     void sig_send_data(ReqId reqId, QByteArray data); //发送数据的信号
-    void sig_swich_chatdlg(); //切换到聊天界面的信号
+    void sig_login_success(const QJsonObject &data); //聊天服务登录数据，由会话层接收
     void sig_login_failed(int); //登录失败的信号，参数为错误码
     void sig_user_search(std::shared_ptr<SearchInfo>); //用户搜索结果的信号
     void sig_friend_apply(std::shared_ptr<AddFriendApply>); //申请对方为好友的信号

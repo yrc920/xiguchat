@@ -37,10 +37,10 @@ enum ErrorCodes {
 	VerifyExpired = 1003, //验证码过期
 	VerifyCodeErr = 1004, //验证码错误
 	UserExist = 1005, //用户已经存在
-	PasswdErr = 1006, //密码错误
-	EmailNotMatch = 1007, //邮箱不匹配
-	PasswdUpFailed = 1008, //更新密码失败
-	PasswdInvalid = 1009, //密码更新失败
+	PasswdErr = 1006, //注册时密码与确认密码不一致
+	EmailNotMatch = 1007, //重置密码时用户名与邮箱不匹配
+	PasswdUpFailed = 1008, //重置密码时写库失败
+	PasswdInvalid = 1009, //登录时邮箱与密码不匹配
 };
 
 //Defer类(go语言风格的延迟执行)

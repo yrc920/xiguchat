@@ -1,41 +1,35 @@
-#include "mainwindow.h"
-
-#include <QApplication>
-#include <QFile>
+#include <QDir>
+#include <QGuiApplication>
 #include <QIcon>
+#include <QQmlApplicationEngine>
+#include <QSettings>
+#include <QUrl>
+
 #include "global.h"
 
 int main(int argc, char *argv[])
 {
-    QApplication a(argc, argv);
+    QGuiApplication app(argc, argv);
+    QGuiApplication::setApplicationName(QStringLiteral("xiguchat"));
+
     // 统一设置应用窗口图标（三端通用，从 qrc 资源加载）：
     // Windows/Linux 显示在窗口标题栏与任务栏；
     // macOS 窗口标题栏不显示图标，Dock 图标由 .app bundle 内的 .icns 提供（见 CMakeLists APPLE 分支）
-    a.setWindowIcon(QIcon(":/res/Facebook.ico"));
-    QFile qss(":style/stylesheet.qss"); //资源文件路径
-    if(qss.open(QFile::ReadOnly)){
-        qDebug("open success");
-        QString style = QLatin1String(qss.readAll()); //读取样式表内容
-        a.setStyleSheet(style); //应用样式表到整个应用程序
-        qss.close();
-    }else{
-        qDebug("Open failed");
-    }
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/res/Facebook.ico")));
 
-    // 获取当前应用程序的路径
-    QString app_path = QCoreApplication::applicationDirPath();
-    QString fileName = "config.ini"; //配置文件名
-    //完整的配置文件路径
-    QString config_path = QDir::toNativeSeparators(app_path + QDir::separator() + fileName);
+    // config.ini 与可执行文件同目录（构建后由 CMake 拷到产物目录）
+    const QString config_path = QDir(QCoreApplication::applicationDirPath())
+                                    .filePath(QStringLiteral("config.ini"));
+    QSettings settings(config_path, QSettings::IniFormat);
+    gate_url_prefix = QStringLiteral("http://")
+                      + settings.value(QStringLiteral("GateServer/host")).toString()
+                      + QLatin1Char(':')
+                      + settings.value(QStringLiteral("GateServer/port")).toString();
 
-    QSettings settings(config_path, QSettings::IniFormat); //使用INI格式读取配置文件
-    //从配置文件中读取网关服务器的主机地址和端口号
-    QString gate_host = settings.value("GateServer/host").toString();
-    QString gate_port = settings.value("GateServer/port").toString();
-    //构建网关服务器的URL前缀
-    gate_url_prefix = "http://" + gate_host + ":" + gate_port;
+    QQmlApplicationEngine engine;
+    engine.load(QUrl(QStringLiteral("qrc:/qt/qml/XiguChat/qml/Main.qml")));
+    if (engine.rootObjects().isEmpty())
+        return 1;
 
-    MainWindow w;
-    w.show();
-    return a.exec();
+    return app.exec();
 }
