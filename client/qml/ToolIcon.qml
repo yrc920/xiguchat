@@ -1,77 +1,38 @@
 import QtQuick
 
-// 输入框上方的小工具图标：表情 / 文件。
-// 发送能力还没做（只支持文本），图标先放上，灰显表示暂不可用。
-Item {
+// 编辑区工具入口，未实现的动作保持不可用。
+Rectangle {
     id: root
 
-    property string kind: "emoji" // emoji | folder
-
+    property string kind: "emoji"
+    property bool usable: false
     signal clicked()
 
-    width: 22
-    height: 22
+    width: 30
+    height: 30
+    radius: 6
+    activeFocusOnTab: usable
+    color: usable && (area.containsMouse || activeFocus) ? Theme.panelAlt : "transparent"
+    opacity: usable ? 1 : 0.42
+    Accessible.role: Accessible.Button
+    Accessible.name: kind === "emoji" ? "表情" : "文件"
+    Accessible.onPressAction: if (root.usable) root.clicked()
+    Keys.onSpacePressed: if (usable) clicked()
+    Keys.onReturnPressed: if (usable) clicked()
 
-    Canvas {
-        anchors.fill: parent
-        opacity: area.containsMouse ? 0.95 : 0.55
-
-        Behavior on opacity { NumberAnimation { duration: 120 } }
-
-        onPaint: {
-            const ctx = getContext("2d")
-            ctx.clearRect(0, 0, width, height)
-            ctx.strokeStyle = Theme.textSecondary
-            ctx.lineWidth = 1.5
-            ctx.lineCap = "round"
-            ctx.lineJoin = "round"
-
-            if (root.kind === "emoji") {
-                // 笑脸：圆 + 两眼 + 嘴
-                ctx.beginPath()
-                ctx.arc(11, 11, 7.6, 0, Math.PI * 2)
-                ctx.stroke()
-
-                ctx.fillStyle = Theme.textSecondary
-                ctx.beginPath()
-                ctx.arc(8.4, 9, 0.9, 0, Math.PI * 2)
-                ctx.fill()
-                ctx.beginPath()
-                ctx.arc(13.6, 9, 0.9, 0, Math.PI * 2)
-                ctx.fill()
-
-                ctx.beginPath()
-                ctx.moveTo(7.6, 13.2)
-                ctx.quadraticCurveTo(11, 16.4, 14.4, 13.2)
-                ctx.stroke()
-            } else {
-                // 文件夹：主体 + 顶部标签
-                ctx.beginPath()
-                ctx.moveTo(3.2, 7.4)
-                ctx.lineTo(8.4, 7.4)
-                ctx.lineTo(10, 9.6)
-                ctx.lineTo(18.8, 9.6)
-                ctx.lineTo(18.8, 17.4)
-                ctx.lineTo(3.2, 17.4)
-                ctx.closePath()
-                ctx.stroke()
-
-                ctx.beginPath()
-                ctx.moveTo(3.2, 7.4)
-                ctx.lineTo(3.2, 5.6)
-                ctx.quadraticCurveTo(3.2, 5, 3.9, 5)
-                ctx.lineTo(7.6, 5)
-                ctx.lineTo(9.2, 7.4)
-                ctx.stroke()
-            }
-        }
+    AppIcon {
+        anchors.centerIn: parent
+        size: 19
+        name: root.kind
+        color: Theme.textSecondary
     }
 
     MouseArea {
         id: area
         anchors.fill: parent
+        enabled: root.usable
         hoverEnabled: true
-        cursorShape: Qt.PointingHandCursor
+        cursorShape: root.usable ? Qt.PointingHandCursor : Qt.ArrowCursor
         onClicked: root.clicked()
     }
 }

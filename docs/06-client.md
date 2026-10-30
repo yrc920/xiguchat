@@ -7,8 +7,8 @@
 | 语言 / 标准 | C++17 |
 | Qt 版本 | 6.5（Core / Gui / Network / Quick） |
 | UI 方式 | QML，`qt_add_qml_module` 编入 qrc，入口 `qml/Main.qml` |
-| 样式 | `qml/Theme.qml` 单例（设计令牌），**无样式表文件** |
-| 资源 | `resources/rc.qrc`：应用图标 + 输入框明暗密码图标 + 内置头像 |
+| 样式 | `qml/Theme.qml` 单例：日间 / 夜间语义色、字号与尺寸，无样式表文件 |
+| 资源 | `resources/rc.qrc`：应用图标 PNG 与内置头像；操作图标由 QML 绘制 |
 | 目标名 | `xiguchat`（macOS 为 `xiguchat.app`） |
 
 QML 负责布局、焦点、动画和弹窗的临时表单状态；业务状态与网络协议由 C++ 管理。
@@ -16,7 +16,7 @@ QML 负责布局、焦点、动画和弹窗的临时表单状态；业务状态�
 
 ## 6.2 分层结构
 
-`main.cpp` 只做三件事：创建 `QGuiApplication`、从 `config.ini` 拼出网关 URL、加载根窗口。
+`main.cpp` 创建 `QGuiApplication`，设置应用标识、字体与图标，从 `config.ini` 拼出网关 URL，再加载根窗口。
 界面调用方向为 `qml → bridge → core/service → network`。`core/userdata` 是共享数据类型，
 `UserMgr` 是会话数据源；网络层解析消息后发信号，由服务层更新数据，不负责切换页面。
 
@@ -25,15 +25,18 @@ QML 负责布局、焦点、动画和弹窗的临时表单状态；业务状态�
 | 文件 | 说明 |
 | --- | --- |
 | `Main.qml` | 根 `Window`：持有 `ShellBridge`，用 `Loader` 换页并按页设窗口尺寸；掉线提示浮层 |
-| `Login` / `Register` / `Reset` | 认证三页，共用 `AuthPage` 外壳（浅暖底 + 居中定宽列） |
+| `Login` / `Register` / `Reset` | 认证三页，共用 `AuthPage` 外壳、320 像素表单列与折纸信封角色；内容过长时滚动 |
 | `ChatWindow` | 聊天主界面：侧栏 + 左列（会话 / 联系人）+ 右侧页面栈 |
 | `FriendDialogs` | 搜索结果、添加好友与验证申请的弹层及临时表单 |
 | `Avatar` | 显示已有头像，无头像时回退名字首字；软件渲染时不启用遮罩特效 |
 | `ChatPage` | 会话页：标题 + 消息流 + 输入区 |
-| `FriendInfoPage` | 好友资料页：头像 / 名字（含性别图标）/ 昵称 / 备注 / 标签 + 发消息、语音、视频 |
+| `FriendInfoPage` | 好友资料页：头像 / 名字 / ID / 昵称 / 备注 / 性别 / 个人说明；发消息可用，语音与视频禁用 |
 | `ApplyFriendPage` | 好友申请页：申请人 + 申请信息 + 添加 / 已添加 |
 | `ChatBubble` | 可选中复制的文本气泡，以及图片预览 |
-| `Theme.qml` | 设计令牌单例：颜色、字号、圆角、气泡最大宽度 |
+| `Theme.qml` | 外观单例：日夜颜色、字号、圆角、气泡最大宽度；本地保存外观选择 |
+| `AppIcon` | 统一 Canvas 线条图标，包含密码可见、主题切换与聊天工具图标 |
+| `BrandMark` | 页面品牌图形，与窗口共用 `xiguchat.png` |
+| `PaperCompanion` | 原创折纸信封角色，根据焦点、密码显示状态与请求状态改变表情 |
 | `AppInput` / `AppButton` / `AppLink` / `CodeButton` / `SideButton` / `IconButton` / `Spacer` / `AuthPage` | 组件 |
 
 **bridge — QML 与 C++ 的边界**
@@ -73,13 +76,16 @@ QML 负责布局、焦点、动画和弹窗的临时表单状态；业务状态�
 
 `main.cpp`：
 
-1. `QGuiApplication` + `setWindowIcon(QIcon(":/res/Facebook.ico"))`
+1. 创建 `QGuiApplication`，设置应用名 `xiguchat`、组织名 `XiguChat`，供本地外观设置使用；
+2. 按平台设置字体：macOS 用苹方 / Helvetica Neue，Windows 用 Microsoft YaHei UI / Segoe UI，Linux 用 Noto Sans CJK SC / Noto Sans；
+3. `setWindowIcon(QIcon(":/res/xiguchat.png"))`
    （Windows/Linux 显示在标题栏与任务栏；macOS 标题栏不显示图标，Dock 图标来自 bundle 内的 `.icns`）；
-2. 用 `QSettings` 读可执行文件同目录的 `config.ini`，拼出 `gate_url_prefix = "http://host:port"`；
-3. `QQmlApplicationEngine::load("qrc:/qt/qml/XiguChat/qml/Main.qml")`。
+4. 用 `QSettings` 读可执行文件同目录的 `config.ini`，拼出 `gate_url_prefix = "http://host:port"`；
+5. `QQmlApplicationEngine::load("qrc:/qt/qml/XiguChat/qml/Main.qml")`。
 
-`Main.qml` 在 `Component.onCompleted` 里装入登录页并把窗口定到 `380×470`。
-窗口尺寸随页面变化：认证三页固定（470 / 560 / 500 高），聊天页最小 `900×650` 且可拉伸。
+`Main.qml` 在 `Component.onCompleted` 里装入登录页，窗口标题为 `xiguchat`。
+认证窗口固定为：登录 `420×560`、注册 `420×740`、重置密码 `420×680`。
+聊天窗口进入时至少为 `1060×740`，最小可缩到 `960×680`，支持拉伸。
 
 ## 6.4 通信层
 
@@ -149,13 +155,32 @@ sequenceDiagram
 
 ### 主题
 
-颜色、字号、间距、圆角全部在 `qml/Theme.qml`（`pragma Singleton`）。
+`qml/Theme.qml`（`pragma Singleton`）集中定义语义颜色、字号、圆角、输入框高度与气泡宽度上限。
+日间使用纸白底与墨绿文字，夜间使用深绿灰底与浅色文字，陶土色用于强调与提醒。
+页面绑定 `panelBg`、`textPrimary`、`primary` 等语义属性，切换外观时同步更新。
+
+认证窗口右上角和聊天侧栏底部的日月按钮调用 `Theme.toggle()`。
+`QtCore.Settings` 将 `dark` 保存到本机的 `Appearance` 分类，下次启动恢复；
+外观选择不经过 bridge 或服务端，也不写入网关配置 `config.ini`。
+
 `CMakeLists.txt` 中 `set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)`
 必须写在 `qt_add_qml_module` **之前**，否则单例属性全读成 `undefined`。
 
+### 图标与折纸角色
+
+页面品牌标识使用 `BrandMark` 显示应用图形，不附加文字品牌名。
+图形源文件为 `resources/xiguchat.svg`，页面与运行时窗口共用导出的 PNG。
+
+`AppIcon` 使用 24 单位的 Canvas 坐标与统一圆头线条，按 `name / color / size` 绘制，
+颜色或尺寸变化时重绘。密码显示按钮与其他操作共用这一套图标。
+
+`PaperCompanion` 由 QML 图形与 Canvas 组成：普通输入聚焦时留意表单，
+密码隐藏输入时合上信封折盖遮眼，显示密码时侧身，请求处理中轻微抬起。
+表情只接收交互状态，不接收密码内容；紧凑空态不运行眨眼计时器。
+
 ### 消息气泡
 
-气泡尺寸完全由内容推导，没有一处手工测量：
+文本气泡由 `TextMetrics` 的自然宽度和可用宽度共同决定，图片使用消息保存的尺寸：
 
 ```qml
 TextMetrics { id: metrics; font: label.font; text: root.text }
@@ -163,61 +188,51 @@ TextMetrics { id: metrics; font: label.font; text: root.text }
 ```
 
 `wrapMode: Text.WrapAtWordBoundaryOrAnywhere` 负责断行，长英文单词与长数字串都留在气泡内。
-小三角是一个旋转 45° 的圆角矩形，一半压在气泡边缘下，同色无缝。
+气泡使用圆角矩形，自发消息靠右，接收消息靠左；头像与文字颜色随主题变化。
 
 > 中文正文**不要叠加 `lineHeight` 倍率**：屏显中文字体的行盒（约 1.4em）已经够宽松，
 > 再乘系数会把多出来的高度全堆在基线下方，表现为"上紧下松"。
 
 ### 左列模式与右侧页面
 
-左列 `mode`（`ChatBridge::mode`）与右侧 `pane` 一起决定界面，和旧版 `ChatDialog` 的
-`_state` + `QStackedWidget` 对应。**点侧栏会同时切左列和右侧**：
+主界面由 72 像素导航栏、280 像素索引列和可伸缩内容区组成。
+左列 `mode`（`ChatBridge::mode`）与右侧 `pane` 一起决定界面，点侧栏会同时切换两者：
 
 | 操作 | mode | 右侧 pane |
 | --- | --- | --- |
 | 点侧栏「聊天」 | 0 会话 | 当前会话（没有会话则空态） |
-| 点侧栏「联系人」 | 1 联系人 | 好友申请页（旧版 `slot_side_contact` 就是直接切到 `friend_apply_page`） |
+| 点侧栏「联系人」 | 1 联系人 | 好友申请页 |
 | 会话列表点条目 | 0 | 聊天页 `openChat(uid)` |
 | 联系人列表点条目 | 1 | 好友资料页 `openProfile(uid)` |
 | 资料页点「发消息」 | 0 | 聊天页 |
 | 联系人列表「新的朋友」 | 1 | 好友申请页 `openApplyList()` |
 
-联系人列表顶部按分组排布：「新的朋友」分组标题 → 新的朋友条目 →「联系人」分组标题 → 好友列表，
-把搜索框、申请入口和已有联系人分开放。
-
-联系人列表顶部按分组排布：「新的朋友」分组标题 → 新的朋友条目 →「联系人」分组标题 → 好友列表，
-把搜索框、申请入口和已有联系人分开放。
+联系人列表在搜索框下方提供「新的朋友」入口，再以「全部联系人」标题分隔好友列表。
+申请数量来自 `ApplyListModel::pendingCount`；好友数量与消息摘要来自实际列表数据。
 
 三页都是 `ChatWindow` 的子项，用 `visible` 切换而不是重建，滚动位置和输入内容不会丢。
-资料页与申请页来自旧版 `FriendInfoPage` / `ApplyFriendPage`；语音、视频按需求先做出图标，
-服务端没有对应能力，因此显示为不可用状态，不做成"点了没反应"的按钮。
-
-资料页的**昵称、备注、标签、性别**在服务端还没有对应字段（旧版 `sex_lb` 从未被赋值，
-`bak_lb` 显示的还是昵称），界面先把位置留好：性别按 `sex` 1 男 / 2 女 画图标，其它值不显示；
-标签为空时显示 `—`。
-
-资料页的**昵称、备注、标签、性别**在服务端还没有对应字段（旧版 `sex_lb` 从未被赋值，
-`bak_lb` 显示的还是昵称），界面先把位置留好：性别按 `sex` 1 男 / 2 女 画图标，其它值不显示；
-标签为空时显示 `—`。
+资料页显示好友对象里的昵称、备注、性别与个人说明，空昵称或备注显示「未设置」，
+性别按 `sex` 1 男 / 2 女显示，其它值显示「未设置」。没有内容的个人说明不显示。
+语音、视频尚无服务端能力，操作入口显示为禁用状态。
 
 ### 搜索
 
-搜索框回车发 `ID_SEARCH_USER_REQ`，结果按旧版三条分支处理：
+搜索框回车发 `ID_SEARCH_USER_REQ`，结果按以下分支处理：
 
 | 结果 | 行为 |
 | --- | --- |
 | 搜到自己 | 忽略，清空搜索态 |
 | 已经是好友 | 不弹窗，直接跳到该好友的会话 |
-| 陌生人 | 弹「添加到通讯录」卡片，点进去打开加好友弹窗 |
-| 没搜到 | 弹「无法找到该用户 / 请检查你填写的账号是否正确」 |
+| 陌生人 | 弹「找到这位朋友」卡片，点「添加到通讯录」打开加好友表单 |
+| 没搜到 | 弹「没有找到这个用户」提示 |
 
-加好友弹窗（旧版 `ApplyFriend`）包含：发送添加朋友申请（默认填自己的用户名）、
-备注名（默认填对方名字）、标签选择。标签是「预设标签云 + 已选 chip」双联动的：
-点预设标签加入已选并高亮，点 chip 上的 × 移除。几个说明：
+搜索、添加好友和通过申请共用 `FriendDialogs` 弹层，标题与底部操作固定，表单内容按需滚动。
+加好友表单包含验证信息（默认填自己的用户名）、备注名（默认填对方名字）、标签选择。
+预设标签与已选标签联动，也可输入自定义标签；点已选标签上的 × 移除。
 
-- 标签布局用 `Flow` + `Repeater`，容器宽度一变自动重排，旧版是手工累加 x/y 坐标；
-- **标签不发往服务端**：`ID_ADD_FRIEND_REQ` 只有 `uid / applyname / bakname / touid`，
-  旧版同样只存在界面里，这里保持一致。
+- 标签布局用 `Flow` + `Repeater`，容器宽度变化时自动重排。
+- 标签只属于本次表单状态，不保存或发往服务端；`ID_ADD_FRIEND_REQ` 只有
+  `uid / applyname / bakname / touid`。
 
 ### 消息排列
 
@@ -240,7 +255,7 @@ TextMetrics { id: metrics; font: label.font; text: root.text }
 ### 列表
 
 三个 `QAbstractListModel` 直接引用 `UserMgr` 里的对象，不复制数据。
-`ListView` 自带虚拟化，因此**不再需要** QWidget 时代的分页游标；
+`ListView` 按需创建可见条目的 delegate；
 `UserMgr` 在好友/申请数据修改前发 `AboutToChange`，修改后发 `Changed`，模型据此成对重置。
 消息模型维护已经向视图公布的行数，在 `beginInsertRows()` 与 `endInsertRows()` 之间更新计数；
 好友模型收到 `FriendChatChanged(uid)` 时只刷新该行摘要。
@@ -265,11 +280,15 @@ TextMetrics { id: metrics; font: label.font; text: root.text }
 
 | 资源 | 位置 | 说明 |
 | --- | --- | --- |
-| 应用图标 | `resources/Facebook.ico`、`resources/xiguchat.icns` | Windows/Linux 用 ico；macOS bundle 用 icns |
+| 图标主图 | `resources/xiguchat.svg` | 原创应用图形源文件 |
+| 页面与窗口图标 | `resources/xiguchat.png`、`qml/BrandMark.qml` | PNG 编入 qrc，供品牌组件与 `setWindowIcon` 使用 |
+| Windows 应用图标 | `resources/xiguchat.ico`、`resources/xiguchat.rc` | RC 资源通过 MinGW windres 编译并嵌入 EXE |
+| macOS 应用图标 | `resources/xiguchat.icns` | 随应用 bundle 放入 `Resources/` |
 | 内置头像 | `resources/res/head_1.jpg` 至 `head_5.jpg` | 支持数据库现有 `:/res/...` 路径 |
-| 密码可见 | `resources/res/visible.png`、`unvisible.png` | `AppInput` 使用 |
+| 界面图标 | `qml/AppIcon.qml` | Canvas 绘制，包含密码可见与日夜切换图标 |
+| 折纸角色 | `qml/PaperCompanion.qml` | QML 图形与 Canvas 绘制，无位图依赖 |
 
-`rc.qrc` 中 `Facebook.ico` 的 alias 为 `res/Facebook.ico`，代码中以 `:/res/Facebook.ico` 引用。
+`rc.qrc` 中 PNG 的 alias 为 `res/xiguchat.png`，C++ 以 `:/res/xiguchat.png` 引用。
 QML 侧走 `qrc:/res/...`。
 
 ## 6.8 输入校验
@@ -286,12 +305,12 @@ QML 侧走 `qrc:/res/...`。
 | 事项 | 现状 |
 | --- | --- |
 | 密码传输 | `xorString()` 做可逆 XOR 变形（按字符串长度取模），**不是加密**，且 HTTP 未启用 TLS |
-| 本地存储 | 不保存密码或 token |
+| 本地存储 | 保存外观偏好，不保存密码或 token |
 | 输入注入 | HTTP 走 JSON；MySQL 走 X DevAPI 的参数化 `sql("... ?").bind()`，无字符串拼接 |
 
 ## 6.10 客户端侧已知缺口
 
 - **消息不持久化**：双方都在线才能互发；重新登录看不到历史消息（服务端与客户端都未落库）。
-- 无断线重连：断开后提示"已离线"，需要重新登录。
+- 无断线重连：断开后显示「连接中断了」，通过「返回登录」重新登录。
 - 消息送达状态未做 UI 标记（`ID_TEXT_CHAT_MSG_RSP` 只打日志）。
 - 图片仅支持本地预览；图片/文件的网络传输未实现，只投递文本。

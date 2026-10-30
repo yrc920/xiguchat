@@ -17,7 +17,7 @@ ChatBridge::ChatBridge(QObject *parent) : QObject(parent)
     auto *friendService = FriendService::GetInstance().get();
     connect(friendService, &FriendService::userFound, this,
             [this](int uid, const QString &name, const QString &nick,
-                   const QString &desc, const QString &, int) {
+                   const QString &desc, const QString &icon, int) {
                 if (_searchState != 1)
                     return;
                 // 搜到自己：没有意义，直接退掉搜索态
@@ -37,6 +37,7 @@ ChatBridge::ChatBridge(QObject *parent) : QObject(parent)
                 _searchResult = {{QStringLiteral("uid"), uid},
                                  {QStringLiteral("name"), name},
                                  {QStringLiteral("nick"), nick},
+                                 {QStringLiteral("icon"), icon},
                                  {QStringLiteral("desc"), desc}};
                 _searchState = 2;
                 _searchMessage.clear();

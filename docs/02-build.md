@@ -226,6 +226,10 @@ macOS / Linux 由 rpath 定位动态库，不需要拷贝。
 Windows 的 `QT_MINGW_ROOT` **必须是与 Qt 6.5 配套的 MinGW 11.2**（即 Qt 安装包自带的
 `mingw1120_64`），其他版本 ABI 不兼容。仅当 `CMAKE_CXX_COMPILER` 未由 Kit 指定时才用该环境变量。
 
+Windows 图标资源由 MinGW 的 `windres` 编译。CMake 在 `project()` 前保留已有的
+`CMAKE_RC_COMPILER` 或环境变量 `RC`；未指定时，优先从所选 C++ 编译器目录及
+`QT_MINGW_ROOT/bin` 定位资源编译器。
+
 Qt 查找顺序：先按默认路径 `find_package(Qt6 6.5 QUIET COMPONENTS ...)`，
 失败且定义了 `QT_ROOT` 时把 `QT_ROOT` 追加到 `CMAKE_PREFIX_PATH` 再找一次，
 仍失败则给出两种修复方式后 `FATAL_ERROR`。
@@ -245,9 +249,9 @@ Qt 查找顺序：先按默认路径 `find_package(Qt6 6.5 QUIET COMPONENTS ...)
 | `xiguchat` | 可执行 | `main.cpp` + `bridge/`（QML 边界）+ `qml/` + `resources/` | `xiguchat_core` + `Qt6::Gui` + `Qt6::Quick` |
 
 `xiguchat_core` 的 include 目录以 `PUBLIC` 导出，桥接层源码里的 `#include "usermgr.h"`
-无需改写。core 只认识 Qt Core 与 Network，**界面相关模块完全不进入 core**：core 一旦出现
-窗口或 QML 代码，链接期即报未定义符号。带 `QML_ELEMENT` 的类必须留在可执行目标
-（`bridge/`），放进静态库会与 `qt_add_qml_module` 各生成一份 moc，链接期符号重复。
+无需改写。core 只依赖 Qt Core 与 Network，不包含窗口或 QML 代码。
+本项目带 `QML_ELEMENT` 的类统一放在可执行目标的 `bridge/` 中，
+由对应的 `qt_add_qml_module` 注册，不在 core 目标重复编译或注册。
 
 
 ### 平台差异化处理
@@ -255,9 +259,16 @@ Qt 查找顺序：先按默认路径 `find_package(Qt6 6.5 QUIET COMPONENTS ...)
 | 事项 | 处理 |
 | --- | --- |
 | 子系统 | `add_executable(xiguchat WIN32 ...)`：Windows 生成 GUI 子系统程序（无控制台黑窗），入口仍为 `main()`；macOS/Linux 忽略该标志 |
+| Windows 图标 | `resources/xiguchat.rc` 引用 `xiguchat.ico`，通过 windres 编译并嵌入 EXE，供资源管理器与快捷方式使用 |
 | macOS 图标 | `MACOSX_BUNDLE` + `MACOSX_BUNDLE_ICON_FILE xiguchat.icns`，icns 打进 `Resources/`。macOS Dock 不读 Qt 资源，必须用 bundle + icns；`setWindowIcon` 在 macOS 窗口标题栏无效 |
 | Windows Qt 运行库 | POST_BUILD 调用 `windeployqt --compiler-runtime --no-translations --qmldir <qml目录>`，把 Qt6 DLL、平台插件与 MinGW 运行时拷到产物目录 |
 | 运行时资源 | `config.ini` 拷贝到 `$<TARGET_FILE_DIR:xiguchat>`（Windows/Linux 为 `bin/`，macOS 为 `.app/Contents/MacOS/`） |
+
+QML 使用 `QtQuick.Effects` 绘制头像遮罩，使用 `QtCore.Settings` 保存日夜外观偏好；
+部署时需要包含这些 QML 模块。外观偏好由应用标识定位到系统设置存储，不写入 `config.ini`。
+
+`resources/xiguchat.svg` 是应用图标的原创主图；导出的 `xiguchat.png` 编入 qrc，
+供 `BrandMark.qml` 与运行时窗口图标使用，ICO 与 ICNS 用于各平台系统图标。
 
 产物：`build/<预设>/bin/xiguchat`（macOS 为 `xiguchat.app`）。
 

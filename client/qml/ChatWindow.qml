@@ -1,17 +1,7 @@
 import QtQuick
-import QtQuick.Layouts
 import XiguChat
 
-/**
- * 聊天主界面：侧栏 + 左列（会话 / 联系人）+ 右侧页面栈。
- *
- * 布局分三块，全部由 ChatBridge 驱动，界面自己不保存导航状态：
- *   侧栏   —— chat / contact 两个入口，另有未处理申请的红点计数；
- *   左列   —— 标题 + 搜索框 + 列表（会话列表 / 联系人列表二选一）；
- *   右侧   —— 聊天页 / 好友资料页 / 好友申请页，用 visible 切换，不重建。
- *
- * 搜索、加好友、同意申请都走弹层，不跳页。
- */
+// 聊天工作区：窄导航、联系人索引与会话页面。
 Item {
     id: root
 
@@ -20,373 +10,462 @@ Item {
         objectName: "chatBridge"
     }
 
-
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.chatBg
-    }
+    Rectangle { anchors.fill: parent; color: Theme.chatBg }
 
     Row {
-        enabled: !dialogs.visible
         anchors.fill: parent
-        spacing: 0
+        enabled: !dialogs.visible
 
-        // ---------------- 侧栏 ----------------
         Rectangle {
-            width: 64
+            width: 72
             height: parent.height
             color: Theme.sidebarBg
 
-            // 两个入口：会话 / 联系人。点谁不仅切左列，右侧也跟着换页
-            Column {
-                anchors.top: parent.top
-                anchors.topMargin: 20
+            BrandMark {
+                y: 26
                 anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 6
+                size: 32
+            }
 
+            Column {
+                y: 112
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: 8
                 SideButton {
                     kind: "chat"
-                    active: bridge.mode === 0
+                    active: bridge.mode === ChatBridge.ChatMode
                     onClicked: bridge.showChatMode()
                 }
-
                 SideButton {
                     kind: "contact"
-                    active: bridge.mode === 1
+                    active: bridge.mode === ChatBridge.ContactMode
                     badge: bridge.applies.pendingCount
                     onClicked: bridge.showContactMode()
                 }
             }
 
-            Avatar {
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: 18
+            Rectangle {
+                id: appearanceButton
+                width: 40
+                height: 40
+                radius: 8
                 anchors.horizontalCenter: parent.horizontalCenter
-                width: 34
-                height: 34
-                color: "#2C2E31"
-                textColor: "#FFFFFF"
+                anchors.bottom: ownAvatar.top
+                anchors.bottomMargin: 17
+                color: appearanceArea.containsMouse || activeFocus ? Theme.selected : "transparent"
+                activeFocusOnTab: true
+                Accessible.role: Accessible.Button
+                Accessible.name: Theme.dark ? "切换到日间模式" : "切换到夜间模式"
+                Accessible.onPressAction: Theme.toggle()
+                Keys.onSpacePressed: Theme.toggle()
+                Keys.onReturnPressed: Theme.toggle()
+                AppIcon {
+                    anchors.centerIn: parent
+                    name: Theme.dark ? "sun" : "moon"
+                    color: Theme.textSecondary
+                    size: 20
+                }
+                MouseArea {
+                    id: appearanceArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Theme.toggle()
+                }
+            }
+
+            Avatar {
+                id: ownAvatar
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 24
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 36
+                height: 36
+                radius: 11
                 source: bridge.myIcon
                 name: bridge.myName
             }
+            Rectangle {
+                anchors.right: parent.right
+                width: 1
+                height: parent.height
+                color: Theme.line
+            }
         }
 
-        // ---------------- 左列 ----------------
         Rectangle {
+            id: indexPanel
             width: 280
             height: parent.height
             color: Theme.panelBg
 
-            Column {
-                anchors.fill: parent
+            Item {
+                id: listHeader
+                width: parent.width
+                height: 78
 
-                // 标题
-                Rectangle {
-                    width: parent.width
-                    height: 56
-                    color: Theme.panelBg
-
-                    Text {
-                        anchors.left: parent.left
-                        anchors.leftMargin: 18
-                        anchors.verticalCenter: parent.verticalCenter
-                        text: bridge.mode === 0 ? "聊天" : "联系人"
-                        color: Theme.textPrimary
-                        font.pixelSize: 16
-                        font.bold: true
-                    }
-
-                    Rectangle {
-                        anchors.bottom: parent.bottom
-                        width: parent.width
-                        height: 1
-                        color: Theme.fieldBorder
-                    }
+                Text {
+                    x: 22
+                    y: 21
+                    text: bridge.mode === ChatBridge.ChatMode ? "聊天" : "联系人"
+                    color: Theme.textPrimary
+                    font.pixelSize: 22
+                    font.bold: true
+                }
+                Text {
+                    x: 23
+                    y: 51
+                    text: bridge.friends.count + " 位好友"
+                    color: Theme.textSecondary
+                    font.pixelSize: 11
                 }
 
-                // 搜索框：回车发起查找，结果走弹层；Esc 退出搜索态
                 Rectangle {
-                    width: parent.width
-                    height: 52
-                    color: Theme.panelBg
+                    anchors.right: parent.right
+                    anchors.rightMargin: 18
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 30
+                    height: 30
+                    radius: 15
+                    color: searchEntry.containsMouse || activeFocus ? Theme.selected : Theme.panelAlt
+                    activeFocusOnTab: true
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "搜索添加好友"
+                    Accessible.onPressAction: searchInput.forceActiveFocus()
+                    Keys.onSpacePressed: searchInput.forceActiveFocus()
+                    Keys.onReturnPressed: searchInput.forceActiveFocus()
+                    AppIcon { anchors.centerIn: parent; name: "plus"; size: 16; color: Theme.primary }
+                    MouseArea {
+                        id: searchEntry
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: searchInput.forceActiveFocus()
+                    }
+                }
+            }
+
+            Rectangle {
+                id: searchBox
+                x: 16
+                y: listHeader.height + 2
+                width: parent.width - 32
+                height: 38
+                radius: 7
+                color: searchInput.activeFocus ? Theme.fieldBg : Theme.panelAlt
+                border.width: 1
+                border.color: searchInput.activeFocus ? Theme.primary : "transparent"
+
+                AppIcon {
+                    x: 11
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: "search"
+                    size: 16
+                    color: Theme.textHint
+                }
+                TextInput {
+                    id: searchInput
+                    objectName: "searchInput"
+                    anchors.left: parent.left
+                    anchors.leftMargin: 35
+                    anchors.right: parent.right
+                    anchors.rightMargin: clearSearch.visible ? 32 : 10
+                    anchors.verticalCenter: parent.verticalCenter
+                    height: 28
+                    verticalAlignment: TextInput.AlignVCenter
+                    text: bridge.searchText
+                    font.pixelSize: 12
+                    color: Theme.textPrimary
+                    selectionColor: Theme.selected
+                    selectedTextColor: Theme.textPrimary
+                    clip: true
+                    selectByMouse: true
+                    activeFocusOnTab: true
+                    Accessible.name: "搜索用户名或 UID"
+                    onTextEdited: bridge.searchText = text
+                    onAccepted: bridge.search()
+                    Keys.onEscapePressed: bridge.clearSearch()
+                }
+                Text {
+                    x: 35
+                    anchors.verticalCenter: parent.verticalCenter
+                    visible: searchInput.length === 0 && !searchInput.inputMethodComposing
+                    text: "搜索用户名 / UID"
+                    color: Theme.textHint
+                    font.pixelSize: 12
+                }
+                Rectangle {
+                    id: clearSearch
+                    visible: searchInput.length > 0
+                    anchors.right: parent.right
+                    anchors.rightMargin: 5
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 26
+                    height: 26
+                    radius: 5
+                    color: clearArea.containsMouse || activeFocus ? Theme.selected : "transparent"
+                    activeFocusOnTab: visible
+                    Accessible.role: Accessible.Button
+                    Accessible.name: "清空搜索"
+                    Accessible.onPressAction: bridge.clearSearch()
+                    Keys.onSpacePressed: bridge.clearSearch()
+                    Keys.onReturnPressed: bridge.clearSearch()
+                    Keys.onEnterPressed: bridge.clearSearch()
+                    AppIcon { anchors.centerIn: parent; name: "close"; size: 13; color: Theme.textSecondary }
+                    MouseArea {
+                        id: clearArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: bridge.clearSearch()
+                    }
+                }
+            }
+
+            ListView {
+                id: friendsList
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: searchBox.bottom
+                anchors.topMargin: 17
+                anchors.bottom: parent.bottom
+                clip: true
+                model: bridge.friends
+                spacing: 2
+                boundsBehavior: Flickable.StopAtBounds
+
+                header: Item {
+                    width: friendsList.width
+                    height: bridge.mode === ChatBridge.ContactMode ? 94 : 0
+                    visible: bridge.mode === ChatBridge.ContactMode
 
                     Rectangle {
-                        anchors.fill: parent
-                        anchors.leftMargin: 12
-                        anchors.rightMargin: 12
-                        anchors.topMargin: 8
-                        anchors.bottomMargin: 8
-                        radius: 9
-                        color: searchInput.activeFocus ? "#FFFFFF" : "#F4F2EE"
+                        id: newFriendButton
+                        x: 12
+                        width: parent.width - 24
+                        height: 56
+                        radius: 7
+                        color: bridge.pane === ChatBridge.ApplyFriendPage ? Theme.selected
+                               : (newFriendArea.containsMouse || activeFocus ? Theme.panelAlt : "transparent")
                         border.width: 1
-                        border.color: searchInput.activeFocus ? Theme.primary : "transparent"
-
-                        TextInput {
-                            id: searchInput
-                            anchors.fill: parent
-                            anchors.leftMargin: 12
-                            anchors.rightMargin: 12
-                            verticalAlignment: TextInput.AlignVCenter
-                            font.pixelSize: Theme.fontSmall
-                            color: Theme.textPrimary
-                            selectionColor: Theme.accentSoft
-                            text: bridge.searchText
-                            onTextEdited: bridge.searchText = text
-                            onAccepted: bridge.search()
-                            clip: true
-
-                            Keys.onEscapePressed: bridge.clearSearch()
-                        }
-
-                        Text {
-                            anchors.left: parent.left
-                            anchors.leftMargin: 13
+                        border.color: activeFocus ? Theme.primary : "transparent"
+                        activeFocusOnTab: visible
+                        Accessible.role: Accessible.Button
+                        Accessible.name: "新的朋友"
+                        Accessible.onPressAction: bridge.openApplyList()
+                        Keys.onSpacePressed: bridge.openApplyList()
+                        Keys.onReturnPressed: bridge.openApplyList()
+                        Keys.onEnterPressed: bridge.openApplyList()
+                        onActiveFocusChanged: if (activeFocus) friendsList.positionViewAtBeginning()
+                        Rectangle {
+                            x: 10
                             anchors.verticalCenter: parent.verticalCenter
-                            visible: searchInput.text.length === 0
-                            text: "搜索用户名或 uid，回车查找"
-                            color: Theme.textHint
-                            font.pixelSize: Theme.fontSmall
+                            width: 36
+                            height: 36
+                            radius: 9
+                            color: Theme.primarySoft
+                            AppIcon { anchors.centerIn: parent; name: "mail"; size: 19; color: Theme.primary }
                         }
-                    }
-                }
-
-                // 列表区
-                Item {
-                    width: parent.width
-                    height: parent.height - 56 - 52
-
-                    // 会话列表：点条目进聊天页。选中态同时要求右侧确实停在这一页
-                    ListView {
-                        anchors.fill: parent
-                        visible: bridge.mode === 0
-                        clip: true
-                        model: bridge.friends
-                        boundsBehavior: Flickable.StopAtBounds
-
-                        delegate: Rectangle {
-                            width: ListView.view.width
-                            height: 64
-                            color: (bridge.pane === 1 && bridge.currentUid === model.uid)
-                                   ? "#F1EFEB" : "transparent"
-
-                            Avatar {
-                                id: avatar
-                                x: 14
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 34
-                                height: 34
-                                radius: 10
-                                color: "#E3E0DA"
-                                source: model.icon
-                                name: model.name
-                            }
-
-                            Column {
-                                anchors.left: avatar.right
-                                anchors.leftMargin: 10
-                                anchors.right: parent.right
-                                anchors.rightMargin: 12
-                                anchors.verticalCenter: parent.verticalCenter
-                                spacing: 3
-
-                                Text {
-                                    width: parent.width
-                                    text: model.name
-                                    color: Theme.textPrimary
-                                    font.pixelSize: Theme.fontBody
-                                    elide: Text.ElideRight
-                                }
-                                Text {
-                                    width: parent.width
-                                    text: model.lastText.length > 0 ? model.lastText : "还没有消息"
-                                    color: Theme.textHint
-                                    font.pixelSize: Theme.fontSmall
-                                    elide: Text.ElideRight
-                                }
-                            }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: bridge.openChat(model.uid)
-                            }
+                        Text {
+                            x: 58
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "新的朋友"
+                            font.pixelSize: 14
+                            color: Theme.textPrimary
                         }
-                    }
-
-
-                    // 联系人列表：分组标题 + 「新的朋友」条目 + 好友。
-                    // 点好友进资料页，点「新的朋友」进申请页
-                    ListView {
-                        id: contactList
-                        anchors.fill: parent
-                        visible: bridge.mode === 1
-                        clip: true
-                        model: bridge.friends
-                        boundsBehavior: Flickable.StopAtBounds
-
-                        header: Column {
-                            width: contactList.width
-
-                            // 分组标题：把搜索框、「新的朋友」和已有联系人分开
-                            Rectangle {
-                                width: parent.width
-                                height: 28
-                                color: Theme.panelBg
-
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 18
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "新的朋友"
-                                    color: Theme.textHint
-                                    font.pixelSize: Theme.fontSmall
-                                }
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: 56
-                                color: bridge.pane === 3
-                                       ? "#F1EFEB"
-                                       : (newFriendArea.containsMouse ? "#F7F5F2" : Theme.panelBg)
-
-                                Rectangle {
-                                    x: 14
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    width: 32
-                                    height: 32
-                                    radius: 10
-                                    color: "#E8E2D8"
-                                    Text {
-                                        anchors.centerIn: parent
-                                        text: "+"
-                                        color: "#8A6A4A"
-                                        font.pixelSize: 17
-                                    }
-                                }
-
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 56
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: bridge.applies.pendingCount > 0
-                                          ? "新的朋友（" + bridge.applies.pendingCount + "）"
-                                          : "新的朋友"
-                                    color: Theme.textPrimary
-                                    font.pixelSize: Theme.fontBody
-                                }
-
-                                MouseArea {
-                                    id: newFriendArea
-                                    anchors.fill: parent
-                                    hoverEnabled: true
-                                    cursorShape: Qt.PointingHandCursor
-                                    onClicked: bridge.openApplyList()
-                                }
-                            }
-
-                            Rectangle {
-                                width: parent.width
-                                height: 28
-                                color: Theme.panelBg
-
-                                Text {
-                                    anchors.left: parent.left
-                                    anchors.leftMargin: 18
-                                    anchors.verticalCenter: parent.verticalCenter
-                                    text: "联系人"
-                                    color: Theme.textHint
-                                    font.pixelSize: Theme.fontSmall
-                                }
-                            }
-                        }
-
-
-                        delegate: Rectangle {
-                            width: ListView.view.width
-                            height: 56
-                            color: (bridge.pane === 2 && bridge.profile.uid === model.uid)
-                                   ? "#F1EFEB" : "transparent"
-
-                            Avatar {
-                                id: avatar2
-                                x: 14
-                                anchors.verticalCenter: parent.verticalCenter
-                                width: 32
-                                height: 32
-                                radius: 10
-                                color: "#E3E0DA"
-                                source: model.icon
-                                name: model.name
-                            }
-
+                        Rectangle {
+                            visible: bridge.applies.pendingCount > 0
+                            anchors.right: parent.right
+                            anchors.rightMargin: 12
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Math.max(18, pendingLabel.implicitWidth + 10)
+                            height: 18
+                            radius: 9
+                            color: Theme.accent
                             Text {
-                                anchors.left: avatar2.right
-                                anchors.leftMargin: 10
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: model.name
-                                color: Theme.textPrimary
-                                font.pixelSize: Theme.fontBody
+                                id: pendingLabel
+                                anchors.centerIn: parent
+                                text: bridge.applies.pendingCount
+                                font.pixelSize: 10
+                                color: Theme.primaryText
                             }
-
-                            MouseArea {
-                                anchors.fill: parent
-                                cursorShape: Qt.PointingHandCursor
-                                onClicked: bridge.openProfile(model.uid)
+                        }
+                        MouseArea {
+                            id: newFriendArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                newFriendButton.forceActiveFocus(Qt.MouseFocusReason)
+                                bridge.openApplyList()
                             }
                         }
                     }
-
-                    // 空态：好友列表为空时提示，避免整列空白
                     Text {
-                        anchors.centerIn: parent
-                        visible: bridge.friends.count === 0
-                        text: "还没有好友"
+                        x: 22
+                        y: 71
+                        text: "全部联系人"
+                        font.pixelSize: 11
                         color: Theme.textHint
-                        font.pixelSize: Theme.fontSmall
                     }
                 }
+
+                delegate: Item {
+                    id: friendRow
+                    width: friendsList.width
+                    height: bridge.mode === ChatBridge.ChatMode ? 76 : 60
+                    readonly property bool chosen: bridge.mode === ChatBridge.ChatMode
+                        ? bridge.pane === ChatBridge.ChatPage && bridge.currentUid === model.uid
+                        : bridge.pane === ChatBridge.FriendInfoPage && bridge.profile.uid === model.uid
+                    activeFocusOnTab: true
+                    Accessible.role: Accessible.Button
+                    Accessible.name: model.name
+                    Accessible.onPressAction: activate()
+                    Keys.onSpacePressed: activate()
+                    Keys.onReturnPressed: activate()
+                    Keys.onEnterPressed: activate()
+                    onActiveFocusChanged: {
+                        if (activeFocus)
+                            friendsList.positionViewAtIndex(index, ListView.Contain)
+                    }
+
+                    function activate() {
+                        if (bridge.mode === ChatBridge.ChatMode)
+                            bridge.openChat(model.uid)
+                        else
+                            bridge.openProfile(model.uid)
+                    }
+
+                    Rectangle {
+                        x: 10
+                        width: parent.width - 20
+                        height: parent.height - 2
+                        radius: 7
+                        color: friendRow.chosen ? Theme.selected
+                               : (friendArea.containsMouse || friendRow.activeFocus ? Theme.panelAlt : "transparent")
+                        border.width: 1
+                        border.color: friendRow.activeFocus ? Theme.primary : "transparent"
+                        Behavior on color { ColorAnimation { duration: 130 } }
+                    }
+                    Rectangle {
+                        x: 10
+                        width: 3
+                        height: 18
+                        radius: 1
+                        anchors.verticalCenter: parent.verticalCenter
+                        visible: friendRow.chosen
+                        color: Theme.accent
+                    }
+                    Avatar {
+                        id: friendAvatar
+                        x: 22
+                        width: 40
+                        height: 40
+                        radius: 11
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: model.icon
+                        name: model.name
+                    }
+                    Column {
+                        anchors.left: friendAvatar.right
+                        anchors.leftMargin: 12
+                        anchors.right: parent.right
+                        anchors.rightMargin: 24
+                        anchors.verticalCenter: parent.verticalCenter
+                        spacing: 6
+                        Text {
+                            width: parent.width
+                            text: model.name
+                            textFormat: Text.PlainText
+                            color: Theme.textPrimary
+                            font.pixelSize: 14
+                            font.bold: friendRow.chosen
+                            elide: Text.ElideRight
+                        }
+                        Text {
+                            visible: bridge.mode === ChatBridge.ChatMode
+                            width: parent.width
+                            text: model.lastText.length > 0 ? model.lastText : "还没有消息"
+                            color: Theme.textSecondary
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                            maximumLineCount: 1
+                            textFormat: Text.PlainText
+                        }
+                    }
+                    MouseArea {
+                        id: friendArea
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                            friendRow.forceActiveFocus(Qt.MouseFocusReason)
+                            friendRow.activate()
+                        }
+                    }
+                }
+            }
+
+            Text {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: bridge.mode === ChatBridge.ContactMode ? 278 : 210
+                visible: bridge.friends.count === 0
+                text: "还没有好友"
+                font.pixelSize: 12
+                color: Theme.textHint
+            }
+            Rectangle {
+                anchors.right: parent.right
+                width: 1
+                height: parent.height
+                color: Theme.line
             }
         }
 
-        // ---------------- 右侧页面栈 ----------------
         Item {
-            width: parent.width - 64 - 280
+            width: parent.width - 72 - indexPanel.width
             height: parent.height
 
-            // 右侧空态：还没有选中会话时给一句提示
-            Text {
+            Column {
                 anchors.centerIn: parent
-                visible: bridge.pane === 0
-                text: "选择一位好友开始聊天"
-                color: Theme.textHint
-                font.pixelSize: Theme.fontBody
+                spacing: 20
+                visible: bridge.pane === ChatBridge.EmptyPane
+                PaperCompanion {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: 160
+                    height: 112
+                    compact: true
+                }
+                Text {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: "选一位朋友，聊聊吧"
+                    color: Theme.textSecondary
+                    font.pixelSize: 14
+                }
             }
 
-            // 三页常驻，只切 visible：切走再回来时滚动位置和输入内容都还在
             ChatPage {
                 id: chatPage
-                currentUid: bridge.currentUid
                 anchors.fill: parent
-                visible: bridge.pane === 1
+                visible: bridge.pane === ChatBridge.ChatPage
+                currentUid: bridge.currentUid
                 title: bridge.currentName
                 messages: bridge.messages
+                onProfileRequested: bridge.openProfile(bridge.currentUid)
                 onSendRequested: (parts) => {
                     if (bridge.sendParts(parts))
                         chatPage.clearInput()
                 }
             }
-
             FriendInfoPage {
                 anchors.fill: parent
-                visible: bridge.pane === 2
+                visible: bridge.pane === ChatBridge.FriendInfoPage
                 profile: bridge.profile
                 onChatRequested: bridge.openChat(bridge.profile.uid)
             }
-
             ApplyFriendPage {
                 anchors.fill: parent
-                visible: bridge.pane === 3
+                visible: bridge.pane === ChatBridge.ApplyFriendPage
                 applies: bridge.applies
                 onAuthRequested: (uid, name, desc) => dialogs.openAuthDialog(uid, name, desc)
             }

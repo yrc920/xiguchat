@@ -1,8 +1,6 @@
 <RCC>
     <qresource prefix="/">
-        <file alias="res/Facebook.ico">Facebook.ico</file>
-        <file>res/visible.png</file>
-        <file>res/unvisible.png</file>
+        <file alias="res/xiguchat.png">xiguchat.png</file>
         <file>res/head_1.jpg</file>
         <file>res/head_2.jpg</file>
         <file>res/head_3.jpg</file>

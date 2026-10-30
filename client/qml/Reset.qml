@@ -2,12 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import XiguChat
 
-/**
- * 重置密码页：用户名 / 邮箱 / 验证码 / 新密码。
- *
- * 流程：先确认用户名与邮箱匹配，再获取验证码，最后提交新密码。
- * 校验与倒计时在 ResetBridge 里，页面只做展示与转发。
- */
+// 找回密码通过用户名、邮箱与验证码验证，状态由 ResetBridge 提供。
 Item {
     id: page
 
@@ -20,46 +15,84 @@ Item {
         anchors.fill: parent
         enabled: !(bridge.busy || bridge.codeBusy || bridge.done)
 
-        Text {
+        Item {
             width: parent.width
-            text: "重置密码"
-            color: Theme.textPrimary
-            font.pixelSize: Theme.fontTitle
-            font.bold: true
-            horizontalAlignment: Text.AlignHCenter
+            height: 70
+
+            PaperCompanion {
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: 100
+                height: 70
+                compact: true
+                attentive: userInput.inputFocused || emailInput.inputFocused || codeInput.inputFocused
+                hiding: passwordInput.inputFocused && !passwordInput.reveal
+                revealing: passwordInput.inputFocused && passwordInput.reveal
+                busy: bridge.busy || bridge.codeBusy
+            }
         }
 
         Spacer { gap: 8 }
 
         Text {
-            width: parent.width
-            text: "验证邮箱后设置新密码"
-            color: Theme.textSecondary
-            font.pixelSize: Theme.fontSmall
-            horizontalAlignment: Text.AlignHCenter
+            text: "找回钥匙。"
+            color: Theme.textPrimary
+            font.pixelSize: Theme.fontTitle
+            font.bold: true
         }
 
-        Spacer { gap: 28 }
+        Spacer { gap: 5 }
+
+        Text {
+            text: "验证邮箱，为账号设置新密码"
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
+        }
+
+        Spacer { gap: 14 }
+
+        Text {
+            text: "用户名"
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
+        }
+
+        Spacer { gap: 6 }
 
         AppInput {
             id: userInput
             width: parent.width
-            placeholder: "用户名"
+            placeholder: "注册时使用的用户名"
             onTextEdited: bridge.user = text
             onAccepted: emailInput.forceInputFocus()
         }
 
-        Spacer { gap: 10 }
+        Spacer { gap: 12 }
+
+        Text {
+            text: "邮箱"
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
+        }
+
+        Spacer { gap: 6 }
 
         AppInput {
             id: emailInput
             width: parent.width
-            placeholder: "邮箱地址"
+            placeholder: "与账号关联的邮箱"
             onTextEdited: bridge.email = text
             onAccepted: codeInput.forceInputFocus()
         }
 
-        Spacer { gap: 10 }
+        Spacer { gap: 12 }
+
+        Text {
+            text: "邮箱验证码"
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
+        }
+
+        Spacer { gap: 6 }
 
         RowLayout {
             width: parent.width
@@ -68,26 +101,34 @@ Item {
             AppInput {
                 id: codeInput
                 Layout.fillWidth: true
-                placeholder: "验证码"
+                placeholder: "填写验证码"
                 onTextEdited: bridge.code = text
                 onAccepted: passwordInput.forceInputFocus()
             }
 
             CodeButton {
-                Layout.preferredWidth: 100
-                text: bridge.countdown > 0 ? bridge.countdown + "s"
+                Layout.preferredWidth: 112
+                text: bridge.countdown > 0 ? bridge.countdown + " 秒后重发"
                                            : (bridge.codeBusy ? "发送中…" : "获取验证码")
                 usable: bridge.countdown === 0 && !bridge.codeBusy && !bridge.busy && !bridge.done
                 onClicked: bridge.sendCode()
             }
         }
 
-        Spacer { gap: 10 }
+        Spacer { gap: 12 }
+
+        Text {
+            text: "新密码"
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontSmall
+        }
+
+        Spacer { gap: 6 }
 
         AppInput {
             id: passwordInput
             width: parent.width
-            placeholder: "新密码（6~15 位）"
+            placeholder: "6–15 位密码"
             password: true
             onRevealToggled: reveal = !reveal
             onTextEdited: bridge.password = text
@@ -98,12 +139,11 @@ Item {
 
         Text {
             width: parent.width
-            height: 18
+            height: Math.max(20, implicitHeight)
             text: bridge.tipText
             color: bridge.tipOk ? Theme.success : Theme.danger
             font.pixelSize: Theme.fontSmall
-            verticalAlignment: Text.AlignVCenter
-            elide: Text.ElideRight
+            wrapMode: Text.WrapAtWordBoundaryOrAnywhere
             opacity: text.length > 0 ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 120 } }
         }
@@ -112,16 +152,16 @@ Item {
 
         AppButton {
             width: parent.width
-            text: bridge.done ? "已重置" : (bridge.busy ? "提交中…" : "重置密码")
+            text: bridge.done ? "密码已更新" : (bridge.busy ? "正在更新…" : "更新密码")
             busy: bridge.busy || bridge.done
             onClicked: bridge.submit()
         }
 
-        Spacer { gap: 18 }
+        Spacer { gap: 14 }
 
         AppLink {
-            text: "返回登录"
             width: parent.width
+            text: "返回登录"
             horizontalAlignment: Text.AlignHCenter
             onClicked: bridge.go("login")
         }

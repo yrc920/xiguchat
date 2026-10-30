@@ -39,6 +39,13 @@ if(WIN32 AND NOT CMAKE_CXX_COMPILER)
     set(CMAKE_CXX_COMPILER "$ENV{QT_MINGW_ROOT}/bin/g++.exe")
 endif()
 
+# Windows 的 EXE 图标由同一套 MinGW 工具链的 windres 嵌入。
+if(WIN32 AND NOT CMAKE_RC_COMPILER AND NOT DEFINED ENV{RC})
+    get_filename_component(XIGUCHAT_MINGW_BIN "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    find_program(CMAKE_RC_COMPILER NAMES windres.exe windres
+        HINTS "${XIGUCHAT_MINGW_BIN}" "$ENV{QT_MINGW_ROOT}/bin")
+endif()
+
 project(xiguchat VERSION 1.0.0 LANGUAGES CXX)
 
 # ---------- C++ 标准 ----------
@@ -193,6 +200,9 @@ set_source_files_properties(qml/Theme.qml PROPERTIES QT_QML_SINGLETON_TYPE TRUE)
 set(QML_FILES
     qml/Main.qml
     qml/Theme.qml
+    qml/BrandMark.qml
+    qml/AppIcon.qml
+    qml/PaperCompanion.qml
     qml/AuthPage.qml
     qml/Login.qml
     qml/Register.qml
@@ -234,10 +244,12 @@ set_target_properties(xiguchat PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
-# 应用图标（跨平台）：Windows/Linux 图标由 Qt 资源 rc.qrc 提供即可；
-# 仅 macOS 的 Dock 不读 Qt 资源，必须打成 .app bundle 并附带 .icns
-# （macOS 窗口标题栏也不显示图标，setWindowIcon 在 mac 上无效）。
-# xiguchat.icns 由 resources/Facebook.ico 转换生成。
+# SVG 是图标源文件；PNG 用于页面与窗口，ICO/ICNS 用于系统应用图标。
+# Windows 需将图标嵌入 EXE，macOS 需随 bundle 放入 Resources。
+if(WIN32)
+    target_sources(xiguchat PRIVATE resources/xiguchat.rc)
+    target_include_directories(xiguchat PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+endif()
 if(APPLE)
     set_target_properties(xiguchat PROPERTIES
         MACOSX_BUNDLE TRUE

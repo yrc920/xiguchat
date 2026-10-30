@@ -1,90 +1,72 @@
 import QtQuick
 
-// 带占位符与聚焦态的输入框。
-// 状态由输入框自身持有，内容变化通过 textEdited / accepted 抛给页面。
+// 表单输入只暴露焦点与组合态，装饰角色不会读取密码内容。
 Rectangle {
     id: root
-
     property alias text: input.text
-    property string placeholder: ""      // 空内容时显示的灰字
-    property bool password: false        // 密码框：默认密文，右侧带可见性开关
-    property bool reveal: false          // 密码是否明文显示
-    property bool invalid: false         // 校验失败：边框转红
-
+    property string placeholder: ""
+    property bool password: false
+    property bool reveal: false
+    property bool invalid: false
+    readonly property bool inputFocused: input.activeFocus
+    readonly property bool composing: input.inputMethodComposing
     signal textEdited()
     signal accepted()
     signal revealToggled()
-
     function forceInputFocus() { input.forceActiveFocus() }
 
     height: Theme.fieldHeight
     radius: Theme.radius
     color: Theme.fieldBg
     border.width: input.activeFocus ? 1.5 : 1
-    // 聚焦态用近黑而非强调色：整页只让按钮和链接带颜色
-    border.color: input.activeFocus ? Theme.textPrimary
-                                    : (root.invalid ? Theme.danger : Theme.fieldBorder)
-
-    Behavior on border.color { ColorAnimation { duration: 120 } }
+    border.color: invalid ? Theme.danger : input.activeFocus ? Theme.primary : Theme.fieldBorder
+    Behavior on border.color { ColorAnimation { duration: 130 } }
 
     TextInput {
         id: input
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.leftMargin: 15
-        anchors.rightMargin: root.password ? 44 : 15
+        anchors.leftMargin: 14
+        anchors.rightMargin: root.password ? 48 : 14
         anchors.verticalCenter: parent.verticalCenter
-
+        height: parent.height
         verticalAlignment: TextInput.AlignVCenter
         font.pixelSize: Theme.fontBody
         color: Theme.textPrimary
-        selectionColor: Theme.accentSoft
+        selectionColor: Theme.selected
         selectedTextColor: Theme.textPrimary
         clip: true
-
+        selectByMouse: true
+        activeFocusOnTab: true
         echoMode: root.password && !root.reveal ? TextInput.Password : TextInput.Normal
-        passwordCharacter: "●"
+        passwordCharacter: "•"
         passwordMaskDelay: 0
-
+        inputMethodHints: root.password ? Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase : Qt.ImhNone
+        Accessible.name: root.placeholder
         onTextEdited: root.textEdited()
         onAccepted: root.accepted()
     }
-
     Text {
         anchors.left: parent.left
-        anchors.leftMargin: 16
+        anchors.leftMargin: 14
         anchors.verticalCenter: parent.verticalCenter
+        visible: input.length === 0 && !input.inputMethodComposing
         text: root.placeholder
         color: Theme.textHint
         font.pixelSize: Theme.fontBody
-        // 中文输入法组合期间 text 仍为空，用 inputMethodComposing 判断，避免提示压住拼音
-        // （不要用 preeditText：它在 Qt 6.5 是带 REVISION 的属性，AOT 生成的代码会拿到空元对象并崩溃）
-        visible: input.text.length === 0 && !input.inputMethodComposing
     }
-
-    // 密码可见性切换
     Item {
-        visible: root.password
         anchors.right: parent.right
-        anchors.rightMargin: 13
         anchors.verticalCenter: parent.verticalCenter
-        width: 18
-        height: 18
-
-        Image {
-            anchors.fill: parent
-            source: root.reveal ? "qrc:/res/visible.png" : "qrc:/res/unvisible.png"
-            fillMode: Image.PreserveAspectFit
-            opacity: area.containsMouse ? 0.75 : 0.35
-            Behavior on opacity { NumberAnimation { duration: 120 } }
-        }
-
-        MouseArea {
-            id: area
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: root.revealToggled()
-        }
+        width: 44
+        height: parent.height
+        visible: root.password
+        activeFocusOnTab: visible
+        Accessible.role: Accessible.Button
+        Accessible.name: root.reveal ? "隐藏密码" : "显示密码"
+        Keys.onReturnPressed: root.revealToggled()
+        Keys.onSpacePressed: root.revealToggled()
+        AppIcon { anchors.centerIn: parent; size: 19; name: root.reveal ? "eye" : "eyeOff"; color: eyeArea.containsMouse || parent.activeFocus ? Theme.textPrimary : Theme.textSecondary }
+        MouseArea { id: eyeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.revealToggled() }
     }
 }

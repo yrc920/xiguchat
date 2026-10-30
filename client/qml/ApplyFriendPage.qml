@@ -1,156 +1,157 @@
 import QtQuick
 
-/**
- * 好友申请页（「新的朋友」）。
- *
- * 每条是：头像 + 申请人名字 + 申请信息，右侧是「添加」按钮或「已添加」。
- * 点「添加」不在这里处理——抛给外层弹验证框（要填备注名），
- * 真正变成「已添加」要等服务端回执（UserMgr 把申请状态改成 1 后模型刷新）。
- *
- * 模型由外部传入，需要提供 name / desc / status / uid 四个角色。
- */
+// 好友申请只在服务端确认后变为已添加。
 Item {
     id: root
 
-    // ApplyListModel：uid / name / nick / icon / desc / status
     property var applies: null
-
-    // 点「添加」时抛出，参数是申请人信息和申请留言
     signal authRequested(int uid, string name, string desc)
 
-    Rectangle {
-        anchors.fill: parent
-        color: Theme.chatBg
-    }
+    Rectangle { anchors.fill: parent; color: Theme.chatBg }
 
-    // 标题栏
-    Rectangle {
+    Item {
         id: header
         width: parent.width
-        height: 56
-        color: Theme.chatBg
+        height: 74
 
-        Text {
-            anchors.left: parent.left
-            anchors.leftMargin: 22
+        Column {
+            x: 30
             anchors.verticalCenter: parent.verticalCenter
-            text: "新的朋友"
-            color: Theme.textPrimary
-            font.pixelSize: 15
-            font.bold: true
+            spacing: 5
+            Text {
+                text: "新的朋友"
+                color: Theme.textPrimary
+                font.pixelSize: 16
+                font.weight: Font.DemiBold
+            }
+            Text {
+                text: root.applies && root.applies.pendingCount > 0
+                      ? root.applies.pendingCount + " 条申请待处理" : "好友申请"
+                color: Theme.textSecondary
+                font.pixelSize: 11
+            }
         }
-
+        AppIcon {
+            anchors.right: parent.right
+            anchors.rightMargin: 30
+            anchors.verticalCenter: parent.verticalCenter
+            name: "contacts"
+            color: Theme.textSecondary
+            size: 22
+        }
         Rectangle {
             anchors.bottom: parent.bottom
             width: parent.width
             height: 1
-            color: Theme.fieldBorder
+            color: Theme.line
         }
     }
 
-    // 申请列表：宽度也设上限，避免「添加」被甩到窗口最右边
     ListView {
-        width: Math.min(parent.width - 32, 520)
-        x: 16
+        id: requests
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
-        anchors.topMargin: 8
-        clip: true
-        spacing: 2
+        anchors.topMargin: 14
+        anchors.bottomMargin: 16
+        x: 22
+        width: parent.width - 44
         model: root.applies
+        clip: true
         boundsBehavior: Flickable.StopAtBounds
 
         delegate: Rectangle {
-            width: ListView.view.width
-            height: 76
-            radius: 10
-            color: "transparent"
+            width: requests.width
+            height: 92
+            color: hover.hovered ? Theme.panelAlt : "transparent"
+            HoverHandler { id: hover }
 
             Avatar {
                 id: avatar
                 x: 10
                 anchors.verticalCenter: parent.verticalCenter
-                width: 42
-                height: 42
+                width: 44
+                height: 44
                 source: model.icon
                 name: model.name
-                textSize: 15
+                textSize: 16
             }
-
-            // 名字 + 申请留言。留言为空时给一句默认文案，避免右边空一块
             Column {
                 anchors.left: avatar.right
-                anchors.leftMargin: 12
-                anchors.right: actionArea.left
-                anchors.rightMargin: 10
+                anchors.leftMargin: 14
+                anchors.right: action.left
+                anchors.rightMargin: 18
                 anchors.verticalCenter: parent.verticalCenter
-                spacing: 4
+                spacing: 6
 
                 Text {
                     width: parent.width
                     text: model.name
+                    textFormat: Text.PlainText
                     color: Theme.textPrimary
                     font.pixelSize: Theme.fontBody
+                    font.weight: Font.DemiBold
                     elide: Text.ElideRight
                 }
-
                 Text {
                     width: parent.width
                     text: model.desc.length > 0 ? model.desc : "请求添加你为好友"
-                    color: Theme.textHint
+                    textFormat: Text.PlainText
+                    color: Theme.textSecondary
                     font.pixelSize: Theme.fontSmall
+                    wrapMode: Text.WrapAtWordBoundaryOrAnywhere
+                    maximumLineCount: 2
                     elide: Text.ElideRight
                 }
             }
-
-            // 右侧动作：待处理显示按钮，处理完换成文字
             Item {
-                id: actionArea
+                id: action
                 anchors.right: parent.right
                 anchors.rightMargin: 10
                 anchors.verticalCenter: parent.verticalCenter
-                width: 66
-                height: 30
+                width: 78
+                height: 34
 
-                Rectangle {
+                AppButton {
                     anchors.fill: parent
-                    radius: 8
                     visible: model.status === 0
-                    color: addArea.containsMouse ? Theme.primaryHover : Theme.primary
-
-                    Text {
-                        anchors.centerIn: parent
-                        text: "添加"
-                        color: "#FFFFFF"
-                        font.pixelSize: Theme.fontSmall
-                    }
-
-                    MouseArea {
-                        id: addArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                        cursorShape: Qt.PointingHandCursor
-                        onClicked: root.authRequested(model.uid, model.name, model.desc)
-                    }
+                    text: "添加"
+                    onClicked: root.authRequested(model.uid, model.name, model.desc)
                 }
-
-                Text {
+                Row {
                     anchors.centerIn: parent
                     visible: model.status !== 0
-                    text: "已添加"
-                    color: Theme.textHint
-                    font.pixelSize: Theme.fontSmall
+                    spacing: 5
+                    AppIcon { name: "check"; size: 14; color: Theme.textHint }
+                    Text { text: "已添加"; color: Theme.textHint; font.pixelSize: Theme.fontSmall }
                 }
+            }
+            Rectangle {
+                anchors.bottom: parent.bottom
+                x: 10
+                width: parent.width - 20
+                height: 1
+                color: Theme.line
             }
         }
     }
 
-    // 空态：一条申请都没有时提示
-    Text {
+    Column {
         anchors.centerIn: parent
+        width: parent.width - 60
+        spacing: 14
         visible: !root.applies || root.applies.count === 0
-        text: "还没有收到好友申请"
-        color: Theme.textHint
-        font.pixelSize: Theme.fontSmall
+        PaperCompanion {
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: 150
+            height: 108
+            compact: true
+        }
+        Text {
+            width: parent.width
+            text: "还没有好友申请"
+            horizontalAlignment: Text.AlignHCenter
+            color: Theme.textSecondary
+            font.pixelSize: Theme.fontBody
+        }
     }
 }

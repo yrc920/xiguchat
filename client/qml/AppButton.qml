@@ -1,39 +1,41 @@
 import QtQuick
 
-// 主操作按钮：整页唯一的实色块
 Rectangle {
     id: root
-
-    property string text: ""   // 按钮文字
-    property bool busy: false  // 请求进行中：按钮变灰且不响应点击
-
+    property string text: ""
+    property string iconName: ""
+    property bool busy: false
     signal clicked()
-
-    height: Theme.fieldHeight
+    implicitHeight: Theme.fieldHeight
+    height: implicitHeight
     radius: Theme.radius
-    color: root.busy ? Theme.primaryHover
-                     : (mouse.pressed ? Theme.primaryPressed
-                                      : (mouse.containsMouse ? Theme.primaryHover : Theme.primary))
+    activeFocusOnTab: enabled && !busy
+    color: busy ? Theme.primaryHover : area.pressed ? Theme.primaryPressed
+                            : area.containsMouse ? Theme.primaryHover : Theme.primary
+    border.width: activeFocus ? 2 : 0
+    border.color: Theme.accent
+    opacity: enabled ? 1 : 0.5
+    scale: area.pressed && !busy ? 0.985 : 1
+    Accessible.role: Accessible.Button
+    Accessible.name: text
+    Accessible.onPressAction: if (enabled && !busy) clicked()
+    Keys.onReturnPressed: if (!busy) clicked()
+    Keys.onSpacePressed: if (!busy) clicked()
+    Behavior on color { ColorAnimation { duration: 140 } }
+    Behavior on scale { NumberAnimation { duration: 110 } }
 
-    Behavior on color { ColorAnimation { duration: 120 } }
-
-    Text {
+    Row {
         anchors.centerIn: parent
-        text: root.text
-        color: "#FFFFFF"
-        font.pixelSize: 15
-        font.bold: true
-        font.letterSpacing: 1
+        spacing: 10
+        Text { text: root.text; color: Theme.primaryText; font.pixelSize: 14; font.weight: Font.DemiBold }
+        AppIcon { visible: root.iconName.length > 0; name: root.iconName; color: Theme.primaryText; size: 18; anchors.verticalCenter: parent.verticalCenter }
     }
-
     MouseArea {
-        id: mouse
+        id: area
         anchors.fill: parent
+        enabled: !root.busy
         hoverEnabled: true
-        cursorShape: root.busy ? Qt.ArrowCursor : Qt.PointingHandCursor
-        onClicked: if (!root.busy) root.clicked()
-        onPressedChanged: scale = pressed ? 0.99 : 1.0
+        cursorShape: Qt.PointingHandCursor
+        onClicked: root.clicked()
     }
-
-    Behavior on scale { NumberAnimation { duration: 90 } }
 }

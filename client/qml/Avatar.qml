@@ -6,11 +6,11 @@ Rectangle {
     id: root
     property string source: ""
     property string name: ""
-    property color textColor: "#6B6A66"
+    property color textColor: Theme.ink
     property int textSize: 13
 
-    radius: width * 0.3
-    color: "#E3E0DA"
+    radius: width * 0.24
+    color: Theme.selected
 
     Text {
         anchors.centerIn: parent
