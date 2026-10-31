@@ -34,7 +34,7 @@ private:
 	std::function<void()> func_;
 };
 
-#define MAX_LENGTH  1024*2 //消息最大长度, 包括头部和数据, 以便于分配内存
+#define MAX_LENGTH (1024 * 2) //客户端请求体最大字节数；4 字节包头单独读取
 #define HEAD_TOTAL_LEN 4 //头部总长度
 #define HEAD_ID_LEN 2 //头部id长度
 #define HEAD_DATA_LEN 2 //头部数据长度

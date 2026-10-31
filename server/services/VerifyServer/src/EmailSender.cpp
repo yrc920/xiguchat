@@ -14,13 +14,9 @@
 
 namespace {
 
-// 解析 CA 证书包路径，三级回退：
-//   1. 配置显式给出且文件存在 -> 使用配置值（用于指定私有 CA 的场景）
-//   2. 配置显式给出但文件不存在 -> 告警后继续自动探测，
-//      保证同一份 config.ini 在 Windows / macOS / Linux 上都能直接启动
-//   3. 未配置 -> 探测各平台常见的系统 CA bundle 位置
-// 返回空串表示不指定 CA 文件，构造 SSL Context 时改用 OpenSSL 默认
-// 证书目录（Windows 没有系统级 PEM 证书库，通常会走到这一步）
+//先使用配置中指定且存在的CA证书包，便于连接使用私有CA证书的邮件服务
+//未指定路径或指定文件不存在时，继续检查常见的证书包位置；不存在的配置路径会记录警告
+//所有位置都找不到时返回空字符串，由SSL上下文加载OpenSSL默认信任库，不代表证书校验必然通过
 std::string ResolveCAPath(const std::string& configured)
 {
 	if (!configured.empty()) {
@@ -30,11 +26,11 @@ std::string ResolveCAPath(const std::string& configured)
 		          << ", fallback to auto detection" << std::endl;
 	}
 
-	// Linux / macOS 常见的系统 CA bundle 位置
+	//按顺序检查常见的PEM证书包位置，找到第一个存在的路径就返回
 	static const char* kKnownBundles[] = {
-		"/etc/ssl/cert.pem",                  // macOS / Alpine / 部分 Linux
-		"/etc/ssl/certs/ca-certificates.crt", // Debian / Ubuntu
-		"/etc/pki/tls/certs/ca-bundle.crt",   // RHEL / CentOS / Fedora
+		"/etc/ssl/cert.pem",                  //单文件证书包
+		"/etc/ssl/certs/ca-certificates.crt", //ssl目录下的合并证书包
+		"/etc/pki/tls/certs/ca-bundle.crt",   //pki目录下的合并证书包
 	};
 	for (const char* path : kKnownBundles) {
 		if (Poco::File(path).exists())
@@ -43,15 +39,15 @@ std::string ResolveCAPath(const std::string& configured)
 	return {};
 }
 
-} // namespace
+} //namespace
 
 void EmailSender::InitSSL()
 {
-	// POCO 使用 OpenSSL 前必须先初始化 NetSSL 库
+	//POCO 使用 OpenSSL 前必须先初始化 NetSSL 库
 	Poco::Net::initializeSSL();
 
-	// 服务端证书校验失败时走 AcceptCertificateHandler（配合 VERIFY_RELAXED：
-	// 会校验证书链与主机名，但允许出现校验问题时不中断，由 handler 决定是否接受）
+	//服务端证书校验失败时走 AcceptCertificateHandler（配合 VERIFY_RELAXED：
+	//会校验证书链与主机名，但允许出现校验问题时不中断，由 handler 决定是否接受）
 	Poco::Net::SSLManager::instance().initializeClient(
 		nullptr,
 		new Poco::Net::AcceptCertificateHandler(false),
@@ -71,8 +67,7 @@ bool EmailSender::Send(const std::string& to, const std::string& subject, const 
 	auto user = cfg["Email"]["User"]; //发件邮箱账号
 	auto pass = cfg["Email"]["Pass"]; //邮箱授权码
 	auto from = cfg["Email"]["From"]; //发件人地址（通常与账号相同）
-	//CA 证书包路径：留空或配置的路径不存在时按平台自动探测，
-	//最终仍为空则由 OpenSSL 默认证书目录兜底（Windows 的常见情况）
+	//解析显式配置或自动找到的证书包路径，空结果会让后面的SSL上下文使用OpenSSL默认信任库
 	auto ca_location = ResolveCAPath(cfg["Email"]["CA"]);
 
 	if (from.empty()) {
@@ -81,8 +76,8 @@ bool EmailSender::Send(const std::string& to, const std::string& subject, const 
 
 	try {
 		//构建客户端 SSL 上下文：
-		// TLS_CLIENT_USE 表示只做 TLS 客户端；loadDefaultCAs 在 CA 为空时
-		// 打开 OpenSSL 默认证书目录，CA 指定了具体路径时则以该路径为准
+		//TLS_CLIENT_USE 表示只做 TLS 客户端；loadDefaultCAs 在 CA 为空时
+		//打开 OpenSSL 默认证书目录，CA 指定了具体路径时则以该路径为准
 		Poco::Net::Context::Ptr pContext = new Poco::Net::Context(
 			Poco::Net::Context::TLS_CLIENT_USE,
 			ca_location,

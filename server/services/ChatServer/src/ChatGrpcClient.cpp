@@ -1,3 +1,4 @@
+#include <chrono>
 #include "ChatGrpcClient.h"
 #include "RedisMgr.h"
 #include "ConfigMgr.h"
@@ -35,19 +36,19 @@ ChatGrpcClient::ChatGrpcClient()
 AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_ip, const AddFriendReq& req)
 {
 	AddFriendRsp rsp; //创建AddFriendRsp消息对象，准备存储RPC调用的结果
-	Defer defer([&rsp, &req]() {
-		rsp.set_error(ErrorCodes::Success); //默认返回成功状态码
-		rsp.set_applyuid(req.applyuid()); //设置申请人UID
-		rsp.set_touid(req.touid()); //设置目标用户UID
-		});
+    rsp.set_error(ErrorCodes::RPCFailed); //默认失败，只有实际调用成功后才采用对端的业务结果
+    rsp.set_applyuid(req.applyuid());
+    rsp.set_touid(req.touid());
 
-	auto find_iter = _pools.find(server_ip); //在连接池映射表中查找与服务器IP地址对应的连接池
-	//如果没有找到对应的连接池，则返回默认的AddFriendRsp对象
+	auto find_iter = _pools.find(server_ip); //按实例名称查找RPC连接池，参数保存的是uip键中的值
+	//没有配置该实例的连接池时返回RPCFailed，不能把没有发出的通知当成成功
 	if (find_iter == _pools.end())
 		return rsp;
 
 	auto& pool = find_iter->second; //获取对应服务器的连接池
 	ClientContext context; //创建一个ClientContext对象，用于存储RPC调用的上下文信息
+	//为同步RPC设置5秒截止时间，避免对端无响应时业务线程一直等待；连接池等待本身仍由池管理
+	context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
 	auto stub = pool->getConnection(); //从连接池中获取一个ChatService::Stub对象，用于发起RPC调用
 	//使用获取的Stub对象调用NotifyAddFriend方法，传入上下文、请求消息和响应消息对象，并获取调用状态
 	Status status = stub->NotifyAddFriend(&context, req, &rsp);
@@ -68,12 +69,10 @@ AddFriendRsp ChatGrpcClient::NotifyAddFriend(std::string server_ip, const AddFri
 AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_ip, const AuthFriendReq& req)
 {
 	AuthFriendRsp rsp;
-	rsp.set_error(ErrorCodes::Success);
+	rsp.set_error(ErrorCodes::RPCFailed);
 
-	Defer defer([&rsp, &req]() {
-		rsp.set_fromuid(req.fromuid());
-		rsp.set_touid(req.touid());
-		});
+    rsp.set_fromuid(req.fromuid());
+    rsp.set_touid(req.touid());
 
 	auto find_iter = _pools.find(server_ip);
 	if (find_iter == _pools.end()) {
@@ -82,6 +81,8 @@ AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_ip, const Auth
 
 	auto& pool = find_iter->second;
 	ClientContext context;
+	//为同步RPC设置5秒截止时间，避免对端无响应时业务线程一直等待；连接池等待本身仍由池管理
+	context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
 	auto stub = pool->getConnection();
 	Status status = stub->NotifyAuthFriend(&context, req, &rsp);
 	Defer defercon([&stub, this, &pool]() {
@@ -107,14 +108,11 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 		reader.parse(info_str, root);
 		userinfo->uid = root["uid"].asInt();
 		userinfo->name = root["name"].asString();
-		userinfo->pwd = root["pwd"].asString();
 		userinfo->email = root["email"].asString();
 		userinfo->nick = root["nick"].asString();
 		userinfo->desc = root["desc"].asString();
 		userinfo->sex = root["sex"].asInt();
 		userinfo->icon = root["icon"].asString();
-		std::cout << "user login uid is  " << userinfo->uid << " name  is "
-			<< userinfo->name << " pwd is " << userinfo->pwd << " email is " << userinfo->email << std::endl;
 	}
 	else {
 		//redis中没有则查询mysql
@@ -130,7 +128,6 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 		//将数据库内容写入redis缓存
 		Json::Value redis_root;
 		redis_root["uid"] = uid;
-		redis_root["pwd"] = userinfo->pwd;
 		redis_root["name"] = userinfo->name;
 		redis_root["email"] = userinfo->email;
 		redis_root["nick"] = userinfo->nick;
@@ -143,20 +140,13 @@ bool ChatGrpcClient::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<
 }
 
 TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
-	const TextChatMsgReq& req, const Json::Value& rtvalue)
+	const TextChatMsgReq& req, const Json::Value& /*rtvalue*/)
 {
 	TextChatMsgRsp rsp;
-	rsp.set_error(ErrorCodes::Success);
+	rsp.set_error(ErrorCodes::RPCFailed);
 
-	Defer defer([&rsp, &req]() {
-		rsp.set_fromuid(req.fromuid());
-		rsp.set_touid(req.touid());
-		for (const auto& text_data : req.textmsgs()) {
-			TextChatData* new_msg = rsp.add_textmsgs();
-			new_msg->set_msgid(text_data.msgid());
-			new_msg->set_msgcontent(text_data.msgcontent());
-		}
-	});
+    rsp.set_fromuid(req.fromuid());
+    rsp.set_touid(req.touid());
 
 	auto find_iter = _pools.find(server_ip);
 	if (find_iter == _pools.end()) {
@@ -165,8 +155,19 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
 
 	auto& pool = find_iter->second;
 	ClientContext context;
+	//为同步RPC设置5秒截止时间，避免对端无响应时业务线程一直等待；连接池等待本身仍由池管理
+	context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
 	auto stub = pool->getConnection();
 	Status status = stub->NotifyTextChatMsg(&context, req, &rsp);
+    //回填本次请求的用户和消息标识，让调用方能关联原消息；这些字段不代表已经送达，结果仍看error
+    rsp.set_fromuid(req.fromuid());
+    rsp.set_touid(req.touid());
+    rsp.clear_textmsgs(); //统一从请求复制消息列表，避免与对端回包中的条目重复
+    for (const auto& text : req.textmsgs()) {
+        auto* message = rsp.add_textmsgs();
+        message->set_msgid(text.msgid());
+        message->set_msgcontent(text.msgcontent());
+    }
 	Defer defercon([&stub, this, &pool]() {
 		pool->returnConnection(std::move(stub));
 		});
@@ -182,10 +183,8 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
 KickUserRsp ChatGrpcClient::NotifyKickUser(std::string server_ip, const KickUserReq& req)
 {
     KickUserRsp rsp;
-    Defer defer([&rsp, &req]() {
-        rsp.set_error(ErrorCodes::Success);
-        rsp.set_uid(req.uid());
-        });
+    rsp.set_error(ErrorCodes::RPCFailed);
+    rsp.set_uid(req.uid());
 
     auto find_iter = _pools.find(server_ip);
     if (find_iter == _pools.end()) {
@@ -194,6 +193,8 @@ KickUserRsp ChatGrpcClient::NotifyKickUser(std::string server_ip, const KickUser
 
     auto& pool = find_iter->second;
     ClientContext context;
+    //为同步RPC设置5秒截止时间，避免对端无响应时业务线程一直等待；连接池等待本身仍由池管理
+    context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
     auto stub = pool->getConnection();
     Defer defercon([&stub, this, &pool]() {
         pool->returnConnection(std::move(stub));

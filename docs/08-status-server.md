@@ -39,36 +39,35 @@ Status GetChatServer(ServerContext*, const GetChatServerReq* req, GetChatServerR
 流程：
 
 1. `getChatServer()` 选出目标实例；
-2. 填 `host` / `port` / `error = Success`；
+2. uid 非法或无可用候选时返回 `RPCFailed`；
 3. `generate_unique_string()` 生成 UUID 作为 token；
 4. `insertToken(uid, token)` → `Redis SET utoken_<uid> <token>`；
-5. 返回 `Status::OK`。
+5. 写入成功才返回 `{host, port, token, error=0}`，写入失败返回 `RPCFailed`。
 
 ### 最小连接数选路（`getChatServer`）
 
 ```mermaid
 flowchart TB
-    A["lock(_server_mtx)"] --> B["min ← _servers 首元素"]
-    B --> C["min.con_count ← HGET logincount #lt;min.name#gt;"]
-    C --> D["遍历其余实例"]
-    D --> E["con_count ← HGET logincount #lt;name#gt;"]
-    E --> F{"con_count #lt; min.con_count ?"}
+    A["lock(_server_mtx)"] --> B["min ← 空候选"]
+    B --> D["遍历配置实例"]
+    D --> E["HGET 连接数<br/>跳过缺失、非法计数或地址"]
+    E --> F{"min 为空或当前连接数更小 ?"}
     F -->|是| G["min ← 该实例"]
     F -->|否| D
     G --> D
     D --> H["unlock → return min"]
 ```
 
-`HGET` 取不到值时把 `con_count` 置为 `INT_MAX`，表示该实例排在最后。
+空配置和全部计数无效时返回空候选，不分配地址；数字转换失败不会抛出异常。
 
 | 特性 | 说明 |
 | --- | --- |
 | 数据源 | Redis Hash `logincount`，field = 实例名，value = 在线连接数 |
-| 未登记计数 | 视为 `INT_MAX`，即排在最后——新启动但尚未写入计数的实例不会被优先选中 |
-| 并发保护 | `_server_mtx` 保护 `_servers`；计数本身由 Redis 的 `HINCRBY` 保证原子 |
+| 未登记计数 | 跳过该实例 |
+| 并发保护 | `_server_mtx` 保护选路；ChatServer 每 60 秒通过 `HSET` 更新计数 |
 | 复杂度 | O(n)，n 为实例数；每次 `HGET` 一次 Redis 往返 |
 
-> ChatServer 启动时执行 `HSET logincount <name> 0`，因此正常启动的实例不会落到 `INT_MAX` 分支。
+> ChatServer 启动时执行 `HSET logincount <name> 0`。计数没有 TTL，不能单独用作实例存活证明。
 
 ## 8.4 `Login`（令牌校验）
 

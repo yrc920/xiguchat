@@ -104,16 +104,12 @@ sequenceDiagram
     Note over CS,R: 启动
     CS->>R: HSET logincount #lt;self_name#gt; 0
 
-    Note over CS,R: 登录成功（逻辑线程）
-    CS->>R: HINCRBY logincount #lt;self_name#gt; 1
+    Note over CS,R: 每 60 秒扫描会话
+    CS->>R: HSET logincount #lt;self_name#gt; 未过期连接数
 
     Note over S,R: 分配实例
     S->>R: HGET logincount #lt;name#gt; 逐个实例
     S->>S: 取最小值返回
-
-    Note over CS,R: 连接断开（ClearSession，uid != 0）
-    CS->>R: HINCRBY logincount #lt;self_name#gt; -1
-    CS->>R: 结果为负时 HSET 归零兜底
 
     Note over CS,R: 进程退出
     CS->>R: HDEL logincount #lt;self_name#gt;
@@ -121,10 +117,10 @@ sequenceDiagram
 
 设计要点：
 
-- 使用 `HINCRBY` 而非"读—改—写"，避免并发登录互相覆盖。
-- `_user_uid == 0` 作为"未登录"哨兵，未登录就断开的连接**不扣减**计数。
-- `ClearSession` 先从 `_sessions` 中移除（幂等），同一连接重复清理时不会二次扣减。
-- 扣减后若为负值则 `HSET` 兜底归零，防止负值长期影响调度。
+- 计数是扫描快照，包含尚未登录但未超时的 TCP 连接，不是严格的在线用户数。
+- 登录与断连不直接增减计数，调度数据最多滞后一个扫描周期。
+- StatusServer 跳过缺失、非法计数；全部无效时返回失败。
+- 计数没有 TTL，实例崩溃可能留下旧值，需要独立的探活机制。
 
 ### 用户资料缓存策略
 
@@ -141,8 +137,8 @@ flowchart LR
 
 有三处需要注意：
 
-1. 缓存**无 TTL、无失效**：用户修改昵称/头像/密码后，缓存不会更新，需重启或手工删键。
-2. 缓存内容包含 `pwd` 字段（Argon2id 哈希串），扩大了敏感数据的暴露面。
+1. 缓存**无 TTL、无失效**：修改资料后需主动失效或手工删键，仅重启进程不会清空 Redis。
+2. 资料缓存读写均不使用 `pwd`，已有 Redis 键中的历史字段不会因更新程序自动删除。
 3. `GetBaseInfo` 在 `LogicSystem`、`ChatServiceImpl`、`ChatGrpcClient` 三处重复实现，
    逻辑完全一致——是明确的重复代码，应收敛到 `UserMgr` 或独立的 `UserCache` 组件。
 

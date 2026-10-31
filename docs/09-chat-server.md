@@ -46,8 +46,8 @@ flowchart TB
 flowchart TB
     A["CSession::Start()"] --> B["AsyncReadHead(4)<br/>asyncReadLen 循环应对拆包"]
     B --> C["解析 msg_id / msg_len<br/>network_to_host_short"]
-    C --> D{"msg_len #gt; MAX_LENGTH ?"}
-    D -->|是| X["ClearSession()"]
+    C --> D{"msg_len == 0 或 #gt; MAX_LENGTH ?"}
+    D -->|是| X["Close() + DealExceptionSession()"]
     D -->|否| E["RecvNode(msg_len, msg_id)<br/>AsyncReadBody(msg_len)"]
     E --> F["读满后追加结束符<br/>PostMsgToQue(LogicNode)"]
     F --> B
@@ -58,30 +58,33 @@ flowchart TB
 `CSession::Send()` 有两个重载（`std::string` 与 `char*`），逻辑一致：
 
 ```
-lock(_send_lock)
-if _send_que.size() > MAX_SENDQUE(1000): 丢弃并告警
+检查长度，投递到 socket 所属 IO 线程
+if _send_que.size() >= MAX_SENDQUE(1000): 关闭并清理连接
 push SendNode(msgid)
 if 队列此前为空: 立即 async_write（否则由 HandleWrite 链式续写）
 ```
 
 `HandleWrite` 由 IO 线程回调：`pop()` 已发送节点，若队列非空继续写下一个。
 `shared_from_this()` 保证回调期间会话对象存活。
+每个 io_context 只有一个工作线程，收发与关闭在该线程串行执行，三平台行为一致。
+发送失败时终止续写，并在回调完成后释放发送缓冲区。
 
 ### 断连清理（`CServer::ClearSession`）
 
 ```
 lock(_mutex)
-find session_id → 未找到直接 return（幂等，防重复扣减）
+find session_id → 未找到直接 return
 erase
 ↓
 uid = session->GetUserId()
 if uid == 0: return                       # 未登录的连接不参与清理
-UserMgr::RmvUserSession(uid)
-HINCRBY logincount <self_name> -1
-if 结果 < 0: HSET 归零兜底
+UserMgr::RmvUserSession(uid, session_id)
 ```
 
 `_user_uid == 0` 是"未登录"哨兵（真实 uid 从 1000 起）。
+`DealExceptionSession` 与登录登记通过会话互斥锁排序，且只清理一次。
+已认证会话取得 Redis 用户锁后，确认 `usession_<uid>` 仍属于自身，才删除会话键与位置键。
+连接计数由定时器每 60 秒扫描后用 `HSET` 上报，登录和断连不直接增减计数。
 
 ## 9.4 逻辑层
 
@@ -93,8 +96,8 @@ flowchart LR
     subgraph logic["逻辑线程（单个）"]
         Q[("_msg_que<br/>上限 MAX_LOGICQUE 10000")] --> C["DealMsg()：wait 条件变量"]
         C --> D{"msg_id 查 _fun_callbacks"}
-        D -->|命中| E["执行处理函数"]
-        D -->|未命中| F["丢弃并打印"]
+        D -->|命中| E["校验 JSON、会话身份与操作者 uid<br/>执行处理函数"]
+        D -->|未命中| F["丢弃"]
         E --> C
         F --> C
     end
@@ -103,9 +106,9 @@ flowchart LR
 
 | 特性 | 说明 |
 | --- | --- |
-| 单消费者 | 所有消息处理函数在同一线程串行执行，`UserMgr` 等结构无需加锁 |
+| 单消费者 | TCP 业务处理串行执行；共享用户映射仍由互斥锁保护 |
 | 优雅退出 | `_b_stop` 置位后先把队列剩余消息处理完再退出 |
-| 未知 ID | 无注册 handler 时丢弃并打印 |
+| 未知 ID | 无注册 handler 时丢弃 |
 
 注册的 handler：
 
@@ -117,7 +120,8 @@ flowchart LR
 | 1013 | `AuthFriendApply` | 同意好友申请 |
 | 1017 | `DealChatTextMsg` | 文本消息 |
 
-各 handler 用 `Defer`（析构时执行 lambda，Go 风格 `defer`）保证**无论从哪个分支 return 都会回包**。
+出队后释放队列锁，数据库/RPC 不持有队列锁；单条请求异常会关闭对应连接，不终止逻辑线程。
+各 handler 用 `Defer`（析构时执行 lambda）处理正常业务分支的回包。
 
 ## 9.5 登录（1005）
 
@@ -128,16 +132,16 @@ flowchart TB
     B -->|不等| E2["error=1010 return"]
     B -->|相等| C["GetBaseInfo(ubaseinfo_#lt;uid#gt;, uid)"]
     C -->|失败| E1
-    C --> D["填 uid/pwd/name/email/nick/desc/sex/icon"]
+    C --> D["填 uid/name/email/nick/desc/sex/icon"]
     D --> F["MySQL 取好友申请（前 10 条）+ 好友列表"]
-    F --> G["HINCRBY logincount #lt;self_name#gt; 1"]
+    F --> G["获取用户锁并处理已有登录"]
     G --> H["session->SetUserId(uid)"]
     H --> I["SET uip_#lt;uid#gt; #lt;self_name#gt;"]
     I --> J["UserMgr::SetUserSession(uid, session)"]
     J --> K["回包 [1006]"]
 ```
 
-> 第 4 步把 `pwd`（Argon2id 哈希串）放进回包，属于不必要的字段暴露，建议移除。
+> 无法取得用户锁时返回失败；同一连接不能重复登录或切换 uid。资料回包不含密码哈希。
 
 ## 9.6 消息路由：本实例 vs 跨实例
 
@@ -193,12 +197,12 @@ flowchart TB
 ### 同意（1013）
 
 1. 解析 `{fromuid, touid, back}`；
-2. `AuthFriendApply(uid, touid)` 把申请状态置 1；
-3. `AddFriend(uid, touid, back_name)` 双向插入 `friend` 表（`INSERT IGNORE`）；
+2. `AddFriend(uid, touid, back_name)` 开启事务并锁定对方向自己的好友申请，无申请则失败；
+3. 同一事务内把申请状态置 1，再双向插入 `friend` 表（`INSERT IGNORE`）；
 4. 回 1014（附对方资料）；
 5. 通知对方 1015（本实例直投 / 跨实例 `NotifyAuthFriend`）。
 
-> 两步写库之间没有事务包裹，中途失败会产生"申请已同意但未成为好友"的中间态。
+> 写库失败回滚事务并返回错误，不发送成功通知。
 
 ## 9.8 文本消息（1017）
 
@@ -224,18 +228,17 @@ flowchart TB
 | 结构 | 保护方式 |
 | --- | --- |
 | `_sessions`（CServer） | `std::mutex _mutex` |
-| `_send_que`（CSession） | `std::mutex _send_lock` |
+| `_send_que`（CSession） | 仅由 socket 所属 IO 线程访问 |
 | `_msg_que`（LogicSystem） | `std::mutex` + `condition_variable` |
 | `_pools`（ChatGrpcClient） | 构造期写、运行期只读 |
-| `UserMgr` | 逻辑线程单线程访问（未加锁，**依赖单线程前提**） |
+| `UserMgr` | 逻辑线程、IO 线程与 gRPC 线程访问，映射由互斥锁保护 |
 
-> `UserMgr` 无锁的前提是"只有逻辑线程访问它"。若将来引入多线程消费逻辑队列，
-> 必须同步给 `UserMgr` 加锁。
+> 单次映射访问已有互斥保护；多个操作的业务一致性仍需通过会话标识与登录锁保证。
 
 ## 9.11 已知问题
 
 - `StatusGrpcClient` 已链接但未调用；若启用可改为由 StatusServer 统一校验 token。
 - `GetBaseInfo` 在 `LogicSystem`、`ChatServiceImpl`、`ChatGrpcClient` 三处重复。
-- `uip_<uid>` 在断连时不删除，离线用户会残留过期位置值，导致一次无效的跨实例 RPC。
-- 无心跳：TCP 半开连接无法及时发现，表现为 `logincount` 虚高。
+- 断连时检查 session 标识后清理位置键；Redis 不可用或锁获取失败时仍可能残留。
+- 心跳阈值 20 秒、扫描周期 60 秒，半开连接最多接近 80 秒才回收，计数更新存在延迟。
 - 消息与好友操作均无重试、无补偿；跨实例 RPC 失败即丢弃。

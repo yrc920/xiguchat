@@ -28,7 +28,8 @@ grpc::Status VerifyServiceImpl::GetVerifyCode(grpc::ServerContext* /*context*/,
 			}
 		}
 
-		std::string text = "您的验证码为" + code + "请三分钟内完成注册";
+		std::string text = "您的验证码为 " + code + "，请在 " +
+            std::to_string(CODE_EXPIRE_SECONDS / 60) + " 分钟内完成验证。";
 		if (!EmailSender::Send(email, "验证码", text)) {
 			response->set_error(VerifyCodes::SendMailErr);
 			return grpc::Status::OK;

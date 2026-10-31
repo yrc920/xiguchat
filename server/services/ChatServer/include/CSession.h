@@ -6,13 +6,14 @@
 #include <boost/uuid/uuid_io.hpp>
 #include <boost/uuid/uuid_generators.hpp>
 #include <queue>
+#include <atomic>
 #include <mutex>
 #include <memory>
 #include "const.h"
 #include "MsgNode.h"
 
-namespace net = boost::asio;            // from <boost/asio.hpp>
-using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
+namespace net = boost::asio;            //from <boost/asio.hpp>
+using tcp = boost::asio::ip::tcp;       //from <boost/asio/ip/tcp.hpp>
 class CServer;
 class LogicSystem;
 
@@ -30,6 +31,9 @@ public:
 	void Send(char* msg, short max_length, short msgid); //发送消息
 	void Send(std::string msg, short msgid); //发送消息
 	void Close(); //关闭会话
+    bool IsClosed() const { return _b_close.load(); } //查询是否已请求关闭，不代表底层socket已经完成关闭
+    //返回持有会话锁的RAII对象，调用方保留该对象期间，登录登记与断连清理不能同时进行
+    std::unique_lock<std::mutex> LockLifecycle() { return std::unique_lock<std::mutex>(_lifecycle_mutex); }
 	std::shared_ptr<CSession> SharedSelf(); //返回一个指向当前对象的shared_ptr
 	void AsyncReadBody(int length); //异步读取消息体
 	void AsyncReadHead(int total_len); //异步读取消息头
@@ -39,6 +43,7 @@ public:
     void DealExceptionSession(); //处理异常连接
 
 private:
+    void SendOnIO(std::string msg, short msgid); //只在 socket 所属 IO 线程中执行
 	//读取完整长度
 	void asyncReadFull(std::size_t maxLength,
 		std::function<void(const boost::system::error_code&, std::size_t)> handler);
@@ -49,18 +54,18 @@ private:
 	void HandleWrite(const boost::system::error_code& error, std::shared_ptr<CSession> shared_self);
 
 	tcp::socket _socket; //套接字
-	std::string _session_id; //会话ID, 用于唯一标识一个会话(token)
-    int _user_uid; //用户ID, 用于标识当前会话对应的用户
+	std::string _session_id; //连接的 UUID；与登录 token 分开使用
+    std::atomic<int> _user_uid; //当前绑定的用户ID，0表示未认证，允许逻辑线程和清理线程读取
 	char _data[MAX_LENGTH]; //接收缓冲区
 	CServer* _server; //指向服务器对象的指针
-	bool _b_close; //会话是否关闭
-	std::queue<std::shared_ptr<SendNode> > _send_que; //发送队列
-	std::mutex _send_lock; //保护发送队列的互斥锁
+	std::atomic<bool> _b_close; //会话是否关闭
+	std::queue<std::shared_ptr<SendNode> > _send_que; //仅由所属IO线程访问，队首是正在异步发送的消息
+    std::atomic<std::size_t> _pending_sends{0}; //包含尚未进入 IO 线程的发送任务
 	std::shared_ptr<RecvNode> _recv_msg_node; //收到的消息结构
-	bool _b_head_parse; //是否已经解析头部
 	std::shared_ptr<MsgNode> _recv_head_node; //收到的头部结构
-    std::atomic<time_t> _last_heartbeat; //记录上次接受数据的时间
-    std::mutex _session_mtx; //session 锁
+    std::atomic<time_t> _last_heartbeat; //最近收到完整消息的时间，供服务器定时器判断连接是否超时
+    std::mutex _lifecycle_mutex; //登录登记与断连清理互斥
+    std::atomic<bool> _cleanup_started{false}; //断连清理只执行一次
 };
 
 class LogicNode {

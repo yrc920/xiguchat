@@ -176,7 +176,7 @@ MySqlPool::MySqlPool(const std::string& host, unsigned port, const std::string& 
 		for (int i = 0; i < poolSize_; ++i) {
 			//构建X DevAPI连接设置
 			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
-			// X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
+			//X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
 			//创建会话对象
 			auto session = std::make_unique<mysqlx::Session>(settings);
 			//获取当前时间戳
@@ -234,7 +234,7 @@ void MySqlPool::checkConnection() {
 			std::cout << "Error keeping connection alive: " << e.what() << std::endl;
 			//重新创建会话对象并替换旧的会话
 			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
-			// X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
+			//X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
 			con->_session.reset(new mysqlx::Session(settings)); //替换旧的会话对象
 			con->_last_oper_time = timestamp; //更新连接对象的上次操作时间为当前时间
 		}

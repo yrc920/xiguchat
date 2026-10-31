@@ -71,12 +71,12 @@ RPC 调用与数据库访问，会阻塞该 IO 线程。这是当前实现的吞
 | 主线程 | 1 | 运行 `io_context`（acceptor + 信号） |
 | IOContextPool 线程 | CPU 核心数 | 承载 `CSession` 的异步读写 |
 | 逻辑线程 | 1 | `LogicSystem::DealMsg()` 消费逻辑队列，**串行**执行所有消息处理函数 |
-| gRPC 服务端线程 | 1（显式 `std::thread` + `server->Wait()`） | 处理来自其他实例的 RPC |
+| gRPC 等待线程 | 1（显式 `std::thread` + `server->Wait()`） | 等待服务关闭；RPC 由 gRPC 内部工作线程处理 |
 | gRPC 客户端线程 | gRPC 内部 | 跨实例转发 |
 
 **关键设计：逻辑单线程。** 所有 TCP 消息的处理函数在同一个线程内串行执行，
-因此 `UserMgr`（uid→session 映射）等结构无需加锁；而 `CSession::Send()` 由 IO 线程或逻辑线程调用，
-故发送队列用 `_send_lock` 保护。
+`UserMgr` 还会被 IO 和 gRPC 线程访问，因此映射由互斥锁保护。
+`CSession::Send()` 将发送操作投递到 socket 所属 IO 线程，与读取、关闭串行执行。
 
 ### StatusServer / VerifyServer
 
@@ -141,7 +141,7 @@ sequenceDiagram
     C->>CS: TCP connect host:port
     C->>CS: 帧 [1005] {uid, token}
     CS->>R: GET utoken_#lt;uid#gt; 比对 token
-    CS->>R: HINCRBY logincount #lt;self#gt; 1
+    CS->>R: 获取用户登录锁，检查已有会话
     CS->>R: SET uip_#lt;uid#gt; #lt;self#gt;
     CS->>CS: UserMgr::SetUserSession(uid, session)
     CS-->>C: [1006] 用户资料 + 好友申请 + 好友列表
@@ -201,8 +201,8 @@ sequenceDiagram
 flowchart TB
     A["accept → new CSession(io_context)<br/>UUID session_id，_user_uid = 0"] --> B["Start() → AsyncReadHead(4)"]
     B --> C["解析 msg_id / msg_len<br/>network_to_host_short"]
-    C --> D{"msg_len > MAX_LENGTH ?"}
-    D -->|是| X["ClearSession()"]
+    C --> D{"msg_len == 0 或超过 MAX_LENGTH ?"}
+    D -->|是| X["Close() + DealExceptionSession()"]
     D -->|否| E["AsyncReadBody(msg_len)<br/>asyncReadLen 循环应对拆包"]
     E --> F["PostMsgToQue(LogicNode)"]
     F --> G["逻辑线程按 msg_id 查表执行"]
@@ -215,19 +215,19 @@ flowchart TB
     J -->|是| L["erase"]
     L --> M{"GetUserId() != 0 ?"}
     M -->|否| K
-    M -->|是| N["UserMgr::RmvUserSession(uid)<br/>HINCRBY logincount -1<br/>负值兜底归零"]
+    M -->|是| N["按 session_id 解绑 UserMgr<br/>检查并清理 Redis 会话状态"]
 ```
 
 `_user_uid == 0` 作为"未登录"哨兵值——真实 uid 从 1000 起分配，
-未登录就断开的连接不会误扣在线计数。
+未登录连接不操作 Redis 用户会话键；连接计数由定时器每 60 秒扫描上报。
 
 ## 1.8 容错边界
 
 | 失效对象 | 当前行为 |
 | --- | --- |
-| Redis 不可用 | 登录/消息路由失败；`RedisMgr` 各方法返回 false，上层按失败分支处理 |
+| Redis 不可用 | 命令失败可能返回 false；池内无连接或阻塞调用无超时时也可能一直等待 |
 | MySQL 不可用 | 注册/登录/好友持久化失败 |
-| 某 ChatServer 实例崩溃 | 该实例上的连接断开；其他实例不受影响；新登录由 StatusServer 分配到存活实例 |
+| 某 ChatServer 实例崩溃 | 该实例上的连接断开；旧计数没有 TTL，StatusServer 仍可能向该实例分配新连接 |
 | StatusServer 不可用 | 登录返回 `RPCFailed(1002)` |
 | VerifyServer / SMTP 不可用 | 验证码接口返回 `SendMailErr(3)` |
 | 对端 ChatServer 不可达 | 跨实例转发返回 `RPCFailed`，消息静默丢弃 |

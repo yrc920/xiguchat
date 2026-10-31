@@ -1,11 +1,15 @@
 #include "HttpConnection.h"
 #include "LogicSystem.h"
+#include <stdexcept>
 
 HttpConnection::HttpConnection(boost::asio::io_context& ioc)
 	: _socket(ioc) {} //将io_context绑定到socket中
 
 void HttpConnection::Start() {
 	auto self = shared_from_this();
+    //先登记截止时间检查再开始读取，客户端只发送部分请求时也能触发超时关闭
+    //计时回调仍依赖IO线程执行，同步业务处理占用线程时并不能被这个定时器强制中断
+    CheckDeadline();
 	//异步读取请求
 	http::async_read(_socket, _buffer, _request, [self](beast::error_code ec,
 		std::size_t bytes_transferred) {
@@ -17,10 +21,14 @@ void HttpConnection::Start() {
 				//处理读到的数据
 				boost::ignore_unused(bytes_transferred); //已读数据长度直接忽略
 				self->HandleReq(); //处理请求
-				self->CheckDeadline(); //同时启动连接超时检查
 			}
 			catch (std::exception& exp) {
-				std::cout << "exception is " << exp.what() << std::endl;
+                std::cout << "exception is " << exp.what() << std::endl;
+                //请求解析或处理抛出异常时返回400，避免只打印日志却让客户端一直等不到响应
+                self->_response.result(http::status::bad_request);
+                self->_response.set(http::field::content_type, "text/plain");
+                beast::ostream(self->_response.body()) << "Bad request";
+                self->WriteResponse();
 			}
 		});
 }
@@ -35,10 +43,10 @@ unsigned char ToHex(unsigned char x)
 unsigned char FromHex(unsigned char x)
 {
 	unsigned char y;
-	if (x >= 'A' && x <= 'Z') y = x - 'A' + 10;
-	else if (x >= 'a' && x <= 'z') y = x - 'a' + 10;
+	if (x >= 'A' && x <= 'F') y = x - 'A' + 10;
+	else if (x >= 'a' && x <= 'f') y = x - 'a' + 10;
 	else if (x >= '0' && x <= '9') y = x - '0';
-	else assert(0);
+    else throw std::invalid_argument("Invalid URL escape"); //非十六进制字符交给请求入口按错误请求处理
 	return y;
 }
 
@@ -81,7 +89,8 @@ std::string UrlDecode(const std::string& str)
 		//遇到%将后面的两个字符从16进制转为char再拼接
 		else if (str[i] == '%')
 		{
-			assert(i + 2 < length);
+            //百分号后必须有两个字符，先检查剩余长度，再递增下标读取，避免访问字符串末尾之外
+            if (i + 2 >= length) throw std::invalid_argument("Incomplete URL escape");
 			unsigned char high = FromHex((unsigned char)str[++i]);
 			unsigned char low = FromHex((unsigned char)str[++i]);
 			strTemp += high * 16 + low;
@@ -92,9 +101,9 @@ std::string UrlDecode(const std::string& str)
 }
 
 void HttpConnection::PreParseGetParam() {
-	//提取 URI  
+	//提取 URI
 	auto uri = _request.target();
-	//查找查询字符串的开始位置（即 '?' 的位置）  
+	//查找查询字符串的开始位置（即 '?' 的位置）
 	auto query_pos = uri.find('?');
 	//如果没有查询字符串，直接返回
 	if (query_pos == std::string::npos) {

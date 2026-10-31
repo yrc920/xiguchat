@@ -25,7 +25,7 @@ public:
 private:
 	ConfigMgr();
 
-	// 存储section和key-value对的map  
+	//存储section和key-value对的map
 	std::map<std::string, SectionInfo> _config_map;
 };
 

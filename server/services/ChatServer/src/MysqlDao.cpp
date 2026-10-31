@@ -137,7 +137,6 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 		//遍历结果集
 		if (!row.isNull()) {
 			origin_pwd = row[2].get<std::string>(); //第2列为pwd
-			std::cout << "Password: " << origin_pwd << std::endl;
 		}
 
 		//如果查询结果中的密码与输入的密码不匹配, 则说明邮箱和密码不匹配, 返回false
@@ -183,29 +182,6 @@ bool MysqlDao::AddFriendApply(const int& from, const int& to)
 	}
 }
 
-bool MysqlDao::AuthFriendApply(const int& from, const int& to) {
-	auto con = pool_->getConnection();
-	if (con == nullptr)
-		return false;
-
-	Defer defer([this, &con]() {
-		pool_->returnConnection(std::move(con));
-		});
-
-	try {
-		//执行更新语句, 注意from/to与申请时相反(与JDBC API时代逻辑一致)
-		con->_session->sql("UPDATE friend_apply SET status = 1 "
-			"WHERE from_uid = ? AND to_uid = ?")
-			.bind(to).bind(from).execute();
-
-		return true;
-	}
-	catch (mysqlx::Error& e) {
-		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
-		return false;
-	}
-}
-
 bool MysqlDao::AddFriend(const int& from, const int& to, std::string back_name) {
 	auto con = pool_->getConnection();
 	if (con == nullptr)
@@ -218,6 +194,19 @@ bool MysqlDao::AddFriend(const int& from, const int& to, std::string back_name) 
 	try {
 		//开始事务
 		con->_session->startTransaction();
+
+        //from是当前同意申请的用户，to是原申请人，所以查找申请时要按to到from的方向匹配
+        //FOR UPDATE在事务内锁住这条申请，后面的状态修改和双向好友写入与它一起提交或回滚
+        auto apply = con->_session->sql(
+            "SELECT status FROM friend_apply WHERE from_uid = ? AND to_uid = ? FOR UPDATE")
+            .bind(to).bind(from).execute().fetchOne();
+        if (apply.isNull()) { //没有对应申请时不允许直接建立好友关系
+            con->_session->rollback();
+            return false;
+        }
+        //申请已确认时再次设为1不会产生额外状态变化，后续INSERT IGNORE也可避免重复插入好友关系
+        con->_session->sql("UPDATE friend_apply SET status = 1 WHERE from_uid = ? AND to_uid = ?")
+            .bind(to).bind(from).execute();
 
 		//执行第一个插入语句, 插入认证方好友数据
 		con->_session->sql("INSERT IGNORE INTO friend(self_id, friend_id, back) "
@@ -415,7 +404,7 @@ MySqlPool::MySqlPool(const std::string& host, unsigned port, const std::string& 
 		for (int i = 0; i < poolSize_; ++i) {
 			//构建X DevAPI连接设置
 			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
-			// X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
+			//X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
 			//创建会话对象
 			auto session = std::make_unique<mysqlx::Session>(settings);
 			//获取当前时间戳
@@ -473,7 +462,7 @@ void MySqlPool::checkConnection() {
 			std::cout << "Error keeping connection alive: " << e.what() << std::endl;
 			//重新创建会话对象并替换旧的会话
 			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
-			// X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
+			//X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
 			con->_session.reset(new mysqlx::Session(settings)); //替换旧的会话对象
 			con->_last_oper_time = timestamp; //更新连接对象的上次操作时间为当前时间
 		}

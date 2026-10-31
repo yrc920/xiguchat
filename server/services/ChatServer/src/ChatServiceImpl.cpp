@@ -132,15 +132,12 @@ bool ChatServiceImpl::GetBaseInfo(std::string base_key, int uid, std::shared_ptr
 		reader.parse(info_str, root);
 		userinfo->uid = root["uid"].asInt();
 		userinfo->name = root["name"].asString();
-		userinfo->pwd = root["pwd"].asString();
 		userinfo->email = root["email"].asString();
 		userinfo->nick = root["nick"].asString();
 		userinfo->desc = root["desc"].asString();
 		userinfo->sex = root["sex"].asInt();
 		userinfo->icon = root["icon"].asString();
-		std::cout << "user login uid is  " << userinfo->uid << " name  is "
-			<< userinfo->name << " pwd is " << userinfo->pwd << " email is "
-			<< userinfo->email << std::endl;
+        std::cout << "user uid is " << uid << std::endl;
 	}
 	else {
 		//redis中没有则查询mysql
@@ -156,7 +153,6 @@ bool ChatServiceImpl::GetBaseInfo(std::string base_key, int uid, std::shared_ptr
 		//将数据库内容写入redis缓存
 		Json::Value redis_root;
 		redis_root["uid"] = uid;
-		redis_root["pwd"] = userinfo->pwd;
 		redis_root["name"] = userinfo->name;
 		redis_root["email"] = userinfo->email;
 		redis_root["nick"] = userinfo->nick;

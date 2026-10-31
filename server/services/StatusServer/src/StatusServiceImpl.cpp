@@ -2,6 +2,7 @@
 #include "ConfigMgr.h"
 #include "const.h"
 #include "RedisMgr.h"
+#include <charconv>
 
 StatusServiceImpl::StatusServiceImpl()
 {
@@ -43,54 +44,46 @@ std::string generate_unique_string()
 Status StatusServiceImpl::GetChatServer(ServerContext* context,
 	const GetChatServerReq* request, GetChatServerRsp* reply)
 {
-	std::string prefix("llfc status server has received :  ");
-	const auto& server = getChatServer(); //从服务器列表中获取连接数最少的服务器信息
-	reply->set_host(server.host); //设置返回的服务器IP地址
-	reply->set_port(server.port); //设置返回的服务器端口号
-	reply->set_error(ErrorCodes::Success); //设置返回的错误码, 表示成功
-	reply->set_token(generate_unique_string()); //生成并设置返回的Token
-	insertToken(request->uid(), reply->token()); //将用户id和生成的Token插入到用户token列表中
-	return Status::OK;
+    const auto server = getChatServer(); //根据Redis中的连接数选择候选实例
+    //没有候选实例时不能向客户端下发空地址；非法uid也不能用于生成用户token键
+    if (request->uid() <= 0 || server.name.empty()) {
+        reply->set_error(ErrorCodes::RPCFailed);
+        return Status::OK;
+    }
+    const auto token = generate_unique_string(); //本次登录签发的token
+    //ChatServer会从Redis读取token进行比对，必须先写入成功，才能向网关返回登录凭据
+    if (!insertToken(request->uid(), token)) {
+        reply->set_error(ErrorCodes::RPCFailed);
+        return Status::OK;
+    }
+    //Status::OK只表示RPC已正常处理，具体业务结果通过reply中的error字段表达
+    reply->set_host(server.host);
+    reply->set_port(server.port);
+    reply->set_token(token);
+    reply->set_error(ErrorCodes::Success);
+    return Status::OK;
 }
 
 ChatServer StatusServiceImpl::getChatServer()
 {
-	std::lock_guard<std::mutex> guard(_server_mtx); //加锁保护服务器列表的访问
-	auto minServer = _servers.begin()->second; //假设第一个服务器的连接数最少
-
-	//从Redis中获取第一个服务器的连接数
-	auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, minServer.name);
-	if (count_str.empty()) {
-		//不存在则默认设置为最大
-		minServer.con_count = INT_MAX;
-	}
-	else {
-		minServer.con_count = std::stoi(count_str); //将连接数字符串转换为整数
-	}
-
-	for (auto& server : _servers)
-	{
-		//如果当前服务器的名称与假设的最小连接数服务器的名称相同, 则跳过该服务器
-		if (server.second.name == minServer.name) {
-			continue;
-		}
-
-		//从Redis中获取当前服务器的连接数
-		auto count_str = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, server.second.name);
-		if (count_str.empty()) {
-			//不存在则默认设置为最大
-			server.second.con_count = INT_MAX;
-		}
-		else {
-			server.second.con_count = std::stoi(count_str); //将连接数字符串转换为整数
-		}
-
-		//如果当前服务器的连接数小于假设的最小连接数服务器的连接数, 则更新最小连接数服务器为当前服务器
-		if (server.second.con_count < minServer.con_count) {
-			minServer = server.second;
-		}
-	}
-	return minServer; //返回连接数最少的服务器信息
+    std::lock_guard<std::mutex> guard(_server_mtx);
+    ChatServer selected; //name为空表示尚未找到符合条件的实例，也能处理空配置列表
+    for (const auto& [name, server] : _servers) {
+        auto count = RedisMgr::GetInstance()->HGet(LOGIN_COUNT, name);
+        int value = 0;
+        //from_chars不会抛异常；除了检查错误码，还要确认整个字符串都已消费，拒绝数字后夹杂其他内容
+        auto [end, error] = std::from_chars(count.data(), count.data() + count.size(), value);
+        //无计数、负计数、损坏计数或地址不完整的实例都不能参与本次选路
+        if (error != std::errc{} || end != count.data() + count.size() || value < 0 ||
+            server.host.empty() || server.port.empty()) continue;
+        //第一个有效实例作为初始候选，之后只在连接数更小时替换；全部跳过时仍保留空候选
+        if (selected.name.empty() || value < selected.con_count) {
+            selected = server;
+            selected.con_count = value;
+        }
+    }
+    //这里只比较已上报的计数，不做实时探活；实例异常退出留下的计数仍可能被选中
+    return selected;
 }
 
 Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request, LoginRsp* reply)
@@ -121,9 +114,9 @@ Status StatusServiceImpl::Login(ServerContext* context, const LoginReq* request,
 	return Status::OK;
 }
 
-void StatusServiceImpl::insertToken(int uid, std::string token)
+bool StatusServiceImpl::insertToken(int uid, std::string token)
 {
 	std::string uid_str = std::to_string(uid); //将用户id转换为字符串
 	std::string token_key = USERTOKENPREFIX + uid_str;
-	RedisMgr::GetInstance()->Set(token_key, token); //将用户id和Token存储到Redis中
+	return RedisMgr::GetInstance()->Set(token_key, token); //返回写入结果，由调用方决定是否下发token
 }

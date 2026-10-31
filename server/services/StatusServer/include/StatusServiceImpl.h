@@ -17,28 +17,29 @@ using message::GetChatServerRsp;
 using message::LoginReq;
 using message::LoginRsp;
 using message::StatusService;
-// ChatServer 结构必须在使用它的成员声明之前完整定义：
-// 作为 unordered_map 的 value 类型，其定义需要是完整的，
-// 只做前置声明在 libstdc++（Linux）下会报 incomplete type。
+//ChatServer作为unordered_map的value类型，需要先给出完整定义再声明容器成员
+//只有前置声明不足以提供元素布局和析构所需的信息，因此结构定义放在服务类之前
 struct ChatServer {
 	std::string host; //IP地址
-	std::string port; //端口号
+	std::string port; //返回给客户端连接的TCP端口，不是服务间RPC端口
 	std::string name; //服务器名称
-	int con_count; //连接数
+	int con_count = 0; //连接数
 };
 
 class StatusServiceImpl final : public StatusService::Service
 {
 public:
 	StatusServiceImpl();
+	//供网关获取候选聊天实例并签发token，业务失败通过reply中的error返回
 	Status GetChatServer(ServerContext* context, const GetChatServerReq* request,
-		GetChatServerRsp* reply) override; //重写基类的虚函数, 获取连接数最少的聊天服务器信息, 返回给客户端
+		GetChatServerRsp* reply) override;
+	//校验uid和token的RPC接口；ChatServer当前直接读Redis校验，并未调用这个接口
 	Status Login(ServerContext* context, const LoginReq* request,
-		LoginRsp* reply) override; //重写基类的虚函数, 客户端登录, 验证用户id和token, 返回登录结果给客户端
+		LoginRsp* reply) override;
 
 private:
-	void insertToken(int uid, std::string token); //将用户id和token插入到用户token列表中
-	ChatServer getChatServer(); //从服务器列表中返回连接数最少的服务器信息
+	bool insertToken(int uid, std::string token); //写入用户token，并返回Redis写入是否成功
+	ChatServer getChatServer(); //选择连接数最小的有效候选，没有候选时返回name为空的结构
 
 	std::unordered_map<std::string, ChatServer> _servers; //服务器列表, key为服务器名称, value为服务器信息
 	std::mutex _server_mtx; //服务器列表的互斥锁, 保护_servers的线程安全

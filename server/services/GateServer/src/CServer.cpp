@@ -14,7 +14,7 @@ void CServer::Start() {
 	//创建一个新的HttpConnection对象, 用于监听和管理
 	std::shared_ptr<HttpConnection> new_con = std::make_shared<HttpConnection>(io_context);
 
-	//异步接受连接, 先用HttpConnection的socket来监听连接, 
+	//异步接受连接, 先用HttpConnection的socket来监听连接,
 	_acceptor.async_accept(new_con->GetSocket(), [self, new_con](beast::error_code ec) {
 		try {
 			//出错放弃这链接, 继续监听其他链接

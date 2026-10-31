@@ -21,6 +21,11 @@ int main()
 		builder.RegisterService(&service);
 
 		std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+        //端口占用等原因可能使BuildAndStart返回空指针，启动失败时直接退出，不能继续调用Wait或Shutdown
+        if (!server) {
+            std::cerr << "Cannot start gRPC server on " << server_address << std::endl;
+            return EXIT_FAILURE;
+        }
 		std::cout << "Server listening on " << server_address << std::endl;
 
 		boost::asio::io_context io_context;
@@ -33,10 +38,12 @@ int main()
 			}
 			});
 
-		std::thread([&io_context]() { io_context.run(); }).detach(); //单独线程跑信号监听
+		std::thread signal_thread([&io_context]() { io_context.run(); }); //单独运行信号处理，主线程在Wait中等待服务结束
 
 		server->Wait(); //阻塞直到服务器关闭
 		io_context.stop();
+        //信号线程引用了局部io_context，必须等线程退出后才能离开作用域，不能让线程访问已析构的对象
+        signal_thread.join();
 		EmailSender::UninitSSL();
 	}
 	catch (std::exception const& e) {

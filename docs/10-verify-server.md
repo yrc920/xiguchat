@@ -52,7 +52,7 @@ flowchart TB
 | `CODE_EXPIRE_SECONDS` | `600` | `const.h` |
 | `CODE_LENGTH` | `4` | `const.h` |
 
-> 提示文案写的是"三分钟内完成注册"，而实际 TTL 是 600 秒（10 分钟），两者不一致。
+> 邮件文案按 `CODE_EXPIRE_SECONDS` 计算分钟数，与 Redis TTL 一致（当前为 10 分钟）。
 
 ### 验证码生成
 
@@ -149,7 +149,6 @@ flowchart TB
 
 | 问题 | 说明 |
 | --- | --- |
-| 提示文案与 TTL 不一致 | "三分钟" vs 600 秒 |
 | 验证码不失效 | 注册/改密成功后未 `DEL code_<email>`，10 分钟内可重复使用 |
 | 无发送频率限制 | 同一邮箱可被无限次触发发信，存在被滥用于邮件轰炸的风险 |
 | 邮件内容硬编码 | 文案写死在 `VerifyServiceImpl` 中，未做模板化或多语言 |

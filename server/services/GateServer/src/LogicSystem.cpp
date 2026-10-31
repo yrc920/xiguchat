@@ -23,16 +23,15 @@ LogicSystem::LogicSystem() {
 	RegPost("/get_verifycode", [](std::shared_ptr<HttpConnection> connection) {
 		//将请求体中的数据转换为字符串
 		auto body_str = beast::buffers_to_string(connection->_request.body().data());
-		std::cout << "receive body is " << body_str << std::endl;
-		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+		connection->_response.set(http::field::content_type, "application/json"); //设置响应内容类型为JSON
 
 		Json::Value root; //用于构建响应的JSON数据
 		Json::Reader reader; //用于解析请求体中的JSON数据
 		Json::Value src_root; //用于存储解析后的JSON数据
-		//解析请求体中的JSON数据, 将解析结果存储到src_root中 
+		//解析请求体中的JSON数据, 将解析结果存储到src_root中
 		bool parse_success = reader.parse(body_str, src_root);
-		//如果解析失败或者请求体中没有email字段, 则返回错误信息
-		if (!parse_success || !src_root.isMember("email")) {
+		//请求体必须是对象，email必须是字符串；先检查类型再取值，避免数组或对象触发转换异常
+		if (!parse_success || !src_root.isObject() || !src_root["email"].isString()) {
 			std::cout << "Failed to parse JSON data!" << std::endl;
 			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
 			//将JSON数据转换为字符串, 并写入响应内容中
@@ -58,19 +57,18 @@ LogicSystem::LogicSystem() {
     RegPost("/user_register", [](std::shared_ptr<HttpConnection> connection) {
 		//将请求体中的数据转换为字符串
         auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-        std::cout << "receive body is " << body_str << std::endl;
-		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+		connection->_response.set(http::field::content_type, "application/json"); //设置响应内容类型为JSON
 
 		Json::Value root; //用于构建响应的JSON数据
 		Json::Reader reader; //用于解析请求体中的JSON数据
 		Json::Value src_root; //用于存储解析后的JSON数据
 		//解析请求体中的JSON数据, 将解析结果存储到src_root中
         bool parse_success = reader.parse(body_str, src_root);
-		//如果解析失败或者请求体中没有email、user、passwd、confirm和verifycode字段, 则返回错误信息
-        if (!parse_success || 
-			!src_root.isMember("email") || !src_root.isMember("user") || 
-			!src_root.isMember("passwd") || !src_root.isMember("confirm") || 
-			!src_root.isMember("verifycode")) {
+		//注册字段不仅要存在，还必须都是字符串，后面才可以安全地读取邮箱、账号、密码和验证码
+        if (!parse_success || !src_root.isObject() ||
+			!src_root["email"].isString() || !src_root["user"].isString() ||
+			!src_root["passwd"].isString() || !src_root["confirm"].isString() ||
+			!src_root["verifycode"].isString()) {
             std::cout << "Failed to parse JSON data!" << std::endl;
 			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
 			//将JSON数据转换为字符串, 并写入响应内容中
@@ -136,7 +134,6 @@ LogicSystem::LogicSystem() {
 		root["email"] = email;
 		root["user"] = name;
 		//响应中不再回传密码与验证码
-        root["verifycode"] = src_root["verifycode"].asString();
 		//将JSON数据转换为字符串, 并写入响应内容中
         std::string jsonstr = root.toStyledString();
         beast::ostream(connection->_response.body()) << jsonstr;
@@ -147,16 +144,16 @@ LogicSystem::LogicSystem() {
     RegPost("/reset_pwd", [](std::shared_ptr<HttpConnection> connection) {
         //将请求体中的数据转化为字符串
         auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-        std::cout << "receive body is " << body_str << std::endl;
-		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+		connection->_response.set(http::field::content_type, "application/json"); //设置响应内容类型为JSON
 
 		Json::Value root; //用于构建响应的JSON数据
 		Json::Reader reader; //用于解析请求体中的JSON数据
 		Json::Value src_root; //用于存储解析后的JSON数据
 		//解析请求体中的JSON数据, 将解析结果存储到src_root中
         bool parse_success = reader.parse(body_str, src_root);
-		//如果解析失败, 则返回错误信息
-        if (!parse_success) {
+		//改密请求必须同时提供字符串类型的邮箱、用户名、新密码和验证码，缺字段或类型不符都返回JSON错误
+        if (!parse_success || !src_root.isObject() || !src_root["email"].isString() ||
+            !src_root["user"].isString() || !src_root["passwd"].isString() || !src_root["verifycode"].isString()) {
             std::cout << "Failed to parse JSON data!" << std::endl;
 			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
 			//将JSON数据转换为字符串, 并写入响应内容中
@@ -223,7 +220,6 @@ LogicSystem::LogicSystem() {
         root["email"] = email;
         root["user"] = name;
 		//响应中不再回传密码
-        root["verifycode"] = src_root["verifycode"].asString();
 		//将JSON数据转换为字符串, 并写入响应内容中
 		std::string jsonstr = root.toStyledString();
         beast::ostream(connection->_response.body()) << jsonstr;
@@ -234,16 +230,16 @@ LogicSystem::LogicSystem() {
     RegPost("/user_login", [](std::shared_ptr<HttpConnection> connection) {
 		//将请求体中的数据转换为字符串
         auto body_str = boost::beast::buffers_to_string(connection->_request.body().data());
-        std::cout << "receive body is " << body_str << std::endl;
-		connection->_response.set(http::field::content_type, "text/json"); //设置响应内容类型为JSON
+		connection->_response.set(http::field::content_type, "application/json"); //设置响应内容类型为JSON
 
 		Json::Value root; //用于构建响应的JSON数据
 		Json::Reader reader; //用于解析请求体中的JSON数据
 		Json::Value src_root; //用于存储解析后的JSON数据
 		//解析请求体中的JSON数据, 将解析结果存储到src_root中
         bool parse_success = reader.parse(body_str, src_root);
-		//如果解析失败, 则返回错误信息
-        if (!parse_success) {
+		//登录入口只接受对象形式的请求，并检查邮箱和密码类型，避免错误字段进入数据库验证流程
+        if (!parse_success || !src_root.isObject() ||
+            !src_root["email"].isString() || !src_root["passwd"].isString()) {
             std::cout << "Failed to parse JSON data!" << std::endl;
 			root["error"] = ErrorCodes::Error_Json; //设置错误码为JSON解析错误
 			//将JSON数据转换为字符串, 并写入响应内容中

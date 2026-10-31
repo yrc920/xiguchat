@@ -24,6 +24,7 @@ class LogicSystem :public Singleton<LogicSystem>
 	friend class Singleton<LogicSystem>; //允许Singleton类访问LogicSystem的私有成员
 public:
 	~LogicSystem(); //使基类析构时可以访问派生类的析构函数
+    void Stop(); //由主线程停服，在 Redis 与 io_context 销毁前结束业务线程
 	void PostMsgToQue(std::shared_ptr<LogicNode> msg); //将消息节点添加到消息队列中，供逻辑处理线程处理
     void SetServer(std::shared_ptr<CServer> pserver);
 

@@ -7,7 +7,7 @@
 #
 #  依赖: xigu_proto（共享 proto 库）+ gRPC/protobuf + Boost
 #        + hiredis + jsoncpp + mysql-connector-cpp
-#  产物: 构建目录 bin/<实例名>/ 下（三平台同一布局，Debug/Release 由预设决定）
+#  产物: 单配置为 bin/<实例名>/；多配置为 bin/<实例名>/<配置名>/
 # ============================================================
 
 set(SERVER_NAME ChatServer)
@@ -36,12 +36,13 @@ set(SERVER_SOURCES
 )
 
 # ---------- 头文件清单 ----------
-# 与源文件一一对应；列出头文件让 CMake 感知依赖
+# 列出头文件便于 IDE 展示，实际的 #include 依赖由编译器在构建时追踪
 set(SERVER_HEADERS
     include/ChatServiceImpl.h
     include/CServer.h
     include/CSession.h
     include/LogicSystem.h
+    include/RequestValidation.h
     include/MsgNode.h
     include/ConfigMgr.h
     include/IOContextPool.h
@@ -64,7 +65,7 @@ file(GLOB CHAT_INSTANCE_CONFIGS CONFIGURE_DEPENDS
      "${CMAKE_CURRENT_SOURCE_DIR}/config/*.ini")
 if(NOT CHAT_INSTANCE_CONFIGS)
     # 实例配置含本机地址与密钥，仓库只有 *.ini.example；
-    # 首次构建据此生成实例配置，clone 后无需手工准备即可构建运行
+    # 首次构建据此生成实例配置；运行前仍需检查实例名称、端口和数据库等实际配置
     file(GLOB CHAT_INSTANCE_EXAMPLES "${CMAKE_CURRENT_SOURCE_DIR}/config/*.ini.example")
     if(NOT CHAT_INSTANCE_EXAMPLES)
         message(FATAL_ERROR
@@ -146,23 +147,23 @@ endif()
 #     vcpkg applocal 会在链接后递归解析，把直接依赖和间接依赖的 DLL
 #     （如 mysqlcppconnx 依赖的 OpenSSL libssl/libcrypto、zlib）
 #     一并拷入主实例目录。
-#   · macOS / Linux（vcpkg 默认静态三元组）：第三方依赖静态链接进
-#     可执行文件，无需额外部署库文件；若将来改为动态链接，.dylib/.so
-#     同样只会落在主实例目录。
-# 即无论哪个平台，主实例目录都是唯一由构建系统完整填充的目录，
-# 因此非主实例直接整目录复制主实例产物，即可保证每个实例目录的
-# 内容完全一致，无需按平台分别处理依赖清单。
+#   · macOS / Linux：默认 triplet 的多数依赖静态链接，个别端口可用
+#     动态库，构建产物通过 rpath 引用安装目录；复制实例目录不会自动
+#     打包这些外部 .dylib/.so，跨机器部署时需另行处理。
+# 非主实例复制主实例产物与已部署的 DLL，再覆盖自己的配置。
+# 这保证同一构建环境下可启动，不等同于可跨机器搬迁的安装包。
 foreach(cfg_path IN LISTS CHAT_INSTANCE_CONFIGS)
     get_filename_component(inst_name "${cfg_path}" NAME_WE)
     set(inst_dir "${CMAKE_BINARY_DIR}/bin/${inst_name}${CHAT_INSTANCE_DIR_SUFFIX}")
 
-    # 非主实例：整目录复制主实例产物（可执行文件 + 全部依赖库）
+    # 非主实例：整目录复制主实例产物（可执行文件 + 已部署到目录中的依赖库）
     if(NOT inst_name STREQUAL CHAT_PRIMARY_NAME)
         add_custom_command(TARGET ${SERVER_NAME} POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E make_directory "${inst_dir}"
             COMMAND ${CMAKE_COMMAND} -E copy_directory
                 "${CMAKE_BINARY_DIR}/bin/${CHAT_PRIMARY_NAME}${CHAT_INSTANCE_DIR_SUFFIX}"
                 "${inst_dir}"
+            VERBATIM
             COMMENT "Deploy ChatServer -> bin/${inst_name}")
     endif()
 
@@ -172,5 +173,6 @@ foreach(cfg_path IN LISTS CHAT_INSTANCE_CONFIGS)
     add_custom_command(TARGET ${SERVER_NAME} POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${cfg_path}" "${inst_dir}/config.ini"
+        VERBATIM
         COMMENT "Deploy config.ini -> bin/${inst_name}")
 endforeach()

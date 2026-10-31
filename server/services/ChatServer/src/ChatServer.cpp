@@ -38,6 +38,11 @@ int main()
 
 		//构建并启动gRPC服务器
 		std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
+        //端口占用等原因可能使BuildAndStart返回空指针，启动失败时直接退出，不能继续调用Wait或Shutdown
+        if (!server) {
+            std::cerr << "Cannot start gRPC server on " << server_address << std::endl;
+            return EXIT_FAILURE;
+        }
 		std::cout << "RPC Server listening on " << server_address << std::endl;
 
 		//单独启动一个线程处理grpc服务
@@ -60,6 +65,7 @@ int main()
 
 		grpc_server_thread.join(); //等待grpc服务线程结束
 	    pointer_server->StopTimer(); //停止定时器
+        LogicSystem::GetInstance()->Stop(); //先结束业务处理，再关闭 Redis 和主 io_context
 	    return 0;
 	}
 	catch (std::exception& e) {

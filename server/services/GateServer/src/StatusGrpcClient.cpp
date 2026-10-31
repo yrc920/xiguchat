@@ -1,3 +1,4 @@
+#include <chrono>
 #include "StatusGrpcClient.h"
 #include "ConfigMgr.h"
 
@@ -13,6 +14,8 @@ StatusGrpcClient::StatusGrpcClient()
 GetChatServerRsp StatusGrpcClient::GetChatServer(int uid)
 {
 	ClientContext context; //创建Grpc客户端上下文对象
+	//为同步RPC设置5秒截止时间，避免对端无响应时业务线程一直等待；连接池等待本身仍由池管理
+	context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(5));
 	GetChatServerRsp reply; //RPC调用结果的响应对象
 	GetChatServerReq request; //RPC调用的请求对象
 	request.set_uid(uid); //设置请求对象的uid字段为传入的参数uid

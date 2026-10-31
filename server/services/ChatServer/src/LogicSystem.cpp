@@ -7,6 +7,8 @@
 #include "ChatGrpcClient.h"
 #include "ConfigMgr.h"
 #include "CServer.h"
+#include "RequestValidation.h"
+#include <charconv>
 
 LogicSystem::LogicSystem() :_b_stop(false), _p_server(nullptr)
 {
@@ -17,17 +19,27 @@ LogicSystem::LogicSystem() :_b_stop(false), _p_server(nullptr)
 
 LogicSystem::~LogicSystem()
 {
-	_b_stop = true; //设置停止标志，通知逻辑处理线程退出
+    Stop();
+}
+
+void LogicSystem::Stop()
+{
+    //停止标志和队列由同一把锁保护，避免消费者检查状态后进入等待却错过停止通知
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+        _b_stop = true;
+    }
 	_consume.notify_one(); //发送通知信号，唤醒逻辑处理线程
-	_worker_thread.join(); //等待逻辑处理线程退出，确保资源的正确释放
+    if (_worker_thread.joinable()) _worker_thread.join(); //等待剩余消息处理结束，重复Stop时不再join
+    _p_server.reset(); //业务线程退出后释放服务器引用，避免服务器存活时间超过它依赖的主io_context
 }
 
 void LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> msg)
 {
 	std::unique_lock<std::mutex> unique_lk(_mutex); //使用unique_lock保护消息队列，确保线程安全
 
-	//如果消息队列的大小超过了预设的最大值，输出警告信息并返回，避免过多的消息积压在队列中
-	if (_msg_que.size() > MAX_LOGICQUE) {
+	//停服后不再接收新消息；队列达到上限时丢弃当前消息，避免业务处理过慢造成持续积压
+	if (_b_stop || _msg_que.size() >= MAX_LOGICQUE) {
 		std::cout << "logic system msg que fulled, size is " << MAX_LOGICQUE << std::endl;
 		return;
 	}
@@ -42,56 +54,55 @@ void LogicSystem::PostMsgToQue(std::shared_ptr<LogicNode> msg)
 }
 
 void LogicSystem::SetServer(std::shared_ptr<CServer> pserver) {
-    _p_server = pserver; //将CServer对象注册到LogicSystem中，方便在逻辑处理过程中访问服务器相关功能
+    //主线程在开始处理accept事件前登记服务器，业务线程之后才能检查连接是否仍然有效
+    _p_server = pserver;
 }
 
 void LogicSystem::DealMsg() {
-	for (;;) {
-		std::unique_lock<std::mutex> unique_lk(_mutex); //使用unique_lock保护消息队列，确保线程安全
-		//判断队列为空则用条件变量阻塞等待，并释放锁
-		while (_msg_que.empty() && !_b_stop) {
-			_consume.wait(unique_lk);
-		}
-
-		//如果是关闭状态，把所有逻辑执行完后则退出循环
-		if (_b_stop) {
-			//继续处理完队列中的消息
-			while (!_msg_que.empty()) {
-				auto msg_node = _msg_que.front(); //获取队列中的第一个消息节点
-				std::cout << "recv_msg id  is " << msg_node->_recvnode->_msg_id << std::endl;
-				//根据消息ID查找对应的处理函数
-				auto call_back_iter = _fun_callbacks.find(msg_node->_recvnode->_msg_id);
-				//如果没有找到对应的处理函数
-				if (call_back_iter == _fun_callbacks.end()) {
-					_msg_que.pop(); //从队列中移除当前消息节点
-					continue;
-				}
-
-				//调用对应的处理函数，传入会话对象、消息ID和消息数据
-				call_back_iter->second(msg_node->_session, msg_node->_recvnode->_msg_id,
-					std::string(msg_node->_recvnode->_data, msg_node->_recvnode->_cur_len));
-				_msg_que.pop(); //从队列中移除当前消息节点
-			}
-			break;
-		}
-
-		//如果没有停服，说明队列中有数据
-		auto msg_node = _msg_que.front(); //获取队列中的第一个消息节点
-		std::cout << "recv_msg id  is " << msg_node->_recvnode->_msg_id << std::endl;
-		//根据消息ID查找对应的处理函数
-		auto call_back_iter = _fun_callbacks.find(msg_node->_recvnode->_msg_id);
-		//如果没有找到对应的处理函数，说明这个消息ID没有注册处理函数
-		if (call_back_iter == _fun_callbacks.end()) {
-			_msg_que.pop(); //从队列中移除当前消息节点
-			std::cout << "msg id [" << msg_node->_recvnode->_msg_id << "] handler not found" << std::endl;
-			continue;
-		}
-
-		//调用对应的处理函数，传入会话对象、消息ID和消息数据
-		call_back_iter->second(msg_node->_session, msg_node->_recvnode->_msg_id,
-			std::string(msg_node->_recvnode->_data, msg_node->_recvnode->_cur_len));
-		_msg_que.pop(); //从队列中移除当前消息节点
-	}
+    for (;;) {
+        std::shared_ptr<LogicNode> node;
+        {
+            std::unique_lock<std::mutex> lock(_mutex);
+            //条件变量等待时释放队列锁，收到通知后重新检查条件，也能处理没有实际消息的虚假唤醒
+            _consume.wait(lock, [this] { return _b_stop || !_msg_que.empty(); });
+            if (_msg_que.empty()) return; //被唤醒且队列为空，说明正在停服且剩余消息已经处理完
+            node = _msg_que.front(); //保存当前消息的共享指针，出队后仍能访问会话和消息内容
+            _msg_que.pop();
+        }
+        //离开作用域后释放队列锁，再执行可能阻塞的数据库或RPC调用，避免IO线程也跟着等待
+        auto session = node->_session;
+        const auto id = node->_recvnode->_msg_id;
+        auto handler = _fun_callbacks.find(id);
+        //消息排队期间连接可能断开或被踢下线，不能只依赖接收消息时的连接状态
+        if (handler == _fun_callbacks.end() || session->IsClosed() ||
+            !_p_server || !_p_server->CheckValid(session->GetSessionId())) continue;
+        try {
+            std::string data(node->_recvnode->_data, node->_recvnode->_cur_len);
+            Json::Value root;
+            Json::Reader reader;
+            //先检查JSON语法，再统一检查字段类型、登录状态和操作者uid，handler只处理通过校验的请求
+            auto error = reader.parse(data, root)
+                ? ValidateChatRequest(id, root, session->GetUserId()) : Error_Json;
+            //会话中有uid并不代表它还是当前登录连接，还要确认UserMgr中的uid确实指向这条会话
+            //这样被新连接替代的会话即使还有排队消息，也不能继续执行好友或聊天操作
+            if (error == Success && id != MSG_CHAT_LOGIN &&
+                UserMgr::GetInstance()->GetSession(session->GetUserId()) != session) {
+                error = TokenInvalid;
+            }
+            if (error != Success) {
+                Json::Value response;
+                response["error"] = error;
+                session->Send(response.toStyledString(), id + 1); //已注册的请求，其响应ID均为请求ID加1
+                continue;
+            }
+            handler->second(session, id, data);
+        } catch (const std::exception& error) {
+            //异常在单条消息的边界处理，关闭对应连接后继续消费其他消息，避免异常逃出线程导致进程终止
+            std::cerr << "Chat request failed: " << error.what() << std::endl;
+            session->Close();
+            session->DealExceptionSession();
+        }
+    }
 }
 
 void LogicSystem::RegisterCallBacks()
@@ -127,8 +138,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 
 	auto uid = root["uid"].asInt(); //从解析后的Json对象中获取用户ID
 	auto token = root["token"].asString(); //从解析后的Json对象中获取用户token
-	std::cout << "user login uid is  " << uid << " user token  is "
-		<< token << std::endl;
+        std::cout << "user uid is " << uid << std::endl;
 
 	Json::Value rtvalue; //创建Json值对象，用于存储返回给客户端的数据
 	Defer defer([this, &rtvalue, session]() {
@@ -137,6 +147,11 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 		//通过会话对象发送消息给客户端, 消息ID为用户登陆回包
 		session->Send(return_str, MSG_CHAT_LOGIN_RSP);
 		});
+
+    //会话锁覆盖登录登记过程，断连清理必须等待登记结束后才能读取uid并删除状态
+    //锁对象声明在回包Defer之后，因此退出时先解锁再回包，发送失败触发清理时不会重复获取自身持有的锁
+    auto lifecycle = session->LockLifecycle();
+    if (session->IsClosed()) return; //等待会话锁期间连接可能已经关闭
 
 	//从redis获取用户token是否正确
 	std::string uid_str = std::to_string(uid); //将用户ID转换为字符串形式
@@ -166,7 +181,6 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	}
 	//将用户基本信息填充到Json值对象中，准备返回给客户端
 	rtvalue["uid"] = uid;
-	rtvalue["pwd"] = user_info->pwd;
 	rtvalue["name"] = user_info->name;
 	rtvalue["email"] = user_info->email;
 	rtvalue["nick"] = user_info->nick;
@@ -210,23 +224,33 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	//从配置文件中获取自身服务器的名称
 	auto server_name = ConfigMgr::Inst().GetValue("SelfServer", "Name");
     {
-	    //此处添加分布式锁，让该线程独占登录
-	    //拼接用户ip对应的key
+	    //会话锁只保护当前连接，用户锁则用于协调同一uid在不同连接、不同实例上的登录与清理
+	    //获取用户锁后，才能检查已有登录位置、通知下线并登记当前会话
 	    auto lock_key = LOCK_PREFIX + uid_str;
 	    auto identifier = RedisMgr::GetInstance()->acquireLock(lock_key, LOCK_TIME_OUT, ACQUIRE_TIME_OUT);
+        if (identifier.empty()) { //未获得锁时返回失败，不能继续覆盖共享登录状态
+            rtvalue["error"] = ErrorCodes::RPCFailed;
+            return;
+        }
+
 
 	    //利用defer解锁
 	    Defer defer2([this, identifier, lock_key]() {
             RedisMgr::GetInstance()->releaseLock(lock_key, identifier);
             });
+        //等待分布式锁期间Close仍可标记连接关闭，因此拿到锁后还要再次检查连接是否有效
+        if (session->IsClosed() || !_p_server->CheckValid(session->GetSessionId())) {
+            rtvalue["error"] = ErrorCodes::TokenInvalid;
+            return;
+        }
 	    //此处判断该用户是否在别处或者本服务器登录
 
 	    std::string uid_ip_value = "";
 	    auto uid_ip_key = USERIPPREFIX + uid_str;
 	    bool b_ip = RedisMgr::GetInstance()->Get(uid_ip_key, uid_ip_value);
-	    //说明用户已经登录了，此处应该踢掉之前的用户登录状态
+	    //位置键表示最近登记的实例，不保证对应连接仍然在线；本实例继续查会话，跨实例发RPC通知
 	    if (b_ip) {
-	        //获取当前服务器ip信息
+	        //获取当前实例名称，与Redis中的位置值比较，判断能否直接从本地找到用户会话
 	        auto& cfg = ConfigMgr::Inst();
 	        auto self_name = cfg["SelfServer"]["Name"];
 	        //如果之前登录的服务器和当前相同，则直接在本服务器踢掉
@@ -237,7 +261,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	            //此处应该发送踢人消息
 	            if (old_session) {
 	                old_session->NotifyOffline(uid);
-	                //清除旧的连接
+	                //移除旧连接的本地登记，使它不能继续处理业务；这里并不直接关闭socket
 	                _p_server->ClearSession(old_session->GetSessionId());
 	            }
 	        }
@@ -251,8 +275,8 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	    }
 
 	    session->SetUserId(uid); //session绑定用户uid
-	    std::string ipkey = USERIPPREFIX + uid_str; //为用户设置登录ip server的名字
-	    RedisMgr::GetInstance()->Set(ipkey, server_name); //将用户登录ip server的名字写入Redis
+	    std::string ipkey = USERIPPREFIX + uid_str; //用户所在实例的位置键
+	    RedisMgr::GetInstance()->Set(ipkey, server_name); //保存实例名称，供消息路由查找对应的RPC连接池
 	    UserMgr::GetInstance()->SetUserSession(uid, session); //将用户ID和会话对象绑定，方便踢人操作
 	    std::string uid_session_key = USER_SESSION_PREFIX + uid_str; //为用户设置session的名字
 	    //将用户session的名字写入Redis
@@ -299,8 +323,7 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session,
 	auto applyname = root["applyname"].asString();
 	auto bakname = root["bakname"].asString();
 	auto touid = root["touid"].asInt();
-	std::cout << "user login uid is  " << uid << " applyname  is "
-		<< applyname << " bakname is " << bakname << " touid is " << touid << std::endl;
+        std::cout << "user uid is " << uid << std::endl;
 
 	Json::Value rtvalue; //创建Json值对象，用于存储返回给客户端的数据
 	rtvalue["error"] = ErrorCodes::Success; //默认返回成功状态码
@@ -311,7 +334,10 @@ void LogicSystem::AddFriendApply(std::shared_ptr<CSession> session,
 		session->Send(return_str, ID_ADD_FRIEND_RSP);
 		});
 
-	MysqlMgr::GetInstance()->AddFriendApply(uid, touid); //将好友申请信息写入数据库
+    if (!MysqlMgr::GetInstance()->AddFriendApply(uid, touid)) {
+        rtvalue["error"] = ErrorCodes::RPCFailed;
+        return;
+    }
 
 	auto to_str = std::to_string(touid);
 	auto to_ip_key = USERIPPREFIX + to_str; //构建目标用户登录ip server的名字在Redis中的键名
@@ -404,11 +430,12 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session,
 		session->Send(return_str, ID_AUTH_FRIEND_RSP);
 		});
 
-	//先更新数据库
-	MysqlMgr::GetInstance()->AuthFriendApply(uid, touid);
-
-	//更新数据库添加好友
-	MysqlMgr::GetInstance()->AddFriend(uid, touid, back_name);
+    if (!b_info) return;
+    //DAO在同一事务中检查申请、确认状态并建立双向好友关系，只有提交成功后才通知对方
+    if (!MysqlMgr::GetInstance()->AddFriend(uid, touid, back_name)) {
+        rtvalue["error"] = ErrorCodes::RPCFailed;
+        return;
+    }
 
 	//查询redis 查找touid对应的server ip
 	auto to_str = std::to_string(touid);
@@ -520,7 +547,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 	}
 
 	//发送通知 todo...
-	ChatGrpcClient::GetInstance()->NotifyTextChatMsg(to_ip_value, text_msg_req, rtvalue);
+	rtvalue["error"] = ChatGrpcClient::GetInstance()->NotifyTextChatMsg(to_ip_value, text_msg_req, rtvalue).error();
 }
 
 void LogicSystem::HeartBeatHandler(std::shared_ptr<CSession> session,
@@ -538,7 +565,8 @@ void LogicSystem::HeartBeatHandler(std::shared_ptr<CSession> session,
 
 bool LogicSystem::isPureDigit(const std::string& str)
 {
-	for (char c : str) {
+    if (str.empty()) return false;
+	for (unsigned char c : str) {
 		//如果字符串中的某个字符不是数字，则返回false，说明字符串不是纯数字
 		if (!std::isdigit(c)) {
 			return false;
@@ -562,17 +590,14 @@ void LogicSystem::GetUserByUid(std::string uid_str, Json::Value& rtvalue)
 		//从解析后的Json对象中获取用户基本信息
 		auto uid = root["uid"].asInt();
 		auto name = root["name"].asString();
-		auto pwd = root["pwd"].asString();
 		auto email = root["email"].asString();
 		auto nick = root["nick"].asString();
 		auto desc = root["desc"].asString();
 		auto sex = root["sex"].asInt();
 		auto icon = root["icon"].asString();
-		std::cout << "user  uid is  " << uid << " name  is " << name
-			<< " pwd is " << pwd << " email is " << email << " icon is " << icon << std::endl;
+
 		//将用户基本信息填充到返回值Json对象中，准备返回给客户端
 		rtvalue["uid"] = uid;
-		rtvalue["pwd"] = pwd;
 		rtvalue["name"] = name;
 		rtvalue["email"] = email;
 		rtvalue["nick"] = nick;
@@ -582,7 +607,13 @@ void LogicSystem::GetUserByUid(std::string uid_str, Json::Value& rtvalue)
 		return;
 	}
 
-	auto uid = std::stoi(uid_str); //将用户ID字符串转换为整数
+	int uid = 0;
+    //纯数字字符串也可能超出int范围，from_chars通过错误码报告失败，不会像stoi一样抛出异常
+    auto [end, error] = std::from_chars(uid_str.data(), uid_str.data() + uid_str.size(), uid);
+    if (error != std::errc{} || end != uid_str.data() + uid_str.size() || uid <= 0) {
+        rtvalue["error"] = ErrorCodes::UidInvalid;
+        return;
+    }
 	//redis中没有则查询mysql
 	std::shared_ptr<UserInfo> user_info = nullptr;
 	user_info = MysqlMgr::GetInstance()->GetUser(uid); //根据用户ID从MySQL数据库中获取用户信息
@@ -595,7 +626,6 @@ void LogicSystem::GetUserByUid(std::string uid_str, Json::Value& rtvalue)
 	//将数据库内容写入redis缓存
 	Json::Value redis_root;
 	redis_root["uid"] = user_info->uid;
-	redis_root["pwd"] = user_info->pwd;
 	redis_root["name"] = user_info->name;
 	redis_root["email"] = user_info->email;
 	redis_root["nick"] = user_info->nick;
@@ -606,7 +636,6 @@ void LogicSystem::GetUserByUid(std::string uid_str, Json::Value& rtvalue)
 
 	//返回数据
 	rtvalue["uid"] = user_info->uid;
-	rtvalue["pwd"] = user_info->pwd;
 	rtvalue["name"] = user_info->name;
 	rtvalue["email"] = user_info->email;
 	rtvalue["nick"] = user_info->nick;
@@ -630,16 +659,13 @@ void LogicSystem::GetUserByName(std::string name, Json::Value& rtvalue)
 		//从解析后的Json对象中获取用户基本信息
 		auto uid = root["uid"].asInt();
 		auto name = root["name"].asString();
-		auto pwd = root["pwd"].asString();
 		auto email = root["email"].asString();
 		auto nick = root["nick"].asString();
 		auto desc = root["desc"].asString();
 		auto sex = root["sex"].asInt();
-		std::cout << "user  uid is  " << uid << " name  is "
-			<< name << " pwd is " << pwd << " email is " << email << std::endl;
+
 		//将用户基本信息填充到返回值Json对象中，准备返回给客户端
 		rtvalue["uid"] = uid;
-		rtvalue["pwd"] = pwd;
 		rtvalue["name"] = name;
 		rtvalue["email"] = email;
 		rtvalue["nick"] = nick;
@@ -660,7 +686,6 @@ void LogicSystem::GetUserByName(std::string name, Json::Value& rtvalue)
 	//将数据库内容写入redis缓存
 	Json::Value redis_root;
 	redis_root["uid"] = user_info->uid;
-	redis_root["pwd"] = user_info->pwd;
 	redis_root["name"] = user_info->name;
 	redis_root["email"] = user_info->email;
 	redis_root["nick"] = user_info->nick;
@@ -670,7 +695,6 @@ void LogicSystem::GetUserByName(std::string name, Json::Value& rtvalue)
 
 	//返回数据
 	rtvalue["uid"] = user_info->uid;
-	rtvalue["pwd"] = user_info->pwd;
 	rtvalue["name"] = user_info->name;
 	rtvalue["email"] = user_info->email;
 	rtvalue["nick"] = user_info->nick;
@@ -690,15 +714,12 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 		reader.parse(info_str, root);
 		userinfo->uid = root["uid"].asInt();
 		userinfo->name = root["name"].asString();
-		userinfo->pwd = root["pwd"].asString();
 		userinfo->email = root["email"].asString();
 		userinfo->nick = root["nick"].asString();
 		userinfo->desc = root["desc"].asString();
 		userinfo->sex = root["sex"].asInt();
 		userinfo->icon = root["icon"].asString();
-		std::cout << "user login uid is  " << userinfo->uid << " name  is "
-			<< userinfo->name << " pwd is " << userinfo->pwd << " email is "
-			<< userinfo->email << std::endl;
+
 	}
 	else
 	{
@@ -716,7 +737,6 @@ bool LogicSystem::GetBaseInfo(std::string base_key, int uid, std::shared_ptr<Use
 		//将数据库内容写入redis缓存
 		Json::Value redis_root;
 		redis_root["uid"] = uid;
-		redis_root["pwd"] = userinfo->pwd;
 		redis_root["name"] = userinfo->name;
 		redis_root["email"] = userinfo->email;
 		redis_root["nick"] = userinfo->nick;

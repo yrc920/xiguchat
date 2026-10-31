@@ -6,7 +6,8 @@
 
 class HttpConnection : public std::enable_shared_from_this<HttpConnection>
 {
-	friend class LogicSystem; //使LogicSystem可以访问HttpConnection的私有成员, 以便在处理请求时设置响应内容
+	//使LogicSystem可以访问HttpConnection的私有成员, 以便在处理请求时设置响应内容
+	friend class LogicSystem;
 public:
 	HttpConnection(boost::asio::io_context& ioc);
 	void Start(); //开始处理连接
@@ -22,7 +23,7 @@ private:
 	beast::flat_buffer _buffer{ 8192 }; //用于执行读操作的缓冲区
 	http::request<http::dynamic_body> _request; //请求消息
 	http::response<http::dynamic_body> _response; //响应消息
-	// 用于在连接处理上设置截止时间的定时器
+	//用于在连接处理上设置截止时间的定时器
 	net::steady_timer deadline_{
 		_socket.get_executor(), std::chrono::seconds(60)
 	};

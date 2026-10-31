@@ -9,7 +9,7 @@
 class VerifyServiceImpl final : public message::VerifyService::Service
 {
 public:
-	// RPC 入口：request 携带邮箱，response 回填错误码与邮箱
+	//RPC 入口：request 携带邮箱，response 回填错误码与邮箱
 	grpc::Status GetVerifyCode(grpc::ServerContext* context,
 		const message::GetVerifyReq* request,
 		message::GetVerifyRsp* response) override;

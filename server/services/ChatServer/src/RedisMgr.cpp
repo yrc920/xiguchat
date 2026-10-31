@@ -60,7 +60,7 @@ bool RedisMgr::Set(const std::string& key, const std::string& value)
 	//如果返回NULL则说明执行失败, 释放连接并返回false
 	if (NULL == reply)
 	{
-		std::cout << "Execut command [ SET " << key << "  " << value << " ] failure ! " << std::endl;
+		std::cout << "Execut command [ SET " << key << " ] failure ! " << std::endl;
 		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 		return false;
@@ -68,14 +68,14 @@ bool RedisMgr::Set(const std::string& key, const std::string& value)
 	//如果返回的类型不是状态或者状态不是OK, 则说明执行失败, 释放连接并返回false
 	if (!(reply->type == REDIS_REPLY_STATUS && (strcmp(reply->str, "OK") == 0 || strcmp(reply->str, "ok") == 0)))
 	{
-		std::cout << "Execut command [ SET " << key << "  " << value << " ] failure ! " << std::endl;
+		std::cout << "Execut command [ SET " << key << " ] failure ! " << std::endl;
 		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 		return false;
 	}
 
 	//执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
-	std::cout << "Execut command [ SET " << key << "  " << value << " ] success ! " << std::endl;
+	std::cout << "Execut command [ SET " << key << " ] success ! " << std::endl;
 	freeReplyObject(reply);
 	_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 	return true;
@@ -146,21 +146,21 @@ bool RedisMgr::LPush(const std::string& key, const std::string& value)
 	//如果返回NULL则说明执行失败, 释放连接并返回false
 	if (NULL == reply)
 	{
-		std::cout << "Execut command [ LPUSH " << key << "  " << value << " ] failure ! " << std::endl;
+		std::cout << "Execut command [ LPUSH " << key << " ] failure ! " << std::endl;
 		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 		return false;
 	}
 	//如果返回的类型不是整数或者整数值小于等于0(成功将返回1), 则说明执行失败, 释放连接并返回false
 	if (reply->type != REDIS_REPLY_INTEGER || reply->integer <= 0) {
-		std::cout << "Execut command [ LPUSH " << key << "  " << value << " ] failure ! " << std::endl;
+		std::cout << "Execut command [ LPUSH " << key << " ] failure ! " << std::endl;
 		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 		return false;
 	}
 
 	//执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
-	std::cout << "Execut command [ LPUSH " << key << "  " << value << " ] success ! " << std::endl;
+	std::cout << "Execut command [ LPUSH " << key << " ] success ! " << std::endl;
 	freeReplyObject(reply);
 	_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 	return true;
@@ -206,21 +206,21 @@ bool RedisMgr::RPush(const std::string& key, const std::string& value)
 	//如果返回NULL则说明执行失败, 释放连接并返回false
 	if (NULL == reply)
 	{
-		std::cout << "Execut command [ RPUSH " << key << "  " << value << " ] failure ! " << std::endl;
+		std::cout << "Execut command [ RPUSH " << key << " ] failure ! " << std::endl;
 		freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 		_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 		return false;
 	}
 	//如果返回的类型不是整数或者整数值小于等于0(成功将返回1), 则说明执行失败, 释放连接并返回false
 	if (reply->type != REDIS_REPLY_INTEGER || reply->integer <= 0) {
-		std::cout << "Execut command [ RPUSH " << key << "  " << value << " ] failure ! " << std::endl;
+		std::cout << "Execut command [ RPUSH " << key << " ] failure ! " << std::endl;
 		freeReplyObject(reply);
 		_con_pool->returnConnection(connect);
 		return false;
 	}
 
 	//执行成功, 释放redisCommand执行后返回的redisReply所占用的内存
-	std::cout << "Execut command [ RPUSH " << key << "  " << value << " ] success ! " << std::endl;
+	std::cout << "Execut command [ RPUSH " << key << " ] success ! " << std::endl;
 	freeReplyObject(reply);
 	_con_pool->returnConnection(connect); //将使用完的redisContext对象归还给连接池
 	return true;
@@ -438,8 +438,8 @@ RedisConPool::RedisConPool(size_t poolSize, const char* host, int port, const ch
 
 		//执行AUTH命令进行密码认证
 		auto reply = (redisReply*)redisCommand(context, "AUTH %s", pwd);
-		//如果返回的类型是错误, 则说明认证失败, 释放连接对象并继续尝试连接下一个
-		if (reply->type == REDIS_REPLY_ERROR) {
+		//连接中断时redisCommand可能返回空指针；只有收到OK状态才将连接加入池中，其他情况释放连接
+		if (!reply || reply->type != REDIS_REPLY_STATUS || std::strcmp(reply->str, "OK") != 0) {
 			std::cout << "Authentication failure" << std::endl;
 			freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 			redisFree(context); //释放连接对象

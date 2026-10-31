@@ -1,3 +1,4 @@
+#include <chrono>
 #include "VerifyGrpcClient.h"
 #include "ConfigMgr.h"
 
@@ -12,6 +13,8 @@ VerifyGrpcClient::VerifyGrpcClient()
 
 GetVerifyRsp VerifyGrpcClient::GetVerifyCode(std::string email) {
 	ClientContext context; //创建RPC调用的上下文对象
+	//验证码RPC包含SMTP投递，为邮件处理预留30秒；超时通过RPC失败返回，不在这里自动重发邮件
+	context.set_deadline(std::chrono::system_clock::now() + std::chrono::seconds(30));
 	GetVerifyRsp reply; //RPC调用结果的响应对象
 	GetVerifyReq request; //RPC调用的请求对象
 	request.set_email(email); //设置请求对象的email字段为传入的email参数(在.proto文件中定义的)
@@ -52,7 +55,7 @@ std::unique_ptr<VerifyService::Stub> RPConPool::getConnection()
 		if (b_stop_) {
 			return true;
 		}
-		//如果没有可用的连接, 返回false, 解锁并进入等待状态; 
+		//如果没有可用的连接, 返回false, 解锁并进入等待状态;
 		//如果有可用的连接, 返回true, 保持锁定状态并继续执行
 		return !connections_.empty();
 		});

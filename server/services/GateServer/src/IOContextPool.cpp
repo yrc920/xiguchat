@@ -1,8 +1,9 @@
 #include "IOContextPool.h"
 
-IOContextPool::IOContextPool(std::size_t size) :_ioContexts(size),
-_works(size), _nextIOContext(0) {
-	for (std::size_t i = 0; i < size; ++i) {
+//hardware_concurrency可能返回0，至少保留一个io_context和工作线程，避免轮询取用时访问空数组
+IOContextPool::IOContextPool(std::size_t size) :_ioContexts(size == 0 ? 1 : size),
+_works(size == 0 ? 1 : size), _nextIOContext(0) {
+	for (std::size_t i = 0; i < _ioContexts.size(); ++i) {
 		//取出每个io_context的执行器，创建一个work对象，并把它放入works数组中
 		_works[i] = std::make_unique<Work>(boost::asio::make_work_guard(_ioContexts[i].get_executor()));
 	}
@@ -30,16 +31,18 @@ boost::asio::io_context& IOContextPool::GetIOContext() {
 }
 
 void IOContextPool::Stop() {
-	//因为仅仅执行work.reset并不能让iocontext从run的状态中退出
-	//当iocontext已经绑定了读或写的监听事件后，还需要手动stop该服务。
-	for (auto& work : _works) {
-		//先把io_context停止掉，这样就不会再有新的事件被添加到io_context中，已经绑定的事件也会被取消掉
-		work->get_executor().context().stop();
-		work.reset(); //重置work对象，释放对io_context的引用，让io_context被回收, 线程也会退出
-	}
-
-	//等待所有线程完成
-	for (auto& t : _threads) {
-		t.join();
-	}
+    //由拥有线程池的线程调用Stop并等待工作线程退出，不能在被等待的工作线程自身调用
+    //主流程显式停服后，析构函数还会调用一次，因此释放work和join都要允许重复执行
+    //stop只让run尽快返回，不负责关闭socket，也不保证尚未执行的回调会继续被调用
+    for (auto& context : _ioContexts) {
+        context.stop(); //先停止事件循环，避免未完成的网络操作让线程一直等待
+    }
+    for (auto& work : _works) {
+        work.reset(); //释放保活对象，空的unique_ptr再次reset也是安全的
+    }
+    for (auto& thread : _threads) {
+        if (thread.joinable()) { //已经join过的线程不能重复join
+            thread.join();
+        }
+    }
 }

@@ -21,10 +21,12 @@ void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::s
 {
 	//如果没有错误, 则启动新的会话, 否则输出错误信息
 	if (!error) {
-		new_session->Start(); //启动会话, 开始处理连接
-		std::lock_guard<std::mutex> lock(_mutex); //保护_sessions的互斥锁
-		//将新的会话添加到_sessions中
-		_sessions.insert(std::make_pair(new_session->GetSessionId(), new_session));
+        //先把连接加入_sessions，再启动它的异步读取，否则读取回调可能先执行并被CheckValid判为无效
+        {
+            std::lock_guard<std::mutex> lock(_mutex);
+            _sessions.emplace(new_session->GetSessionId(), new_session);
+        }
+        new_session->Start();
 	}
 	else {
 		std::cout << "session accept failed, error is " << error.what() << std::endl;
@@ -50,11 +52,11 @@ void CServer::ClearSession(std::string session_id)
     if (_sessions.find(session_id) != _sessions.end()) {
         auto uid = _sessions[session_id]->GetUserId();
 
-        //移除用户和session的关联
+        //按uid和session_id一起解绑，只有映射仍指向当前连接时才移除，避免误删同一用户的新连接
         UserMgr::GetInstance()->RmvUserSession(uid, session_id);
     }
 
-    _sessions.erase(session_id);
+    _sessions.erase(session_id); //只移除本地会话登记，socket关闭与Redis状态清理由调用方处理
 }
 
 bool CServer::CheckValid(std::string uuid)
@@ -85,7 +87,7 @@ void CServer::on_timer(const boost::system::error_code& ec) {
     }
     std::vector<std::shared_ptr<CSession>> _expired_sessions;
     int session_count = 0;
-    //此处加锁遍历session
+    //持锁复制会话表后再遍历快照，避免检测心跳和访问Redis时长时间占用会话表的锁
     std::map<std::string, std::shared_ptr<CSession>> sessions_copy;
     {
         std::lock_guard<std::mutex> lock(_mutex);
@@ -96,7 +98,7 @@ void CServer::on_timer(const boost::system::error_code& ec) {
     for (auto iter = sessions_copy.begin(); iter != sessions_copy.end(); iter++) {
         auto b_expired = iter->second->IsHeartbeatExpired(now);
         if (b_expired) {
-            //关闭socket, 其实这里也会触发async_read的错误处理
+            //标记关闭并投递socket关闭操作，未完成的读取也可能随后报错，清理入口需要能处理重复调用
             iter->second->Close();
             //收集过期信息
             _expired_sessions.push_back(iter->second);
@@ -105,13 +107,14 @@ void CServer::on_timer(const boost::system::error_code& ec) {
         session_count++;
     }
 
-    //设置session数量
+    //上报本次快照中未过期的TCP连接数，包含尚未登录的连接，并不是严格的在线用户数
+    //登录和断连不在这里即时增减计数，StatusServer看到的负载最多滞后一个扫描周期
     auto& cfg = ConfigMgr::Inst();
     auto self_name = cfg["SelfServer"]["Name"];
     auto count_str = std::to_string(session_count);
     RedisMgr::GetInstance()->HSet(LOGIN_COUNT, self_name, count_str);
 
-    //处理过期session, 单独提出，防止死锁
+    //在会话表锁之外清理过期连接，DealExceptionSession内部还会调用ClearSession获取同一把锁
     for (auto &session : _expired_sessions) {
         session->DealExceptionSession();
     }

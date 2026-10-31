@@ -90,7 +90,7 @@
 ```jsonc
 {
   "error": 0,                       // 非 0 时其余字段可能缺失
-  "uid": 1002, "pwd": "...", "name": "xigu", "email": "a@b.com",
+  "uid": 1002, "name": "xigu", "email": "a@b.com",
   "nick": "xigu", "desc": "", "sex": 0, "icon": ":/res/head_1.jpg",
   "apply_list": [                   // 待处理的好友申请
     {"name":"", "uid":0, "icon":"", "nick":"", "sex":0, "desc":"", "status":0}
@@ -101,11 +101,11 @@
 }
 ```
 
-> 注意：登录回包中回传了 `pwd`（Argon2id 哈希串），属于不必要的字段暴露，建议后续移除。
+> 登录与搜索只返回用户资料，不返回密码或密码哈希。除登录请求外，TCP 业务必须绑定已认证会话，操作者 uid/fromuid 必须与会话一致。
 
 **1007 搜索请求** `{uid:string}` —— 传**字符串**，`isPureDigit` 判定：纯数字按 uid 查，否则按用户名查。
 
-**1008 搜索回包** `{error, uid, pwd, name, email, nick, desc, sex, icon}`
+**1008 搜索回包** `{error, uid, name, email, nick, desc, sex, icon}`
 （按用户名查询时不含 `icon`）
 
 **1009 好友申请** `{uid:int, applyname:string, bakname:string, touid:int}`

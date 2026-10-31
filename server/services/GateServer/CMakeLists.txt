@@ -4,7 +4,8 @@
 #
 #  依赖: xigu_proto（共享 proto 库）+ gRPC/protobuf + Boost
 #        + hiredis + jsoncpp + mysql-connector-cpp
-#  产物: 构建目录 bin/GateServer/ 下（三平台同一布局，Debug/Release 由预设决定）
+#  产物: 单配置为 bin/GateServer/，多配置为 bin/GateServer/<配置名>/
+#        macOS/Linux 预设使用单配置 Ninja，Windows 预设使用多配置 Visual Studio
 # ============================================================
 
 # 可执行文件名（同时用于输出目录与部署）
@@ -29,8 +30,8 @@ set(SERVER_SOURCES
 )
 
 # ---------- 头文件清单 ----------
-# 与源文件一一对应；列出头文件主要是让 IDE 与 CMake
-# 能感知依赖（改动头文件会触发对应源文件重编）
+# 列出头文件便于 IDE 展示，实际的 #include 依赖由编译器在构建时追踪
+# 因此被包含的头文件发生改动时，相关源文件会重新编译
 set(SERVER_HEADERS
     include/CServer.h
     include/HttpConnection.h
@@ -86,5 +87,6 @@ endif()
 set_target_properties(${SERVER_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/${SERVER_NAME}")
 
-# 构建后部署：拷贝 config.ini 与全部运行时 DLL 到 exe 目录
+# 构建后部署：三平台均复制 config.ini，Windows 额外复制可识别的运行时 DLL
+# TARGET_FILE_DIR 自动对应单配置目录或多配置的 Debug/Release 子目录
 xiguchat_deploy(${SERVER_NAME})

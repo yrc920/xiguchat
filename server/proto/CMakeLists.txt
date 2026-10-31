@@ -25,6 +25,9 @@ find_program(XIGU_GRPC_CPP_PLUGIN grpc_cpp_plugin
 set(_gen_dir "${CMAKE_CURRENT_BINARY_DIR}/generated")
 file(MAKE_DIRECTORY "${_gen_dir}")
 
+# VERBATIM 由 CMake 处理三平台命令行转义，支持路径含空格。
+# protoc/plugin 的可执行文件也加入 DEPENDS，其时间戳变化时重新生成，
+# 避免只更新依赖工具却继续使用原先生成的代码。
 # ---------- 生成消息代码（protobuf） ----------
 # add_custom_command 定义"生成动作"：
 #   输入  message.proto（DEPENDS 跟踪变更，proto 改了会自动重新生成）
@@ -32,10 +35,11 @@ file(MAKE_DIRECTORY "${_gen_dir}")
 #   命令  protoc --cpp_out=<输出目录> -I <proto 所在目录> message.proto
 add_custom_command(
     OUTPUT "${_gen_dir}/message.pb.cc" "${_gen_dir}/message.pb.h"
-    COMMAND ${XIGU_PROTOC} --cpp_out="${_gen_dir}"
+    COMMAND "${XIGU_PROTOC}" "--cpp_out=${_gen_dir}"
         -I "${CMAKE_CURRENT_SOURCE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/message.proto"
-    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/message.proto"
+    DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/message.proto" "${XIGU_PROTOC}"
+    VERBATIM
     COMMENT "Generate protobuf code (message.pb.*)")
 
 # ---------- 生成服务代码（gRPC） ----------
@@ -44,15 +48,17 @@ add_custom_command(
 #   --plugin=protoc-gen-grpc=<插件路径> 指定 gRPC 代码生成插件
 add_custom_command(
     OUTPUT "${_gen_dir}/message.grpc.pb.cc" "${_gen_dir}/message.grpc.pb.h"
-    COMMAND ${XIGU_PROTOC} --grpc_out="${_gen_dir}"
-        --plugin=protoc-gen-grpc=${XIGU_GRPC_CPP_PLUGIN}
+    COMMAND "${XIGU_PROTOC}" "--grpc_out=${_gen_dir}"
+        "--plugin=protoc-gen-grpc=${XIGU_GRPC_CPP_PLUGIN}"
         -I "${CMAKE_CURRENT_SOURCE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/message.proto"
     DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/message.proto"
+        "${XIGU_PROTOC}" "${XIGU_GRPC_CPP_PLUGIN}"
+    VERBATIM
     COMMENT "Generate gRPC code (message.grpc.pb.*)")
 
 # ---------- 静态库 ----------
-# 把 4 个生成文件编译成静态库 xigu_proto
+# 编译两个生成的 .cc 文件并打包为 xigu_proto，两个 .h 文件供生成代码和各服务包含
 add_library(xigu_proto STATIC
     "${_gen_dir}/message.pb.cc"
     "${_gen_dir}/message.grpc.pb.cc")

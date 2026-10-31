@@ -162,12 +162,13 @@ ChatServer **只有一套源代码**，实例完全由 `services/ChatServer/conf
 
 各平台依赖的落盘方式不同，但结论一致：
 
-- **Windows**（vcpkg 动态 triplet）：依赖 DLL 必须与 exe 同目录。vcpkg applocal 在链接后递归解析，
+- **Windows**（vcpkg 动态 triplet）：将依赖 DLL 放在 exe 同目录，便于直接启动。vcpkg applocal 在链接后递归解析，
   把直接与间接依赖的 DLL 拷入主实例目录。
-- **macOS / Linux**（vcpkg 默认静态 triplet）：第三方依赖静态链接进可执行文件，无需部署库文件；
-  即使将来改为动态链接，`.dylib`/`.so` 也只会落在主实例目录。
+- **macOS / Linux**：默认 triplet 的多数依赖静态链接，但个别端口可提供动态库；
+  构建产物通过 rpath 引用安装目录中的 `.dylib`/`.so`。
 
-即：**主实例目录是唯一由构建系统完整填充的目录**，因此非主实例整目录复制即可保证内容一致。
+整目录复制保留可执行文件与已部署的库文件，使实例在同一构建环境下运行。
+跨机器部署还需携带动态依赖并检查 rpath，不能把实例目录直接视为独立安装包。
 
 ### 多配置生成器的目录对齐
 
@@ -212,7 +213,7 @@ endif()
 
 Windows 的 DLL 由 `$<TARGET_RUNTIME_DLLS:${TARGET}>`（CMake 3.21+）在构建时自动收集
 目标实际依赖的全部 DLL，自动适配 Debug/Release 命名，无需手工维护清单。
-macOS / Linux 由 rpath 定位动态库，不需要拷贝。
+macOS / Linux 在本机构建环境中由 rpath 定位动态库；跨机器部署需另行处理。
 
 ## 2.6 客户端构建
 
@@ -323,8 +324,18 @@ cd build/macos-clang/bin
 | 配置期报 `未设置 VCPKG_ROOT` | 设置环境变量后**重新打开终端/IDE** 再 configure |
 | 配置期报找不到 Qt 6.5 | 设置 `QT_ROOT`，或改用 Qt Creator 的 Qt 6.5 Kit |
 | Windows 报 MinGW 相关错误 | `QT_MINGW_ROOT` 必须是 Qt 6.5 自带的 `mingw1120_64` |
-| vcpkg 大量包重新编译 | 编译器版本变化会导致 vcpkg ABI 哈希失效（如 macOS 升级 Xcode）。
-  可固定 `DEVELOPER_DIR=/Library/Developer/CommandLineTools` 命中既有缓存 |
+| vcpkg 大量包重新编译 | Xcode 等编译器/工具链升级可能改变 vcpkg ABI 哈希。新工具链通常需要重新编译；只有 CLT 版本和原构建条件一致时，指定 `DEVELOPER_DIR` 才可能复用缓存 |
 | `protoc` / `grpc_cpp_plugin` 找不到 | 确认 vcpkg triplet 下 `tools/protobuf` 与 `tools/grpc` 已安装（manifest 中 grpc 需带 `codegen` feature） |
 | 链接报 zstd / lz4 符号未定义 | 顶层 CMakeLists 的补链接仅覆盖 Gate/Status/Chat；新增服务需自行补上 |
 | 新增 ChatServer ini 后未生成目录 | `CONFIGURE_DEPENDS` 需重新 configure；若未自动触发，手动重跑 `cmake --preset ...` |
+
+### protobuf 配置警告
+
+当前 baseline 的 protobuf 端口通过 feature 映射向上游 CMake 传入
+`protobuf_BUILD_TARGET_LIBPROTOC`。这是端口内部的判断变量，上游 protobuf 33.4
+使用的是 `protobuf_BUILD_LIBPROTOC`，因此会提示前者未被使用。
+端口同时传入了真正的构建选项，这条警告本身不表示 libprotoc 构建失败。
+
+Xcode 升级导致依赖重新配置时可能重新看到这条警告；它不来自项目的 CMakeLists。
+无需给项目添加同名变量，也不应修改 `build/` 下自动生成的 vcpkg 文件。
+上游端口修复并更新 baseline 后可消除；依赖最终是否成功仍以构建结果为准。

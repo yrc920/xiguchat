@@ -10,8 +10,8 @@
 #          四个相互独立的可执行程序（微服务）
 #          ChatServer 为一套代码多实例部署，实例由 config/*.ini 决定
 #  构建:   三平台预设（windows-msvc / macos-clang / linux-gcc），
-#          命令行：cmake --preset <平台预设> [-release]
-#                  cmake --build --preset <平台预设>[-release]
+#          macOS/Linux：configure 与 build 均用 <平台预设>[-release]
+#          Windows：configure 用 windows-msvc，build 用 windows-msvc-debug/release
 # ============================================================
 cmake_minimum_required(VERSION 3.21)
 
@@ -45,7 +45,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 # ---------- 查找依赖（vcpkg 提供） ----------
-# 全部使用 CONFIG 模式：vcpkg 安装的包自带 *Config.cmake，
+# vcpkg 包使用 CONFIG 模式：安装的包自带 *Config.cmake，
+# Threads 使用 CMake 自带的 FindThreads 模块。
 # REQUIRED 表示缺一不可，缺少会在配置期直接报错。
 # gRPC/protobuf：微服务 RPC 通信基础
 # Boost.filesystem：配置文件路径处理
@@ -73,7 +74,7 @@ find_package(lz4 CONFIG REQUIRED)
 if(MSVC)
     # 源码为 UTF-8（含中文注释）：
     #   /utf-8   让 MSVC 按 UTF-8 解析源码，避免中文乱码与 C4819
-    #   /wd4819  关闭"文件含非 UTF-8 字符"编码警告
+    #   /wd4819  关闭"当前代码页无法表示源码字符"编码警告
     #   /wd4996  关闭"使用不安全 CRT 函数"的弃用告警（如 strcpy 等）
     #   _CRT_SECURE_NO_WARNINGS 等效宏定义
     add_compile_options(/utf-8 /wd4819 /wd4996)
@@ -107,8 +108,9 @@ add_subdirectory(services/VerifyServer)
 # vcpkg 的 unofficial 配置不会传递它的部分间接依赖，需在此显式补上：
 #   zstd/lz4 —— X DevAPI 压缩功能用到，三平台都缺
 #   resolv   —— X DevAPI 做域名 SRV 解析时用到 ns_initparse/ns_parserr，
-#               这两个符号在 Linux 的 libresolv 里；macOS 无此库
-#               （解析接口在 libc 中），Windows 无此符号
+#               Linux 的当前连接器构建需要显式链接 libresolv；
+#               macOS SDK 也提供 libresolv，但当前构建无需此补链；
+#               Windows 的解析依赖由连接器的平台配置提供。
 foreach(server IN ITEMS GateServer StatusServer ChatServer)
     target_link_libraries(${server} PRIVATE zstd::libzstd LZ4::lz4)
     if(UNIX AND NOT APPLE)
