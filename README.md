@@ -205,12 +205,14 @@ cmake --build --preset macos-clang
 ```bash
 cd build/macos-clang/bin
 
-./VerifyServer/VerifyServer
-./StatusServer/StatusServer
-./ChatServer/ChatServer          # 实例 chatserver1
-./ChatServer2/ChatServer         # 实例 chatserver2（同一份可执行文件）
-./GateServer/GateServer
+(cd VerifyServer && ./VerifyServer)
+(cd StatusServer && ./StatusServer)
+(cd ChatServer && ./ChatServer)   # 实例 chatserver1
+(cd ChatServer2 && ./ChatServer)  # 实例 chatserver2
+(cd GateServer && ./GateServer)
 ```
+
+上述服务分别在独立终端启动；Windows 多配置构建需再进入 Debug/Release 子目录。
 
 启动顺序建议：VerifyServer → StatusServer → ChatServer（各实例）→ GateServer。
 
@@ -285,7 +287,7 @@ cd build/macos-clang/bin
 
 - 密码在 HTTP 链路上为可逆 XOR 变形，非加密传输；网关未启用 TLS。
 - Token 无有效期、无刷新与吊销机制。
-- 无心跳与断线重连；无离线消息存储与送达确认。
+- 已有客户端心跳与服务端超时扫描；尚无断线重连、离线消息存储与送达确认。
 - `StatusServer::Login` RPC 已实现但尚未被 ChatServer 调用（后者直接读 Redis 校验 token）。
 
 ---
