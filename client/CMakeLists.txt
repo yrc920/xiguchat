@@ -46,7 +46,7 @@ if(WIN32 AND NOT CMAKE_RC_COMPILER AND NOT DEFINED ENV{RC})
         HINTS "${XIGUCHAT_MINGW_BIN}" "$ENV{QT_MINGW_ROOT}/bin")
 endif()
 
-project(xiguchat VERSION 1.0.0 LANGUAGES CXX)
+project(xiguchat VERSION 1.1.0 LANGUAGES CXX)
 
 # ---------- C++ 标准 ----------
 # 项目统一使用 C++17，编译期强制（不满足则报错）
