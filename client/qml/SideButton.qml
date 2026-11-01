@@ -7,6 +7,7 @@ Rectangle {
     property bool active: false
     property int badge: 0
     property string kind: "chat"
+    readonly property string label: kind === "settings" ? "设置" : kind === "chat" ? "聊天" : "联系人"
     signal clicked()
 
     width: 52
@@ -17,7 +18,7 @@ Rectangle {
     border.width: activeFocus ? 1 : 0
     border.color: Theme.primary
     Accessible.role: Accessible.Button
-    Accessible.name: kind === "chat" ? "聊天" : "联系人"
+    Accessible.name: label
     Accessible.onPressAction: root.clicked()
     Keys.onSpacePressed: root.clicked()
     Keys.onReturnPressed: root.clicked()
@@ -38,14 +39,14 @@ Rectangle {
         anchors.horizontalCenter: parent.horizontalCenter
         y: 10
         size: 22
-        name: root.kind === "chat" ? "chat" : "contacts"
+        name: root.kind === "contact" ? "contacts" : root.kind
         color: root.active ? Theme.primary : Theme.textSecondary
     }
 
     Text {
         anchors.horizontalCenter: parent.horizontalCenter
         y: 38
-        text: root.kind === "chat" ? "聊天" : "联系人"
+        text: root.label
         color: root.active ? Theme.textPrimary : Theme.textSecondary
         font.pixelSize: 10
         font.bold: root.active

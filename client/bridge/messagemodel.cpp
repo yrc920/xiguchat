@@ -15,6 +15,17 @@ MessageModel::MessageModel(QObject *parent) : QAbstractListModel(parent)
     });
     connect(UserMgr::GetInstance().get(), &UserMgr::FriendChatChanged,
             this, &MessageModel::onFriendChatChanged);
+    connect(UserMgr::GetInstance().get(), &UserMgr::UserIconChanged, this, [this] {
+        auto *mgr = UserMgr::GetInstance().get();
+        const auto info = mgr->GetFriendById(_uid);
+        if (!info)
+            return;
+        const int count = qMin(_cachedCount, static_cast<int>(info->_chat_msgs.size()));
+        for (int row = 0; row < count; ++row) {
+            if (info->_chat_msgs.at(row)->_from_uid == mgr->GetUid())
+                emit dataChanged(index(row, 0), index(row, 0), {AvatarRole});
+        }
+    });
 }
 
 // 切换当前会话；uid 为 0 时清空列表
@@ -60,7 +71,7 @@ QVariant MessageModel::data(const QModelIndex &index, int role) const
     case NameRole: {
         auto self = UserMgr::GetInstance()->GetUserInfo();
         if (self && msg->_from_uid == self->_uid)
-            return role == AvatarRole ? self->_icon : self->_name;
+            return role == AvatarRole ? UserMgr::GetInstance()->GetIcon() : self->_name;
         return role == AvatarRole ? friend_info->_icon : friend_info->_name;
     }
     default: return {};

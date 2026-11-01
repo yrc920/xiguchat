@@ -13,6 +13,8 @@ ChatBridge::ChatBridge(QObject *parent) : QObject(parent)
     _friends = new FriendListModel(this);
     _applies = new ApplyListModel(this);
     _messages = new MessageModel(this);
+    connect(UserMgr::GetInstance().get(), &UserMgr::UserIconChanged,
+            this, &ChatBridge::myProfileChanged);
 
     auto *friendService = FriendService::GetInstance().get();
     connect(friendService, &FriendService::userFound, this,
@@ -119,8 +121,19 @@ void ChatBridge::authApply(int uid, const QString &remark)
 
 QString ChatBridge::myIcon() const
 {
+    return UserMgr::GetInstance()->GetIcon();
+}
+
+QVariantMap ChatBridge::myProfile() const
+{
     auto info = UserMgr::GetInstance()->GetUserInfo();
-    return info ? info->_icon : QString();
+    if (!info)
+        return {};
+    return {{QStringLiteral("uid"), info->_uid},
+            {QStringLiteral("name"), info->_name},
+            {QStringLiteral("nick"), info->_nick},
+            {QStringLiteral("icon"), myIcon()},
+            {QStringLiteral("sex"), info->_sex}};
 }
 
 QString ChatBridge::myName() const
@@ -155,6 +168,13 @@ void ChatBridge::showContactMode()
 
     // 点「联系人」直接落在「新的朋友」，这是列表里第一个入口
     setPane(ApplyFriendPage);
+}
+
+void ChatBridge::showSettings()
+{
+    clearSearch();
+    setMode(SettingsMode);
+    setPane(UserInfoPage);
 }
 
 void ChatBridge::openChat(int uid)

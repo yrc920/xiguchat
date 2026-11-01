@@ -2,6 +2,7 @@
 #define USERMGR_H
 
 #include <QObject>
+#include <QByteArray>
 #include <memory>
 #include <singleton.h>
 #include "userdata.h"
@@ -29,6 +30,9 @@ public:
     void SetUserInfo(std::shared_ptr<UserInfo> user_info); //设置用户信息
     std::shared_ptr<UserInfo> GetUserInfo();
     int GetUid(); //获取用户ID
+    static QString LocalAvatarPath(); //当前网关与账号对应的头像文件
+    QString GetIcon() const;
+    bool SetLocalAvatar(const QByteArray &png); //发布已落盘的头像，不修改服务器头像字段
 
     void AppendApplyList(QJsonArray array);
     void AppendFriendList(QJsonArray array);
@@ -51,6 +55,7 @@ public:
     void ClearSession();
 
 signals:
+    void UserIconChanged();
     void FriendListAboutToChange();
     void ApplyListAboutToChange();
     void FriendListChanged();        // 登录拿到好友列表、通过好友申请
@@ -61,6 +66,7 @@ private:
     UserMgr();
 
     std::shared_ptr<UserInfo> _user_info;
+    QString _localIcon;
     std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
     std::vector<std::shared_ptr<FriendInfo>> _friend_list;
     QMap<int, std::shared_ptr<FriendInfo>> _friend_map;

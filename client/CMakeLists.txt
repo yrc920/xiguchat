@@ -1,7 +1,7 @@
 # ============================================================
 #  XiguChat Client — 聊天客户端（Qt6 桌面程序）
 #
-#  技术栈: Qt 6.5 (Core / Gui / Network / Quick) + C++17
+#  技术栈: Qt 6.5 (Core / Gui / Network / Quick / QuickControls2 / QuickDialogs2) + C++17
 #
 #  目标划分（库边界由链接器强制，不靠自觉）:
 #    xiguchat_core  静态库：core/ 业务与数据 + network/ HTTP/TCP 传输
@@ -66,14 +66,14 @@ set(CMAKE_INCLUDE_CURRENT_DIR ON)
 # Qt 安装路径两种来源（任选其一，互不覆盖）：
 #  1) Qt Creator：选择本机 Qt 6.5 Kit（三平台通用），Kit 自动注入 CMAKE_PREFIX_PATH
 #  2) 命令行/VSCode：QT_ROOT 环境变量
-find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Quick)
+find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Quick QuickControls2 QuickDialogs2)
 if(NOT Qt6_FOUND AND DEFINED ENV{QT_ROOT})
     list(APPEND CMAKE_PREFIX_PATH "$ENV{QT_ROOT}")
-    find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Quick)
+    find_package(Qt6 6.5 QUIET COMPONENTS Core Gui Network Quick QuickControls2 QuickDialogs2)
 endif()
 if(NOT Qt6_FOUND)
     message(FATAL_ERROR
-        "找不到 Qt 6.5（Core/Gui/Network/Quick），两种方式任选其一：\n"
+        "找不到 Qt 6.5（Core/Gui/Network/Quick/QuickControls2/QuickDialogs2），两种方式任选其一：\n"
         "  1) Qt Creator：选择本机 Qt 6.5 Kit 打开工程\n"
         "  2) 命令行/VSCode：设置 QT_ROOT 环境变量\n"
         "       macOS/Linux: export QT_ROOT=~/Qt/6.5.3/macos\n"
@@ -156,6 +156,7 @@ set(BRIDGE_SOURCES
     bridge/messagemodel.cpp
     bridge/composerbridge.cpp
     bridge/chatbridge.cpp
+    bridge/imagecropper.cpp
 )
 set(BRIDGE_HEADERS
     bridge/shellbridge.h
@@ -168,6 +169,7 @@ set(BRIDGE_HEADERS
     bridge/messagemodel.h
     bridge/composerbridge.h
     bridge/chatbridge.h
+    bridge/imagecropper.h
 )
 
 # ------------------------------------------------------------
@@ -212,6 +214,9 @@ set(QML_FILES
     qml/ChatPage.qml
     qml/FriendInfoPage.qml
     qml/ApplyFriendPage.qml
+    qml/SettingsPanel.qml
+    qml/UserInfoPage.qml
+    qml/AvatarEditor.qml
     qml/ChatBubble.qml
     qml/Avatar.qml
     qml/IconButton.qml
@@ -237,6 +242,8 @@ target_link_libraries(xiguchat PRIVATE
     xiguchat_core
     Qt6::Gui
     Qt6::Quick
+    Qt6::QuickControls2
+    Qt6::QuickDialogs2
 )
 
 # 输出目录：构建目录下的 bin/（三平台产物统一在 build/<preset>/bin/ 下）
@@ -251,9 +258,12 @@ if(WIN32)
     target_include_directories(xiguchat PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 endif()
 if(APPLE)
+    # macOS 原生文件对话框以 bundle identifier 作为偏好域，必须使用稳定的非空标识。
+    # Windows/Linux 由各自的平台文件选择器处理，不使用 macOS bundle 元数据。
     set_target_properties(xiguchat PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_BUNDLE_NAME "xiguchat"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.xiguchat.client"
         MACOSX_BUNDLE_ICON_FILE "xiguchat.icns"
     )
     target_sources(xiguchat PRIVATE resources/xiguchat.icns)

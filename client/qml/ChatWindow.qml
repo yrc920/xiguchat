@@ -4,6 +4,7 @@ import XiguChat
 // 聊天工作区：窄导航、联系人索引与会话页面。
 Item {
     id: root
+    onEnabledChanged: if (!enabled) avatarEditor.dismiss()
 
     ChatBridge {
         id: bridge
@@ -41,6 +42,11 @@ Item {
                     active: bridge.mode === ChatBridge.ContactMode
                     badge: bridge.applies.pendingCount
                     onClicked: bridge.showContactMode()
+                }
+                SideButton {
+                    kind: "settings"
+                    active: bridge.mode === ChatBridge.SettingsMode
+                    onClicked: bridge.showSettings()
                 }
             }
 
@@ -84,6 +90,19 @@ Item {
                 radius: 11
                 source: bridge.myIcon
                 name: bridge.myName
+                activeFocusOnTab: true
+                border.width: activeFocus ? 2 : 0
+                border.color: Theme.primary
+                Accessible.role: Accessible.Button
+                Accessible.name: "打开个人资料"
+                Accessible.onPressAction: bridge.showSettings()
+                Keys.onSpacePressed: bridge.showSettings()
+                Keys.onReturnPressed: bridge.showSettings()
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: bridge.showSettings()
+                }
             }
             Rectangle {
                 anchors.right: parent.right
@@ -95,6 +114,7 @@ Item {
 
         Rectangle {
             id: indexPanel
+            visible: bridge.mode !== ChatBridge.SettingsMode
             width: 280
             height: parent.height
             color: Theme.panelBg
@@ -422,6 +442,13 @@ Item {
             }
         }
 
+        SettingsPanel {
+            width: 280
+            height: parent.height
+            visible: bridge.mode === ChatBridge.SettingsMode
+            controller: bridge
+        }
+
         Item {
             width: parent.width - 72 - indexPanel.width
             height: parent.height
@@ -469,6 +496,13 @@ Item {
                 applies: bridge.applies
                 onAuthRequested: (uid, name, desc) => dialogs.openAuthDialog(uid, name, desc)
             }
+            UserInfoPage {
+                id: userInfoPage
+                anchors.fill: parent
+                visible: bridge.pane === ChatBridge.UserInfoPage
+                controller: bridge
+                onEditAvatarRequested: avatarEditor.chooseImage()
+            }
         }
     }
 
@@ -476,5 +510,10 @@ Item {
         id: dialogs
         anchors.fill: parent
         controller: bridge
+    }
+
+    AvatarEditor {
+        id: avatarEditor
+        onAvatarSaved: userInfoPage.avatarSaved = true
     }
 }

@@ -63,6 +63,13 @@ Canvas {
             c.beginPath(); c.arc(12.5, 16, 4, Math.PI, 0); c.stroke(); break
         case "search": circle(10.5, 10.5, 6.5); line(15.5, 15.5, 21, 21); break
         case "plus": line(12, 5, 12, 19); line(5, 12, 19, 12); break
+        case "minus": line(5, 12, 19, 12); break
+        case "reset":
+            c.beginPath(); c.arc(12, 12, 8, -Math.PI * .75, Math.PI * .9); c.stroke()
+            poly([4, 3, 4, 8, 9, 8], false); break
+        case "settings":
+            line(3, 6, 10, 6); line(16, 6, 21, 6); circle(13, 6, 3)
+            line(3, 18, 6, 18); line(12, 18, 21, 18); circle(9, 18, 3); break
         case "close": line(6, 6, 18, 18); line(18, 6, 6, 18); break
         case "back": poly([14, 5, 7, 12, 14, 19], false); break
         case "arrowRight": line(4, 12, 20, 12); poly([14, 6, 20, 12, 14, 18], false); break

@@ -5,7 +5,7 @@
 | 项 | 值 |
 | --- | --- |
 | 语言 / 标准 | C++17 |
-| Qt 版本 | 6.5（Core / Gui / Network / Quick） |
+| Qt 版本 | 6.5（Core / Gui / Network / Quick / QuickControls2 / QuickDialogs2） |
 | UI 方式 | QML，`qt_add_qml_module` 编入 qrc，入口 `qml/Main.qml` |
 | 样式 | `qml/Theme.qml` 单例：日间 / 夜间语义色、字号与尺寸，无样式表文件 |
 | 资源 | `resources/rc.qrc`：应用图标 PNG 与内置头像；操作图标由 QML 绘制 |
@@ -26,7 +26,9 @@ QML 负责布局、焦点、动画和弹窗的临时表单状态；业务状态�
 | --- | --- |
 | `Main.qml` | 根 `Window`：持有 `ShellBridge`，用 `Loader` 换页并按页设窗口尺寸；掉线提示浮层 |
 | `Login` / `Register` / `Reset` | 认证三页，共用 `AuthPage` 外壳、320 像素表单列与折纸信封角色；内容过长时滚动 |
-| `ChatWindow` | 聊天主界面：侧栏 + 左列（会话 / 联系人）+ 右侧页面栈 |
+| `ChatWindow` | 聊天主界面：侧栏 + 左列（会话 / 联系人 / 设置）+ 右侧页面栈 |
+| `SettingsPanel` / `UserInfoPage` | 设置索引与个人资料：账号信息、头像入口和外观切换 |
+| `AvatarEditor` | 系统文件选择与模态裁剪框，提供预览、缩放、重置及保存 / 取消 |
 | `FriendDialogs` | 搜索结果、添加好友与验证申请的弹层及临时表单 |
 | `Avatar` | 显示已有头像，无头像时回退名字首字；软件渲染时不启用遮罩特效 |
 | `ChatPage` | 会话页：标题 + 消息流 + 输入区 |
@@ -46,11 +48,12 @@ QML 负责布局、焦点、动画和弹窗的临时表单状态；业务状态�
 | `shellbridge` | 当前页面（`page`）、掉线提示（`notice`）、`go(target)`；接管踢人与断线信号 |
 | `pagebridge` | 页面基类，只提供 `go(target)` 导航契约 |
 | `loginbridge` / `registerbridge` / `resetbridge` | 认证三页的状态与动作，含输入校验、验证码倒计时、错误文案 |
-| `chatbridge` | 三个列表模型 + 选中会话 + 发消息 + 搜索/加好友/同意申请 |
+| `chatbridge` | 三个列表模型 + 选中会话 + 发消息 + 搜索/加好友/同意申请 + 设置导航与个人资料 |
 | `friendlistmodel` | 会话与联系人共用：`uid / name / nick / icon / desc / lastText / initial` |
 | `applylistmodel` | 好友申请，另有 `pendingCount` 供侧栏红点使用 |
 | `messagemodel` | 当前会话的文本、头像与本地图片角色，增量插入 |
 | `composerbridge` | 图片插入、粘贴纯文本、按顺序提取片段、按好友保存草稿 |
+| `imagecropper` | `QQuickPaintedItem`：图片解码、八手柄正方形裁剪、圆角预览与本地 PNG 保存 |
 
 **core — 业务与数据**
 
@@ -202,6 +205,7 @@ TextMetrics { id: metrics; font: label.font; text: root.text }
 | --- | --- | --- |
 | 点侧栏「聊天」 | 0 会话 | 当前会话（没有会话则空态） |
 | 点侧栏「联系人」 | 1 联系人 | 好友申请页 |
+| 点侧栏「设置」或自己的头像 | 2 设置 | 个人资料页 `showSettings()` |
 | 会话列表点条目 | 0 | 聊天页 `openChat(uid)` |
 | 联系人列表点条目 | 1 | 好友资料页 `openProfile(uid)` |
 | 资料页点「发消息」 | 0 | 聊天页 |
@@ -210,10 +214,34 @@ TextMetrics { id: metrics; font: label.font; text: root.text }
 联系人列表在搜索框下方提供「新的朋友」入口，再以「全部联系人」标题分隔好友列表。
 申请数量来自 `ApplyListModel::pendingCount`；好友数量与消息摘要来自实际列表数据。
 
-三页都是 `ChatWindow` 的子项，用 `visible` 切换而不是重建，滚动位置和输入内容不会丢。
+各详情页都是 `ChatWindow` 的子项，用 `visible` 切换而不是重建，滚动位置和输入内容不会丢。
 资料页显示好友对象里的昵称、备注、性别与个人说明，空昵称或备注显示「未设置」，
 性别按 `sex` 1 男 / 2 女显示，其它值显示「未设置」。没有内容的个人说明不显示。
 语音、视频尚无服务端能力，操作入口显示为禁用状态。
+
+### 头像编辑
+
+设置入口位于联系人下方，左列为 `SettingsPanel`，右侧 `UserInfoPage` 显示自己的账号资料。
+「更换头像」打开 `QtQuick.Dialogs.FileDialog`；选图后由 `AvatarEditor` 的模态 `Popup`
+承载 `ImageCropper`。可拖动选框移动、拖动八个手柄调整大小，滚轮或按钮缩放，方向键微调、
+`Shift` 加速、`Home` 重置。选区保持正方形，圆角比例与现有 `Avatar` 一致，旁边显示两种尺寸预览。
+
+`ImageCropper` 只读取本地 PNG / JPEG / BMP / WebP，限制 16 MB、3200 万像素；
+`QImageReader` 自动应用 EXIF 方向，有效 ICC 色彩空间转换为 sRGB。
+输出为完整的 `512×512` PNG，显示时再由 `Avatar` 加圆角，避免重复裁掉角落。
+`QSaveFile` 原子替换 `QStandardPaths::AppDataLocation/avatars/<网关摘要>/<uid>/head.png`；
+网关摘要取主机与端口的 SHA-256，使不同网关、不同账号的头像分开保存。
+
+写盘成功后，`UserMgr::SetLocalAvatar` 发布本地头像；`GetIcon()` 优先返回本地头像，
+服务端 `_icon` 保留。`UserIconChanged` 驱动个人资料、侧栏及自己的消息头像刷新，
+data URL 避免同路径图片缓存导致显示旧图。再次登录会恢复对应文件，退出时清空当前内存状态。
+取消、读图失败或写盘失败均不发布新头像；编辑期间账号或网关发生变化时拒绝保存。
+
+桌面选图交给 Qt 的平台文件对话框，平台未提供原生实现时使用 Qt 回退界面。
+只读取用户选择的文件，不调用相册或相机接口，也不请求全盘访问权限；Windows / macOS / Linux
+的文件权限由系统处理，读取拒绝、目录不可写或磁盘空间不足时在编辑框内提示。
+正式沙箱打包时还需按发行方式配置用户所选文件的读取权限。
+当前流程完成本地选图、裁剪与保存；网络上传、服务端头像更新及跨设备同步等待后续资源服务器章节。
 
 ### 搜索
 
@@ -267,9 +295,11 @@ TextMetrics { id: metrics; font: label.font; text: root.text }
 | 成员 | 用途 |
 | --- | --- |
 | `_user_info` | 当前登录用户 |
+| `_localIcon` / `GetIcon()` | 当前账号的本地头像覆盖与统一读取入口 |
 | `_apply_list` | 好友申请 |
 | `_friend_list` / `_friend_map` | 好友列表与 uid→好友 索引 |
 | `FriendListChanged` / `ApplyListChanged` / `FriendChatChanged(uid)` | 变更通知，模型据此重置或单行刷新 |
+| `UserIconChanged` | 个人资料、侧栏与消息头像刷新通知 |
 
 `AlreadyApply()` / `CheckFriendById()` 用于搜索结果判断"已申请 / 已是好友"。
 
@@ -305,7 +335,7 @@ QML 侧走 `qrc:/res/...`。
 | 事项 | 现状 |
 | --- | --- |
 | 密码传输 | `xorString()` 做可逆 XOR 变形（按字符串长度取模），**不是加密**，且 HTTP 未启用 TLS |
-| 本地存储 | 保存外观偏好，不保存密码或 token |
+| 本地存储 | 保存外观偏好与按网关 / 账号隔离的头像 PNG，不保存密码或 token |
 | 输入注入 | HTTP 走 JSON；MySQL 走 X DevAPI 的参数化 `sql("... ?").bind()`，无字符串拼接 |
 
 ## 6.10 客户端侧已知缺口
@@ -314,3 +344,4 @@ QML 侧走 `qrc:/res/...`。
 - 无断线重连：断开后显示「连接中断了」，通过「返回登录」重新登录。
 - 消息送达状态未做 UI 标记（`ID_TEXT_CHAT_MSG_RSP` 只打日志）。
 - 图片仅支持本地预览；图片/文件的网络传输未实现，只投递文本。
+- 头像可本地编辑并在本机恢复，尚未上传或跨设备同步；其他个人资料字段目前只读。

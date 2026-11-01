@@ -39,7 +39,8 @@ class ChatBridge : public QObject
     Q_PROPERTY(QVariantMap profile READ profile NOTIFY profileChanged)
     Q_PROPERTY(int currentUid READ currentUid NOTIFY currentChanged)
     Q_PROPERTY(QString currentName READ currentName NOTIFY currentChanged)
-    Q_PROPERTY(QString myIcon READ myIcon CONSTANT)
+    Q_PROPERTY(QString myIcon READ myIcon NOTIFY myProfileChanged)
+    Q_PROPERTY(QVariantMap myProfile READ myProfile NOTIFY myProfileChanged)
     Q_PROPERTY(QString myName READ myName CONSTANT)
     Q_PROPERTY(QString myUserName READ myUserName CONSTANT)
     Q_PROPERTY(QString searchText READ searchText WRITE setSearchText NOTIFY searchTextChanged)
@@ -48,10 +49,10 @@ class ChatBridge : public QObject
     Q_PROPERTY(QString searchMessage READ searchMessage NOTIFY searchStateChanged)
 
 public:
-    // 左侧列表：会话 / 联系人
-    enum Mode { ChatMode = 0, ContactMode = 1 };
-    // 右侧页面：空 / 聊天 / 好友资料 / 好友申请，取值与 QML 里的 pane 判断一致
-    enum Pane { EmptyPane = 0, ChatPage = 1, FriendInfoPage = 2, ApplyFriendPage = 3 };
+    //左侧栏目：会话 / 联系人 / 设置
+    enum Mode { ChatMode = 0, ContactMode = 1, SettingsMode = 2 };
+    //右侧页面取值与 QML 的 pane 判断一致
+    enum Pane { EmptyPane = 0, ChatPage = 1, FriendInfoPage = 2, ApplyFriendPage = 3, UserInfoPage = 4 };
     Q_ENUM(Mode)
     Q_ENUM(Pane)
 
@@ -71,6 +72,7 @@ public:
 
     // 自己：myName 用于显示（昵称优先），myUserName 用于申请文案（用户名）
     QString myIcon() const;
+    QVariantMap myProfile() const;
     QString myName() const;
     QString myUserName() const;
 
@@ -82,11 +84,12 @@ public:
     QVariantMap searchResult() const { return _searchResult; }
     QString searchMessage() const { return _searchMessage; }
 
-    // 侧栏两个按钮
+    //侧栏导航
     Q_INVOKABLE void showChatMode();
     Q_INVOKABLE void showContactMode();
+    Q_INVOKABLE void showSettings();
 
-    // 右侧三页的入口
+    //好友页面入口
     Q_INVOKABLE void openChat(int uid);
     Q_INVOKABLE void openProfile(int uid);
     Q_INVOKABLE void openApplyList();
@@ -102,6 +105,7 @@ signals:
     void modeChanged();
     void paneChanged();
     void profileChanged();
+    void myProfileChanged();
     void currentChanged();
     void searchTextChanged();
     void searchStateChanged();

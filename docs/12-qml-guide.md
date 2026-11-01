@@ -16,7 +16,8 @@ client/
 ```
 
 业务调用方向：`qml → bridge → core/service → network`；`core/userdata` 是共享数据类型。
-`xiguchat_core` 静态库只链接 `Qt6::Core` / `Qt6::Network`，可执行链接 `Qt6::Quick`。
+`xiguchat_core` 静态库只链接 `Qt6::Core` / `Qt6::Network`，可执行链接
+`Qt6::Gui` / `Qt6::Quick` / `Qt6::QuickControls2` / `Qt6::QuickDialogs2`。
 core 不依赖 Gui/Quick；这一边界通过头文件依赖和代码审查维护。
 
 ## 12.2 页面与代码的对应关系
@@ -30,6 +31,8 @@ core 不依赖 Gui/Quick；这一边界通过头文件依赖和代码审查维�
 | 会话页 | `qml/ChatPage.qml` | `ChatBridge` + `MessageModel` + `ComposerBridge` |
 | 好友资料页 | `qml/FriendInfoPage.qml` | `ChatBridge::openProfile` + `profile` |
 | 好友申请页 | `qml/ApplyFriendPage.qml` | `ApplyListModel` |
+| 设置索引与个人资料 | `qml/SettingsPanel.qml` / `qml/UserInfoPage.qml` | `ChatBridge::showSettings` + `myProfile` / `myIcon` |
+| 头像编辑（弹层） | `qml/AvatarEditor.qml` | `ImageCropper` + `UserMgr::GetIcon` / `SetLocalAvatar` |
 | 申请添加好友（弹层） | `qml/FriendDialogs.qml` | `ChatBridge::applyTo` |
 | 验证申请（弹层） | `qml/FriendDialogs.qml` | `ChatBridge::authApply` |
 | 搜索结果（弹层） | `qml/FriendDialogs.qml` | `ChatBridge::searchState` |
@@ -109,6 +112,12 @@ QML 负责结构、动画、焦点与临时表单状态，业务规则和会话�
     不接收密码正文。隐藏或紧凑显示时停用不需要的循环动画。
 20. **可操作控件支持键盘与辅助功能**：提供可见焦点、可访问名称与键盘触发；
     尚未实现的操作显示为禁用状态，列表不添加虚构的在线状态、时间或用户资料。
+21. **头像裁剪状态留在 `ImageCropper`**：QML 绑定 `ready / error / previewSource`，
+    只调用选图、移动、缩放、重置和保存动作；原图解码、EXIF 旋正、sRGB 转换及写盘属于 bridge。
+    导出 `512×512` 完整方形 PNG，圆角由 `Avatar` 显示，不能把预览遮罩重复写进图片。
+22. **头像变更在成功保存后发布**：`UserMgr` 按网关与 uid 保存本地覆盖，
+    `myIcon / myProfile` 与消息头像通过通知刷新；取消或失败不改当前头像。
+    编辑框关闭时释放临时图片并恢复入口焦点，系统选图取消时保留原状态。
 
 ## 12.5 构建注意
 
@@ -117,11 +126,19 @@ QML 负责结构、动画、焦点与临时表单状态，业务规则和会话�
   两条入口：Qt Creator 选 Qt 6.5 MinGW Kit；命令行设 `QT_MINGW_ROOT` 后用预设构建。
 - 三平台预设均为单配置生成器（Ninja），Debug/Release 由预设区分。
 - 产物仍在 `build/<预设>/bin/`（macOS 为 `xiguchat.app`），`config.ini` 部署规则不变。
-- QML 运行时使用 `QtQuick`、`QtQuick.Effects` 和 `QtCore`；Windows 部署使用
-  `windeployqt --qmldir <qml目录>` 扫描所需模块。
+- QML 运行时使用 `QtQuick`、`QtQuick.Effects`、`QtCore`、`QtQuick.Controls` 和
+  `QtQuick.Dialogs`；CMake 显式查找并链接 `QuickControls2` / `QuickDialogs2`。
+  Windows 部署使用 `windeployqt --qmldir <qml目录>` 扫描并部署 QML 模块与插件。
+- 头像选图使用 `QtQuick.Dialogs.FileDialog`，优先采用平台原生文件选择器；
+  不手写某个平台的相册 / 相机权限申请，不要求全盘访问权限。
+  本地路径通过 `QUrl::toLocalFile()` 读取，写入 `QStandardPaths::AppDataLocation`；
+  读取拒绝、格式错误、尺寸超限及写入失败由 bridge 提示。正式沙箱发行需按平台配置所选文件的读取权限。
 - Windows 的 `resources/xiguchat.rc` 将 ICO 嵌入 EXE；CMake 在 `project()` 前尊重已有的
   `CMAKE_RC_COMPILER` 或环境变量 `RC`，未指定时从 MinGW 目录定位 `windres`。
   macOS 使用 bundle 内的 `xiguchat.icns`。
+- macOS 的 `MACOSX_BUNDLE_GUI_IDENTIFIER` 固定为 `com.xiguchat.client`。
+  原生文件选择器会使用此标识读写偏好；空标识可能使 AppKit 的选图服务启动失败，
+  表现为按钮有焦点但没有窗口。验证原生选图须使用实际构建的 `.app`，包括 Qt Creator 启动路径。
 - 认证表单宽 320 像素，窗口尺寸为登录 `420×560`、注册 `420×740`、重置 `420×680`；
   聊天窗口初始至少 `1060×740`，最小 `960×680`。布局检查同时覆盖日间与夜间外观。
 - 调试时产生的脚本、截图与临时构建目录在验证结束后清理，不作为项目源码保留。
@@ -131,3 +148,4 @@ QML 负责结构、动画、焦点与临时表单状态，业务规则和会话�
 - 消息不持久化：双方都在线才能互发，重新登录看不到历史消息。
 - 无断线重连：断开后显示「连接中断了」，通过「返回登录」重新登录。
 - 图片支持拖入、粘贴和本地预览，图片/文件的网络传输未实现。
+- 头像编辑已接入本地 PNG 保存和账号恢复；网络上传、服务端更新与跨设备同步等待后续章节。

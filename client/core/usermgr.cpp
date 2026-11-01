@@ -1,6 +1,29 @@
 #include "usermgr.h"
 
+#include "global.h"
+
+#include <QCryptographicHash>
 #include <QDebug>
+#include <QDir>
+#include <QFile>
+#include <QStandardPaths>
+#include <QUrl>
+
+namespace {
+constexpr qint64 MaxAvatarBytes = 4 * 1024 * 1024;
+
+bool isAvatarPng(const QByteArray &png)
+{
+    static const QByteArray signature("\x89PNG\r\n\x1a\n", 8);
+    return png.size() > signature.size() && png.size() <= MaxAvatarBytes
+        && png.startsWith(signature);
+}
+
+QString avatarSource(const QByteArray &png)
+{
+    return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(png.toBase64());
+}
+}
 
 UserMgr::UserMgr() : _user_info(nullptr)
 {
@@ -11,7 +34,20 @@ UserMgr::~UserMgr() {}
 
 void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user_info)
 {
+    const QString previousIcon = GetIcon();
     _user_info = user_info;
+    _localIcon.clear();
+    const QString path = LocalAvatarPath();
+    if (!path.isEmpty()) {
+        QFile file(path);
+        if (file.open(QIODevice::ReadOnly) && file.size() <= MaxAvatarBytes) {
+            const QByteArray png = file.read(MaxAvatarBytes + 1);
+            if (isAvatarPng(png))
+                _localIcon = avatarSource(png);
+        }
+    }
+    if (GetIcon() != previousIcon)
+        emit UserIconChanged();
 }
 
 std::shared_ptr<UserInfo> UserMgr::GetUserInfo()
@@ -22,6 +58,44 @@ std::shared_ptr<UserInfo> UserMgr::GetUserInfo()
 int UserMgr::GetUid()
 {
     return _user_info ? _user_info->_uid : 0;
+}
+
+QString UserMgr::LocalAvatarPath()
+{
+    const int uid = GetInstance()->GetUid();
+    if (uid <= 0)
+        return {};
+
+    const QString root = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (root.isEmpty())
+        return {};
+
+    const QUrl gateway(gate_url_prefix);
+    const QString endpoint = gateway.host().toLower() + QLatin1Char(':')
+        + QString::number(gateway.port(gateway.scheme() == QStringLiteral("https") ? 443 : 80));
+    const QString scope = QString::fromLatin1(
+        QCryptographicHash::hash(endpoint.toUtf8(), QCryptographicHash::Sha256).toHex());
+    return QDir(root).filePath(QStringLiteral("avatars/%1/%2/head.png").arg(scope).arg(uid));
+}
+
+QString UserMgr::GetIcon() const
+{
+    if (!_user_info)
+        return {};
+    return _localIcon.isEmpty() ? _user_info->_icon : _localIcon;
+}
+
+bool UserMgr::SetLocalAvatar(const QByteArray &png)
+{
+    if (GetUid() <= 0 || !isAvatarPng(png))
+        return false;
+
+    const QString source = avatarSource(png);
+    if (_localIcon != source) {
+        _localIcon = source;
+        emit UserIconChanged();
+    }
+    return true;
 }
 
 void UserMgr::AppendApplyList(QJsonArray array)
@@ -174,13 +248,17 @@ std::shared_ptr<ApplyInfo> UserMgr::ApplyAt(int index) const
 
 void UserMgr::ClearSession()
 {
+    const bool hadIcon = !GetIcon().isEmpty();
     emit ApplyListAboutToChange();
     emit FriendListAboutToChange();
     _user_info.reset();
+    _localIcon.clear();
     _apply_list.clear();
     _friend_list.clear();
     _friend_map.clear();
 
     emit ApplyListChanged();
     emit FriendListChanged();
+    if (hadIcon)
+        emit UserIconChanged();
 }
