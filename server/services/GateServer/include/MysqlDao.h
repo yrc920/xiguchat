@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 // 数据库访问对象类, 用于封装对MySQL数据库的操作
 //
 
@@ -38,19 +38,24 @@ struct UserInfo {
 	std::string pwd; //密码
 };
 
+//池内的一条连接: 会话对象, 最近活跃时间, 以及是否可复用的标记
 class SqlConnection {
 public:
 	SqlConnection(std::unique_ptr<mysqlx::Session> session, int64_t lasttime) :_session(std::move(session)), _last_oper_time(lasttime) {}
 	std::unique_ptr<mysqlx::Session> _session; //X DevAPI会话对象, 使用智能指针管理资源
 	int64_t _last_oper_time; //上次操作时间
+	bool _healthy{true}; //连接是否可复用, DAO捕获异常时置false, 归还时丢弃并补建
 };
 
+//连接池: 对外只暴露借还接口, 由检测线程保活并按池容量补足
+//业务线程捕获到异常时把连接标为不可复用, 归还即销毁, 不再进入队列
 class MySqlPool {
 public:
 	MySqlPool(const std::string& host, unsigned port, const std::string& user, const std::string& pass,
 		const std::string& schema, int poolSize);
 
-	void checkConnection(); //检查连接的有效性
+	void checkConnection(); //检查空闲连接, 并把池容量补足到 poolSize_
+	bool reconnect(long long timestamp); //重新连接
 	std::unique_ptr<SqlConnection> getConnection(); //获取连接
 	void returnConnection(std::unique_ptr<SqlConnection> con); //归还连接
 	void Close(); //关闭连接池
@@ -66,7 +71,10 @@ private:
 
 	std::queue<std::unique_ptr<SqlConnection>> pool_; //连接池队列
 	std::mutex mutex_; //用于保护连接队列的互斥锁
-	std::condition_variable cond_; //用于线程间的条件变量, 当连接池为空时等待, 当有连接可用时通知
+	std::condition_variable cond_; //业务线程等待可用连接
+	std::condition_variable check_cond_; //检测线程等待心跳周期、补池请求或停池通知
+	bool check_requested_{true}; //补池请求标记: 启动时先补齐初始化失败的连接, 之后由丢弃连接的线程置位
+	size_t connection_count_{0}; //池内连接总数(空闲+借出), 由mutex_保护; 容量判断不能用队列长度
 	std::atomic<bool> b_stop_; //连接池是否停止, 用于控制连接池的生命周期
 	std::thread _check_thread; //检测线程, 定期检查连接的状态并保持连接的活跃性(心跳机制)
 };

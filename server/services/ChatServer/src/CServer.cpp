@@ -14,6 +14,7 @@ CServer::CServer(boost::asio::io_context& io_context, short port) : _io_context(
 }
 
 CServer::~CServer() {
+	Stop();
 	std::cout << "Server destruct listen on port : " << _port << std::endl;
 }
 
@@ -32,11 +33,14 @@ void CServer::HandleAccept(std::shared_ptr<CSession> new_session, const boost::s
 		std::cout << "session accept failed, error is " << error.what() << std::endl;
 	}
 
-	StartAccept(); //继续接受下一个连接
+	if (!_stopped.load())
+		StartAccept(); //继续接受下一个连接
 }
 
 void CServer::StartAccept()
 {
+	if (_stopped.load())
+	    return;
 	//从IOContext池中获取一个IOContext对象, 并创建一个新的会话对象来接受连接
 	auto& io_context = IOContextPool::GetInstance()->GetIOContext();
 	std::shared_ptr<CSession> new_session = std::make_shared<CSession>(io_context, this);
@@ -81,6 +85,8 @@ std::shared_ptr<CSession> CServer::GetSession(std::string uuid)
 }
 
 void CServer::on_timer(const boost::system::error_code& ec) {
+	if (_stopped.load())
+	    return;
     if (ec) {
         std::cout << "timer error: " << ec.message() << std::endl;
         return;
@@ -121,9 +127,11 @@ void CServer::on_timer(const boost::system::error_code& ec) {
 
     //再次设置，下一个60s检测
     _timer.expires_after(std::chrono::seconds(HEART_BEAT_INTERVAL));
-    _timer.async_wait([this](boost::system::error_code ec) {
-        on_timer(ec);
-    });
+    if (!_stopped.load()) {
+        _timer.async_wait([this](boost::system::error_code ec) {
+            on_timer(ec);
+        });
+    }
 }
 
 void CServer::StartTimer()
@@ -137,5 +145,29 @@ void CServer::StartTimer()
 
 void CServer::StopTimer()
 {
-    _timer.cancel();
+	_timer.cancel();
+}
+
+void CServer::Stop()
+{
+    //幂等停服：停止接入、定时器并清理所有会话
+	if (_stopped.exchange(true))
+	    return;
+
+	boost::system::error_code ec; //用于捕获错误码，避免异常抛出
+	_acceptor.cancel(ec); //取消所有挂起的异步接受操作
+	_acceptor.close(ec); //关闭acceptor，释放端口
+	_timer.cancel(); //取消定时器，停止心跳检测
+
+	std::vector<std::shared_ptr<CSession>> sessions;
+	{
+		std::lock_guard<std::mutex> lock(_mutex);
+		for (auto& entry : _sessions)
+		    sessions.push_back(entry.second); //复制会话指针，避免在清理过程中持锁
+	}
+
+	for (auto& session : sessions) {
+		session->Close(); //标记关闭并投递socket关闭操作，未完成的读取也可能随后报错，清理入口需要能处理重复调用
+		session->DealExceptionSession(); //清理会话表和Redis状态，内部会获取会话表锁
+	}
 }

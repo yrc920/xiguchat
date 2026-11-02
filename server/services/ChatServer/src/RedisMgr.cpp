@@ -415,6 +415,7 @@ bool RedisMgr::releaseLock(const std::string& lockName, const std::string& ident
 void RedisMgr::Close()
 {
 	_con_pool->Close(); //调用连接池的Close方法, 标记连接池停止, 唤醒所有等待的线程, 使其退出
+    _con_pool->ClearConnections(); //清空连接池中的所有连接, 释放资源
 }
 
 RedisMgr::~RedisMgr()
@@ -424,7 +425,7 @@ RedisMgr::~RedisMgr()
 
 
 RedisConPool::RedisConPool(size_t poolSize, const char* host, int port, const char* pwd)
-	: poolSize_(poolSize), host_(host), port_(port), b_stop_(false) {
+	: b_stop_(false), poolSize_(poolSize), host_(host), pwd_(pwd), port_(port) {
 	for (size_t i = 0; i < poolSize_; ++i) {
 		auto* context = redisConnect(host, port);//连接Redis服务器, 获取一个redisContext对象
 		//如果连接对象为nullptr或者连接错误, 则说明连接失败, 释放连接对象并继续尝试连接下一个
@@ -439,7 +440,7 @@ RedisConPool::RedisConPool(size_t poolSize, const char* host, int port, const ch
 		//执行AUTH命令进行密码认证
 		auto reply = (redisReply*)redisCommand(context, "AUTH %s", pwd);
 		//连接中断时redisCommand可能返回空指针；只有收到OK状态才将连接加入池中，其他情况释放连接
-		if (!reply || reply->type != REDIS_REPLY_STATUS || std::strcmp(reply->str, "OK") != 0) {
+		if (!reply || reply->type != REDIS_REPLY_STATUS || !reply->str || std::strcmp(reply->str, "OK") != 0) {
 			std::cout << "Authentication failure" << std::endl;
 			freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
 			redisFree(context); //释放连接对象
@@ -450,8 +451,136 @@ RedisConPool::RedisConPool(size_t poolSize, const char* host, int port, const ch
 		freeReplyObject(reply);
 		std::cout << "Authentication successful" << std::endl;
 		connections_.push(context); //将连接对象加入连接池的连接队列, 使其可供其他线程使用
+		++connection_count_; //增加当前连接数
 	}
 
+    //启动检测线程, 定期检查连接的状态并保持连接的活跃性(心跳机制)
+    check_thread_ = std::thread([this]() {
+        while (!b_stop_) {
+            //锁只覆盖等待本身, 检查与重连全部在锁外执行
+            {
+                std::unique_lock<std::mutex> lock(mutex_);
+                //两个唤醒来源: 停机, 或业务线程归还坏连接后请求补池; 谓词在锁内求值, 不会漏掉通知
+                check_cond_.wait_for(lock, std::chrono::seconds(60), [this] {
+                    return b_stop_.load() || check_requested_;
+                });
+                if (b_stop_) break;
+                check_requested_ = false; //在锁内清除, 与置位方互斥, 本轮未处理的缺口仍会在本轮补足
+            }
+            checkThread(); //检查连接池中的连接状态, 如果有连接不可用则尝试重新连接
+        }
+	});
+}
+
+void RedisConPool::checkThread() {
+    size_t pool_size; //先拿到当前连接数
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        pool_size = connections_.size();
+    }
+
+    for (size_t i = 0; i < pool_size && !b_stop_; ++i) {
+        //取出一个连接(持有锁)
+        auto * context = getConNonBlock(); //从连接池中获取一个可用的redisContext对象, 非阻塞方式
+        //如果获取到的连接对象为nullptr, 则说明连接池中没有可用的连接, 直接跳出循环
+        if (context == nullptr)
+            break;
+
+        redisReply* reply = nullptr;
+        try {
+            reply = (redisReply*)redisCommand(context, "PING"); //发送 PING 命令检查连接是否可用
+            //先看底层 I/O／协议层有没有错
+            if (context->err) {
+                std::cout << "Connection error: " << context->err << std::endl;
+                if (reply)
+                    freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+
+                redisFree(context); //释放连接对象
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    --connection_count_; //减少当前连接数
+                }
+                continue;
+            }
+
+            //再看 Redis 自身返回的是不是 ERROR
+            if (!reply || reply->type == REDIS_REPLY_ERROR) {
+                std::cout << "reply is null, redis ping failed: " << std::endl;
+                if (reply)
+                    freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+
+                redisFree(context); //释放连接对象
+                {
+                    std::lock_guard<std::mutex> lock(mutex_);
+                    --connection_count_; //减少当前连接数
+                }
+                continue;
+            }
+            // 如果一切正常，将连接还回去
+            //std::cout << "connection alive" << std::endl;
+            freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+            returnConnection(context); //将使用完的redisContext对象归还给连接池
+        }
+        catch (std::exception& exp) {
+            if (reply)
+                freeReplyObject(reply);
+
+            redisFree(context); //释放连接对象
+            {
+                std::lock_guard<std::mutex> lock(mutex_);
+                --connection_count_; //减少当前连接数
+            }
+        }
+    }
+
+    //补足初始连接失败、心跳失败或业务线程归还坏连接造成的容量缺口。
+    while (!b_stop_) {
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            if (connection_count_ >= poolSize_)
+                break;
+        }
+        if (!reconnect())
+            break;
+    }
+}
+
+bool RedisConPool::reconnect() {
+    //如果连接池被标记为停止, 则直接返回false, 不再尝试重新连接
+    if (b_stop_)
+        return false;
+    auto context = redisConnect(host_.c_str(), port_); //连接Redis服务器, 获取一个redisContext对象
+    //如果连接对象为nullptr或者连接错误, 则说明连接失败
+    if (context == nullptr || context->err != 0) {
+        if (context != nullptr) {
+            redisFree(context); //释放连接对象
+        }
+        return false;
+    }
+
+    auto reply = (redisReply*)redisCommand(context, "AUTH %s", pwd_.c_str());
+    //连接中断时redisCommand可能返回空指针；只有收到OK状态才将连接加入池中，其他情况释放连接
+    if (!reply || reply->type != REDIS_REPLY_STATUS || !reply->str || std::strcmp(reply->str, "OK") != 0) {
+        std::cout << "Authentication failure" << std::endl;
+        freeReplyObject(reply); //释放redisCommand执行后返回的redisReply所占用的内存
+        redisFree(context); //释放连接对象
+        return false;
+    }
+
+    //执行成功 释放redisCommand执行后返回的redisReply所占用的内存
+    freeReplyObject(reply);
+    std::cout << "Authentication successful" << std::endl;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (b_stop_) {
+            redisFree(context); //释放连接对象
+            return false;
+        }
+        connections_.push(context); //将连接对象加入连接池的连接队列, 使其可供其他线程使用
+        ++connection_count_; //增加当前连接数
+    }
+    cond_.notify_one(); //通知一个等待的线程, 使其从连接池中获取一个可用的连接对象
+    return true;
 }
 
 redisContext* RedisConPool::getConnection()
@@ -477,30 +606,67 @@ redisContext* RedisConPool::getConnection()
 	return context;
 }
 
+redisContext* RedisConPool::getConNonBlock() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    if (b_stop_) {
+        return nullptr;
+    }
+
+    if (connections_.empty()) {
+        return nullptr;
+    }
+
+    auto* context = connections_.front();
+    connections_.pop();
+    return context;
+}
+
 void RedisConPool::returnConnection(redisContext* context)
 {
-	std::lock_guard<std::mutex> lock(mutex_); //加锁保护连接池的状态
-	//如果连接池被标记为停止, 则直接返回, 不将连接对象加入连接池
-	if (b_stop_) {
-		return;
+	if (context == nullptr)
+	    return;
+	bool requestCheck = false;
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		if (b_stop_) { redisFree(context); return; }
+		if (context->err != 0) {
+			//不可复用的连接不回到队列: 先销账并登记补池请求, 通知放到锁外
+			redisFree(context);
+			--connection_count_;
+			check_requested_ = true;
+			requestCheck = true;
+		} else {
+			connections_.push(context);
+			cond_.notify_one();
+		}
 	}
+	if (requestCheck) check_cond_.notify_one();
+}
 
-	connections_.push(context); //将连接对象加入连接池的连接队列, 使其可供其他线程使用
-	cond_.notify_one(); //通知一个等待的线程, 使其从连接池中获取一个可用的连接对象
+void RedisConPool::ClearConnections() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    while (!connections_.empty()) {
+        auto* context = connections_.front();
+        redisFree(context);
+        connections_.pop();
+    }
 }
 
 void RedisConPool::Close()
 {
-	b_stop_ = true; //设置停止标志, 使连接池进入停止状态
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		b_stop_ = true; //设置停止标志, 使连接池进入停止状态
+	}
 	cond_.notify_all(); //通知所有等待连接的线程, 使它们能够退出等待状态并检查停止标志
+	check_cond_.notify_all(); //通知检测线程, 使其能够退出等待状态并检查停止标志
+	if (check_thread_.joinable()) {
+		check_thread_.join(); //等待检测线程退出, 确保在析构函数中不会有线程访问已释放的资源
+	}
+	ClearConnections(); //清理连接池中的所有连接
 }
 
 RedisConPool::~RedisConPool()
 {
-	std::lock_guard<std::mutex> lock(mutex_); //加锁保护连接池的状态
-	//释放连接池中的所有连接对象, 直到连接队列为空
-	while (!connections_.empty()) {
-		redisFree(connections_.front()); //释放连接对象
-		connections_.pop();
-	}
+	Close(); //调用Close方法, 关闭连接池, 释放资源
 }

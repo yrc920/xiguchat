@@ -52,11 +52,10 @@ int main()
 
 		//创建一个信号集，监听SIGINT和SIGTERM信号
 		boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-		//当接收到SIGINT或SIGTERM信号时，调用lambda函数来停止io_context和线程池
-		signals.async_wait([&io_context, pool, &server](auto, auto) {
-			io_context.stop();
-			pool->Stop();
-			server->Shutdown();
+		//当接收到SIGINT或SIGTERM信号时
+		signals.async_wait([&io_context, &server](auto, auto) {
+			server->Shutdown(); //优雅关闭gRPC服务器，停止接收新请求并处理完现有请求
+			io_context.stop(); //停止io_context的事件循环，结束主线程
 			});
 
 	    //将Cserver注册给逻辑类方便以后清除连接
@@ -64,8 +63,9 @@ int main()
 		io_context.run(); //运行io_context，开始处理事件循环，直到接收到停止信号
 
 		grpc_server_thread.join(); //等待grpc服务线程结束
-	    pointer_server->StopTimer(); //停止定时器
-        LogicSystem::GetInstance()->Stop(); //先结束业务处理，再关闭 Redis 和主 io_context
+	    LogicSystem::GetInstance()->Stop(); //先排空业务线程，之后再清理会话和共享资源
+	    pointer_server->Stop(); //停止 accept/timer 并清理会话；析构时重复调用是安全的
+	    pool->StopAfterDrain(); //让已投递的socket关闭和取消回调先完成，再回收会话IO线程
 	    return 0;
 	}
 	catch (std::exception& e) {

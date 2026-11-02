@@ -7,6 +7,7 @@
 #include <queue>
 #include <atomic>
 #include <mutex>
+#include <thread>
 #include <condition_variable>
 #include "Singleton.h"
 class RedisConPool; //连接池类, 用于管理Redis连接(前置声明)
@@ -55,16 +56,26 @@ public:
 	~RedisConPool();
 	//从连接池中获取一个可用的redisContext对象, 如果连接池为空则等待直到有连接可用
 	redisContext* getConnection();
+    redisContext* getConNonBlock(); //非阻塞获取连接, 如果连接池为空则返回nullptr
 	//将使用完的redisContext对象返回连接池, 使其可供其他线程使用
 	void returnConnection(redisContext* context);
+	void ClearConnections(); //清空连接池中的空闲连接, 释放资源
 	void Close(); //标记连接池停止, 唤醒所有等待的线程, 使其退出
 
 private:
+    void checkThread(); //检测线程, 定期检查连接的状态并保持连接的活跃性(心跳机制)
+    bool reconnect(); //重新连接
+
 	std::atomic<bool> b_stop_; //连接池是否停止, 用于控制连接池的生命周期
 	size_t poolSize_; //连接池的大小
-	const char* host_; //Redis服务器的主机地址
+	std::string host_; //Redis服务器的主机地址
+    std::string pwd_; //Redis服务器的密码
 	int port_; //Redis服务器的端口号
 	std::queue<redisContext*> connections_; //连接池中的连接队列, 存储可用的redisContext对象
 	std::mutex mutex_; //用于保护连接队列的互斥锁
 	std::condition_variable cond_; //用于线程间的条件变量, 当连接池为空时等待, 当有连接可用时通知
+    std::condition_variable check_cond_; //唤醒检测线程检查容量缺口或停止状态
+    size_t connection_count_{0}; //空闲与借出连接总数
+    bool check_requested_{true}; //补池请求标记: 启动时先补齐未建成的连接, 之后由归还坏连接的线程置位
+    std::thread check_thread_; //检测线程, 定期检查连接的状态并保持连接的活跃性(心跳机制)
 };

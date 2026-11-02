@@ -48,3 +48,12 @@ void IOContextPool::Stop() {
         }
     }
 }
+
+void IOContextPool::StopAfterDrain() {
+	for (auto& work : _works) {
+		work.reset(); //释放保活对象，允许io_context在处理完已投递的回调后退出
+	}
+	for (auto& thread : _threads) {
+		if (thread.joinable()) thread.join(); //等待线程退出，避免析构时线程还在访问已释放的资源
+	}
+}

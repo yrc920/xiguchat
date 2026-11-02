@@ -23,14 +23,15 @@ public:
 	//使用 round-robin 的方式返回一个 io_context
 	boost::asio::io_context& GetIOContext();
 	void Stop(); //停止所有 io_context，等待所有线程完成
+	void StopAfterDrain(); //释放work guard，处理完已投递的关闭回调后等待线程退出
 
 private:
 	//线程池的大小默认为cpu核心数
 	IOContextPool(std::size_t size = std::thread::hardware_concurrency());
 	//每个io_context对象都需要一个work对象来保持其运行状态, 跑在一个独立的线程中运行
 	std::vector<IOContext> _ioContexts;
-	std::vector<WorkPtr> _works;
-	std::vector<std::thread> _threads;
+	std::vector<WorkPtr> _works; //存储每个io_context的work对象
+	std::vector<std::thread> _threads; //存储每个io_context的线程对象
 
 	std::size_t _nextIOContext; //下一个io_context的索引
 };

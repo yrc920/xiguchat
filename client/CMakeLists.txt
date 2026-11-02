@@ -62,6 +62,15 @@ set(CMAKE_AUTORCC ON)
 # 让编译器默认在当前目录找头文件（配合下方 include 目录使用）
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
+# ---------- 源码编码 ----------
+# 源码统一 UTF-8（无 BOM）；显式固定输入与执行字符集，
+# 避免 MinGW 在中文 Windows 上按系统代码页解析中文注释与字符串
+if(MSVC)
+    add_compile_options(/utf-8)
+else()
+    add_compile_options(-finput-charset=UTF-8 -fexec-charset=UTF-8)
+endif()
+
 # ---------- 查找 Qt（Windows/macOS/Linux 通用）----------
 # Qt 安装路径两种来源（任选其一，互不覆盖）：
 #  1) Qt Creator：选择本机 Qt 6.5 Kit（三平台通用），Kit 自动注入 CMAKE_PREFIX_PATH

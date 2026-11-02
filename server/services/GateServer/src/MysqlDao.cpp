@@ -1,4 +1,4 @@
-﻿#include "MysqlDao.h"
+#include "MysqlDao.h"
 #include "ConfigMgr.h"
 #include "PasswordHash.h"
 #include <cstdlib>
@@ -60,6 +60,7 @@ int MysqlDao::RegUser(const std::string& name, const std::string& email, const s
 		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		return -1;
 	}catch (mysqlx::Error& e) {
+		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return -1;
@@ -92,9 +93,11 @@ bool MysqlDao::CheckEmail(const std::string& name, const std::string& email) {
 			row = res.fetchOne();
 		}
 		//保持原行为: 用户名不存在时同样返回true
+		pool_->returnConnection(std::move(con));
 		return true;
 	}
 	catch (mysqlx::Error& e) {
+		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return false;
@@ -124,6 +127,7 @@ bool MysqlDao::UpdatePwd(const std::string& name, const std::string& newpwd) {
 		return true;
 	}
 	catch (mysqlx::Error& e) {
+		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		pool_->returnConnection(std::move(con)); //将使用完的会话对象归还给连接池
 		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return false;
@@ -162,6 +166,7 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 		return PasswordHash::Verify(pwd, origin_pwd);
 	}
 	catch (mysqlx::Error& e) {
+		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
 		return false;
 	}
@@ -172,72 +177,109 @@ MySqlPool::MySqlPool(const std::string& host, unsigned port, const std::string& 
 	const std::string& schema, int poolSize)
 		: host_(host), port_(port), user_(user), pass_(pass), schema_(schema), poolSize_(poolSize), b_stop_(false)
 {
-	try {
-		for (int i = 0; i < poolSize_; ++i) {
-			//构建X DevAPI连接设置
+	//逐条建立连接, 单条失败不影响其余连接; 数量缺口由检测线程首轮补足
+	for (int i = 0; i < poolSize_; ++i) {
+		try {
 			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
-			//X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
-			//创建会话对象
 			auto session = std::make_unique<mysqlx::Session>(settings);
-			//获取当前时间戳
 			auto currentTime = std::chrono::system_clock::now().time_since_epoch();
-			//将时间戳转换为秒
 			long long timestamp = std::chrono::duration_cast<std::chrono::seconds>(currentTime).count();
-			//将会话对象和当前时间封装成SqlConnection对象, 加入连接池队列
 			pool_.push(std::make_unique<SqlConnection>(std::move(session), timestamp));
+			++connection_count_;
 		}
-
-		//启动检测线程, 定期检查连接的状态并保持连接的活跃性, 防止连接超时导致连接池中的连接失效
-		_check_thread = std::thread([this]() {
-			//如果不是停止状态
-			while (!b_stop_) {
-				checkConnection(); //检查连接的状态
-				std::this_thread::sleep_for(std::chrono::seconds(60)); //每60秒检查一次
+		catch (mysqlx::Error& e) {
+			std::cout << "mysql connection init failed: " << e.what() << std::endl;
+		}
+	}
+	//启动检测线程, 定期检查连接的状态并保持连接的活跃性(心跳机制)
+	_check_thread = std::thread([this]() {
+		while (!b_stop_) {
+			//锁只覆盖等待本身, 检查与重连全部在锁外执行
+			{
+				std::unique_lock<std::mutex> lock(mutex_);
+				//两个唤醒来源: 停机, 或业务线程丢弃连接后请求补池; 谓词在锁内求值, 不会漏掉通知
+				check_cond_.wait_for(lock, std::chrono::seconds(60), [this] {
+					return b_stop_.load() || check_requested_;
+				});
+				if (b_stop_) break;
+				check_requested_ = false; //在锁内清除, 与置位方互斥, 本轮未处理的缺口仍会在本轮补足
 			}
-		});
-		_check_thread.detach(); //分离检测线程, 使其在后台运行, 不阻塞主线程的退出
-	}
-	catch (mysqlx::Error& e) {
-		//处理异常
-		std::cout << "mysql pool init failed, error is " << e.what() << std::endl;
-	}
+			checkConnection();
+		}
+	});
 }
 
 void MySqlPool::checkConnection() {
-	std::lock_guard<std::mutex> guard(mutex_); //加锁保护连接池的状态
-	int poolsize = pool_.size(); //获取当前连接池中的连接数量
-	
-	auto currentTime = std::chrono::system_clock::now().time_since_epoch(); //获取当前时间戳
-	//将时间戳转换为秒
+	size_t poolsize;
+	{
+	    std::lock_guard<std::mutex> guard(mutex_);
+	    poolsize = pool_.size(); //获取当前连接池中连接的数量, 以便在遍历连接池时不受其他线程影响
+	}
+
+    //获取当前时间戳
+	auto currentTime = std::chrono::system_clock::now().time_since_epoch();
 	long long timestamp = std::chrono::duration_cast<std::chrono::seconds>(currentTime).count();
 
-	for (int i = 0; i < poolsize; i++) {
+	for (size_t i = 0; i < poolsize; i++) {
 		//从连接池队列中取出一个连接对象进行检查
-		auto con = std::move(pool_.front());
-		pool_.pop();
+		std::unique_ptr<SqlConnection> con;
+		{
+		    std::lock_guard<std::mutex> guard(mutex_);
+		    //如果连接池为空, 则直接退出循环, 避免访问空队列
+		    if (pool_.empty())
+		        break;
+		    con = std::move(pool_.front());
+		    pool_.pop();
+		}
 
-		//使用Defer对象确保检查完成后将连接对象归还给连接池, 无论检查过程中是否发生异常
-		Defer defer([this, &con]() {
-			pool_.push(std::move(con));
-			});
-
-		//如果当前时间与连接对象的上次操作时间的差值小于30秒, 则说明连接仍然活跃, 不需要检查, 直接跳过
-		if (timestamp - con->_last_oper_time < 30)
-			continue;
-
+		bool healthy = true;
 		try {
-			//执行一个简单的查询语句, 保证连接的活跃性
-			con->_session->sql("SELECT 1").execute();
-			con->_last_oper_time = timestamp; //更新连接对象的上次操作时间为当前时间
+		    //如果连接对象的最后操作时间距当前时间超过5秒, 则执行简单查询以保持连接活跃
+			if (timestamp - con->_last_oper_time >= 5) {
+				con->_session->sql("SELECT 1").execute(); //执行简单查询以保持连接活跃
+				con->_last_oper_time = timestamp; //更新最后操作时间戳, 以便下次检查时判断是否需要保持连接活跃
+			}
 		}
 		catch (mysqlx::Error& e) {
 			std::cout << "Error keeping connection alive: " << e.what() << std::endl;
-			//重新创建会话对象并替换旧的会话
-			mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
-			//X Protocol 下 caching_sha2_password 快速认证需要 TLS, 使用默认 SSL_MODE=REQUIRED(本地开发可接受)
-			con->_session.reset(new mysqlx::Session(settings)); //替换旧的会话对象
-			con->_last_oper_time = timestamp; //更新连接对象的上次操作时间为当前时间
+			healthy = false;
 		}
+		std::lock_guard<std::mutex> guard(mutex_);
+		if (healthy && !b_stop_) {
+			pool_.push(std::move(con));
+			cond_.notify_one();
+		} else {
+			--connection_count_;
+		}
+	}
+	while (!b_stop_) {
+		{
+			std::lock_guard<std::mutex> guard(mutex_);
+			//补足到池容量: 覆盖检查失败、业务线程丢弃、启动时建连失败三种缺口
+			if (connection_count_ >= static_cast<size_t>(poolSize_)) break;
+		}
+		if (!reconnect(timestamp)) break; //数据库不可达时不在锁外空转, 留到下一个周期再试
+	}
+}
+
+bool MySqlPool::reconnect(long long timestamp) {
+	try {
+	    //构建X DevAPI连接设置
+		mysqlx::SessionSettings settings(host_, port_, user_, pass_, schema_);
+		auto session = std::make_unique<mysqlx::Session>(settings);
+		auto con = std::make_unique<SqlConnection>(std::move(session), timestamp);
+		{
+		    std::lock_guard<std::mutex> lock(mutex_);
+		    if (b_stop_)
+		        return false;
+		    pool_.push(std::move(con)); //将新连接对象加入连接池队列, 使其可供其他线程使用
+			++connection_count_; //新增连接是池容量增长的唯一来源, 必须与队列同步记账
+		}
+		cond_.notify_one(); //通知一个等待的线程, 使其从连接池中获取一个可用的连接对象
+	    return true;
+	} catch (mysqlx::Error& e){
+	    std::cerr << "MySQL reconnect failed: " << e.what() << std::endl;
+	    return false;
 	}
 }
 
@@ -252,11 +294,12 @@ std::unique_ptr<SqlConnection> MySqlPool::getConnection()
 		}
 		//如果没有可用的连接, 返回false, 解锁并进入等待状态;
 		//如果有可用的连接, 返回true, 保持锁定状态并继续执行
-		return !pool_.empty(); });
+		return !pool_.empty();
+	});
 	//如果连接池被标记为停止, 直接返回空指针
-	if (b_stop_) {
+	if (b_stop_)
 		return nullptr;
-	}
+
 	//从连接池中获取一个可用的连接对象
 	std::unique_ptr<SqlConnection> con(std::move(pool_.front()));
 	pool_.pop(); //将连接对象从连接池队列中移除
@@ -265,27 +308,49 @@ std::unique_ptr<SqlConnection> MySqlPool::getConnection()
 
 void MySqlPool::returnConnection(std::unique_ptr<SqlConnection> con)
 {
+	if (!con) return;
 	std::unique_lock<std::mutex> lock(mutex_); //加锁保护连接池的状态
 	//如果连接池被标记为停止, 则直接返回, 不将连接对象归还给连接池
-	if (b_stop_) {
+	if (b_stop_)
+		return;
+	if (!con->_healthy || !con->_session) {
+		//不可复用的连接不回到队列: 先按"空闲+借出"的总数销账, 再请求检测线程补建
+		--connection_count_;
+		check_requested_ = true;
+		lock.unlock(); //关闭会话可能涉及网络收尾, 放到锁外执行
+		check_cond_.notify_one();
 		return;
 	}
 
+	//归还时刷新活跃时间, 检测线程据此跳过刚用过的连接, 只对真正空闲的连接做心跳
+	auto now = std::chrono::system_clock::now().time_since_epoch();
+	con->_last_oper_time = std::chrono::duration_cast<std::chrono::seconds>(now).count();
 	pool_.push(std::move(con)); //将连接对象加入连接池队列, 使其可供其他线程使用
 	cond_.notify_one(); //通知一个等待的线程, 使其从连接池中获取一个可用的连接对象
 }
 
 void MySqlPool::Close()
 {
-	b_stop_ = true; //设置停止标志, 使连接池进入停止状态
-	cond_.notify_all(); //通知所有等待连接的线程, 使它们能够退出等待状态并检查停止标志
+	{
+	    std::lock_guard<std::mutex> lock(mutex_);
+	    b_stop_ = true; //标记连接池为停止
+	}
+	cond_.notify_all(); //唤醒等待连接的业务线程
+	check_cond_.notify_all(); //唤醒周期检测线程
+    //等待检测线程退出, 确保在析构函数中不会有线程访问已释放的资源
+	if (_check_thread.joinable())
+	    _check_thread.join();
+
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		//检测线程已退出, 队列中的连接不会再被取用, 直接随容器析构关闭
+		while (!pool_.empty())
+			pool_.pop();
+		connection_count_ = 0; //停止后容量计数不再有意义, 清零避免被误读
+	}
 }
 
 MySqlPool::~MySqlPool()
 {
-	std::unique_lock<std::mutex> lock(mutex_); //加锁保护连接池的状态
-	//清空连接池队列
-	while (!pool_.empty()) {
-		pool_.pop();
-	}
+	Close(); //幂等: 调用方已关闭时这里只做一次空转, 保证检测线程一定被回收
 }

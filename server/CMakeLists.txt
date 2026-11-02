@@ -71,17 +71,18 @@ find_package(zstd CONFIG REQUIRED)
 find_package(lz4 CONFIG REQUIRED)
 
 # ---------- 公共编译选项 ----------
+# 源码统一 UTF-8（无 BOM），构建期显式固定输入与执行字符集，
+# 避免编译器按系统代码页解析中文注释和字符串
 if(MSVC)
-    # 源码为 UTF-8（含中文注释）：
-    #   /utf-8   让 MSVC 按 UTF-8 解析源码，避免中文乱码与 C4819
+    #   /utf-8   让 MSVC 按 UTF-8 解析源码并按 UTF-8 生成执行字符集
     #   /wd4819  关闭"当前代码页无法表示源码字符"编码警告
     #   /wd4996  关闭"使用不安全 CRT 函数"的弃用告警（如 strcpy 等）
     #   _CRT_SECURE_NO_WARNINGS 等效宏定义
     add_compile_options(/utf-8 /wd4819 /wd4996)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
-    # 非 MSVC 编译器（GCC/Clang）开启常用警告
-    add_compile_options(-Wall -Wextra)
+    # 非 MSVC 编译器（GCC/Clang）开启常用警告，并显式声明源码与执行字符集
+    add_compile_options(-Wall -Wextra -finput-charset=UTF-8 -fexec-charset=UTF-8)
 endif()
 
 # ---------- 公共部署函数 ----------

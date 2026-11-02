@@ -7,6 +7,7 @@
 #include <memory>
 #include <map>
 #include <mutex>
+#include <atomic>
 
 using boost::asio::ip::tcp;
 
@@ -19,9 +20,10 @@ public:
     bool CheckValid(std::string); //检查指定uuid的会话是否存在
     std::shared_ptr<CSession> GetSession(std::string); //根据uid获取session
 
-    void on_timer(const boost::system::error_code& ec);
-    void StartTimer();
-    void StopTimer();
+    void on_timer(const boost::system::error_code& ec); //定时器回调函数, 用于清理无效会话
+    void StartTimer(); //启动定时器, 定时清理无效会话
+    void StopTimer(); //停止定时器, 停止清理无效会话
+    void Stop(); //幂等停服：停止接入、定时器并清理所有会话
 
 private:
 	//处理接受连接的回调函数
@@ -34,5 +36,6 @@ private:
 	std::map<std::string, std::shared_ptr<CSession>> _sessions; //存储所有会话
 	std::mutex _mutex; //保护_sessions的互斥锁
     boost::asio::steady_timer _timer; //定时器, 用于定时清理无效会话
+    std::atomic<bool> _stopped{false}; //标记服务器是否已停止, 用于控制定时器和会话清理的行为
 };
 
