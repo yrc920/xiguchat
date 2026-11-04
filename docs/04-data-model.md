@@ -1,10 +1,10 @@
 # 04 · 数据模型
 
-数据分两层：**MySQL 负责持久化**（用户、好友关系、好友申请），**Redis 负责运行时状态**
+数据分两层：**MySQL 负责持久化**（用户、好友关系、好友申请、会话与消息），**Redis 负责运行时状态**
 （token、用户缓存、实例位置、连接计数、验证码）。
 
-> 备份文件 `backup/xigu.sql` 已纳入版本管理，包含全部建表语句、`reg_user` 存储过程与初始数据，
-> 导入即可复现完整的库结构，无需手工建表。
+> `backup/xigu.sql` 包含账号与好友基础数据。聊天表结构不随仓库分发，
+> 由部署环境按本文档的字段与索引手动创建。
 
 ---
 
@@ -47,9 +47,11 @@
 | `from_uid` | int | 申请人 |
 | `to_uid` | int | 被申请人 |
 | `status` | smallint, 默认 0 | 0 待处理 / 1 已同意 |
+| `descs` | varchar(255), 默认空串 | 申请留言；同意后作为申请方的第一条欢迎消息 |
+| `back_name` | varchar(255), 默认空串 | 申请方给对方设置的备注；同意后用于反向好友记录 |
 
 唯一索引 `(from_uid, to_uid)`；`AddFriendApply` 用
-`ON DUPLICATE KEY UPDATE from_uid = from_uid` 保证重复申请不报错。
+`ON DUPLICATE KEY UPDATE descs = VALUES(descs), back_name = VALUES(back_name)` 更新重复申请。
 
 ### 表 `user_id`
 
@@ -74,6 +76,25 @@ CREATE PROCEDURE reg_user(IN new_name VARCHAR(255), IN new_email VARCHAR(255),
 
 > **重要**：`new_pwd` 存的是 DAO 层算好的 Argon2id 哈希串，存储过程只做搬运，
 > 因此数据库里**不存在明文密码**。
+
+### 会话与消息表
+
+聊天表结构如下（建表 SQL 由部署环境自行维护，不纳入仓库）：
+
+| 表 | 用途 |
+| --- | --- |
+| `chat_thread` | 单聊/群聊共用的全局会话 ID 和类型 |
+| `private_chat` | 两个按 uid 升序保存的单聊参与者；唯一索引避免重复会话 |
+| `group_chat` / `group_chat_member` | 群聊资料与成员关系，本阶段只建表，群聊业务尚未接入 |
+| `chat_message` | 全局自增 `message_id`、会话、发送/接收者、客户端去重 ID、正文和状态 |
+
+消息分页使用 `(thread_id, message_id)` 索引及游标 `message_id > last_id`；会话分页使用 `thread_id > last_id`。
+首次单聊在事务中查询或创建 `chat_thread` 和 `private_chat`，参与者按 uid 归一化并由唯一键兜底。
+客户端当前仍只保存在内存，不含 SQLite；每次登录会同步会话及服务端历史消息，后续本地缓存可用全局 `message_id` 增量续传。
+当前 QML 客户端已经按会话持有 `ChatThreadData`，消息对象包含 `msgid`、`thread_id`、`message_id`、发送者/接收者和状态。
+发送中的消息先进入会话并显示转圈，服务器回包后变为已发送，失败变为失败标记。
+历史或实时收到的对方消息在内存中标记为未读；未读/已读的展示与回执闭环尚未接通。
+消息容器每次合并后按有效 `message_id` 升序排列，待确认的本地消息暂放在末尾，收到服务器 ID 后重新排序，避免历史分页与实时消息交错时乱序。
 
 ---
 
@@ -172,10 +193,11 @@ flowchart LR
 
 ---
 
-## 4.4 未落库的数据
+## 4.4 当前边界
 
 | 数据 | 现状 |
 | --- | --- |
-| 聊天消息 | **不落库**。`friend_apply` / `friend` / `user` 之外没有消息表，聊天记录仅存在于客户端内存（进程退出即丢失） |
-| 离线消息 | 无存储与重投机制 |
-| 消息送达状态 | 客户端收到 1018 回执后未做任何 UI 标记（源码中留有 TODO） |
+| 客户端本地消息缓存 | 尚未接入 SQLite；当前登录时从服务端按会话拉取历史消息 |
+| 离线消息 | 消息正文已持久化；离线期间不推送，下一次登录的历史同步可取回 |
+| 消息送达状态 | `chat_message.status` 已预留，送达/已读回执闭环尚未实现 |
+| 群聊 | 表结构已预留，群聊创建、成员授权和广播业务尚未实现 |

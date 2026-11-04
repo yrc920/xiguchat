@@ -2,7 +2,13 @@
 #define MESSAGEMODEL_H
 
 #include <QAbstractListModel>
+#include <QString>
+#include <QVector>
 #include <QtQml/qqmlregistration.h>
+#include <memory>
+#include <vector>
+
+struct TextChatData;
 
 /**
  * @brief 当前会话的消息模型
@@ -26,6 +32,7 @@ public:
         ImageHeightRole,
         AvatarRole,
         NameRole,
+        StatusRole,
     };
 
     explicit MessageModel(QObject *parent = nullptr);
@@ -42,9 +49,12 @@ signals:
 
 private:
     void onFriendChatChanged(int uid);
+    void syncCache(const std::vector<std::shared_ptr<TextChatData>>& msgs);
 
     int _uid = 0;
     int _cachedCount = 0;
+    QVector<QString> _cachedIds;
+    QVector<int> _cachedStatus;
 };
 
 #endif // MESSAGEMODEL_H

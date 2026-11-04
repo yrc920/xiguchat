@@ -25,6 +25,20 @@ inline ErrorCodes ValidateChatRequest(short id, const Json::Value& root, int ses
     if (id == ID_SEARCH_USER_REQ) {
         return stringField("uid") && !root["uid"].asString().empty() ? Success : Error_Json;
     }
+	if (id == ID_LOAD_CHAT_THREAD_REQ || id == ID_LOAD_CHAT_MSG_REQ) {
+		if (!positiveId("fromuid") || root["fromuid"].asInt() != session_uid
+			|| !root["thread_id"].isInt64() || root["thread_id"].asInt64() < 0)
+			return Error_Json;
+		if (id == ID_LOAD_CHAT_MSG_REQ
+			&& (!root["message_id"].isInt64() || root["message_id"].asInt64() < 0))
+			return Error_Json;
+		return Success;
+	}
+	if (id == ID_CREATE_PRIVATE_CHAT_REQ) {
+		return positiveId("fromuid") && root["fromuid"].asInt() == session_uid
+			&& positiveId("touid") && root["touid"].asInt() != session_uid
+			? Success : UidInvalid;
+	}
     //好友申请用uid表示申请人，同意好友、文本消息和心跳用fromuid表示操作者
     //请求中声明的操作者必须与服务端绑定的用户一致，不能仅凭客户端传来的uid执行操作
     const char* actor = id == ID_ADD_FRIEND_REQ ? "uid" : "fromuid";
@@ -43,9 +57,13 @@ inline ErrorCodes ValidateChatRequest(short id, const Json::Value& root, int ses
         const auto& texts = root["text_array"];
         if (!texts.isArray() || texts.empty()) return Error_Json;
         for (const auto& text : texts) {
-            if (!text.isObject() || !text["content"].isString() || !text["msgid"].isString())
+            if (!text.isObject() || !text["content"].isString() || !text["msgid"].isString()
+                || text["msgid"].asString().empty())
                 return Error_Json;
         }
+        if (root.isMember("thread_id")
+            && (!root["thread_id"].isInt64() || root["thread_id"].asInt64() < 0))
+            return Error_Json;
         return Success;
     }
     return Error_Json; //不接受未定义的请求格式

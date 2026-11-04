@@ -161,6 +161,8 @@ message AuthFriendReq {
   int32 fromuid = 1;
   // 被添加的一方，即原申请人，需要收到"对方已通过"的通知
   int32 touid = 2;
+  int64 thread_id = 3;
+  repeated TextChatData welcome_msgs = 4;
 }
 
 // 好友申请通过的响应
@@ -171,6 +173,8 @@ message AuthFriendRsp {
   int32 fromuid = 2;
   // 回显被添加方 ID
   int32 touid = 3;
+  int64 thread_id = 4;
+  repeated TextChatData welcome_msgs = 5;
 }
 
 // 跨实例转发文本消息的请求
@@ -181,6 +185,7 @@ message TextChatMsgReq {
   int32 touid = 2;
   // 本次要投递的消息段，允许一次携带多条
   repeated TextChatData textmsgs = 3;
+  int64 thread_id = 4;
 }
 
 // 单条文本消息
@@ -189,6 +194,10 @@ message TextChatData {
   string msgid = 1;
   // 消息正文
   string msgcontent = 2;
+  int64 message_id = 3;
+  int32 status = 4;
+  int32 fromuid = 5;
+  int32 touid = 6;
 }
 
 // 跨实例转发文本消息的响应
@@ -201,6 +210,7 @@ message TextChatMsgRsp {
   int32 touid = 3;
   // 回显本次投递的消息段，便于发送方确认哪些消息已被转发
   repeated TextChatData textmsgs = 4;
+  int64 thread_id = 5;
 }
 
 // 跨实例踢人的请求

@@ -11,7 +11,7 @@
 长连接状态放在 ChatServer 进程内存里，用户落在哪个实例记在 Redis（`uip_<uid>`），
 这样聊天节点可以随意加减。
 
-**进程内状态优先。** 同实例的消息直投，既不落 Redis 也不落库；只有跨实例才走 gRPC。
+**进程内状态优先。** 同实例的消息直投，不落 Redis；消息正文统一写 MySQL，跨实例才走 gRPC。
 Redis 只承担跨节点寻址与登录计数，持久化交给 MySQL。
 
 ## 1.2 系统分层
@@ -177,7 +177,7 @@ sequenceDiagram
 | --- | --- | --- |
 | 同实例在线 | `UserMgr` 内存映射 → `CSession::Send()` | 零网络开销，逻辑线程内完成 |
 | 跨实例在线 | `uip_<uid>` 定位实例名 → gRPC Stub 连接池 → 对端 `ChatServiceImpl` → `UserMgr` → `Send()` | 一次 RPC 跳转 |
-| 目标离线 | 直接返回，消息丢弃 | **当前无离线消息**（见已知限制） |
+| 目标离线 | 消息写 `chat_message` 后返回 | 下次登录按 `thread_id + message_id` 同步；不实时推送 |
 
 `uip_<uid>` 在登录时写入，在会话清理时不删除（仅解绑 `UserMgr`），
 因此离线用户仍会残留一个过期的位置值；由于离线判定最终以 `UserMgr::GetSession()` 返回空为准，

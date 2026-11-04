@@ -9,7 +9,13 @@ MessageModel::MessageModel(QObject *parent) : QAbstractListModel(parent)
             this, [this] { beginResetModel(); });
     connect(UserMgr::GetInstance().get(), &UserMgr::FriendListChanged, this, [this] {
         auto info = UserMgr::GetInstance()->GetFriendById(_uid);
-        _cachedCount = info ? static_cast<int>(info->_chat_msgs.size()) : 0;
+        if (info)
+            syncCache(info->_chat_thread->_chat_msgs);
+        else {
+            _cachedCount = 0;
+            _cachedIds.clear();
+            _cachedStatus.clear();
+        }
         endResetModel();
         emit countChanged();
     });
@@ -20,9 +26,9 @@ MessageModel::MessageModel(QObject *parent) : QAbstractListModel(parent)
         const auto info = mgr->GetFriendById(_uid);
         if (!info)
             return;
-        const int count = qMin(_cachedCount, static_cast<int>(info->_chat_msgs.size()));
+        const int count = qMin(_cachedCount, static_cast<int>(info->_chat_thread->_chat_msgs.size()));
         for (int row = 0; row < count; ++row) {
-            if (info->_chat_msgs.at(row)->_from_uid == mgr->GetUid())
+            if (info->_chat_thread->_chat_msgs.at(row)->_from_uid == mgr->GetUid())
                 emit dataChanged(index(row, 0), index(row, 0), {AvatarRole});
         }
     });
@@ -34,9 +40,32 @@ void MessageModel::setFriend(int uid)
     beginResetModel();
     _uid = uid;
     auto friend_info = UserMgr::GetInstance()->GetFriendById(uid);
-    _cachedCount = friend_info ? static_cast<int>(friend_info->_chat_msgs.size()) : 0;
+    if (friend_info)
+        syncCache(friend_info->_chat_thread->_chat_msgs);
+    else {
+        _cachedCount = 0;
+        _cachedIds.clear();
+        _cachedStatus.clear();
+    }
     endResetModel();
     emit countChanged();
+}
+
+// 记录当前行顺序和状态，供下一次变更做前缀比较
+void MessageModel::syncCache(const std::vector<std::shared_ptr<TextChatData>>& msgs)
+{
+    _cachedCount = static_cast<int>(msgs.size());
+    _cachedIds.resize(_cachedCount);
+    _cachedStatus.resize(_cachedCount);
+    for (int i = 0; i < _cachedCount; ++i) {
+        if (!msgs[i]) {
+            _cachedIds[i].clear();
+            _cachedStatus[i] = 0;
+            continue;
+        }
+        _cachedIds[i] = msgs[i]->_msg_id;
+        _cachedStatus[i] = static_cast<int>(msgs[i]->_status);
+    }
 }
 
 // 行数取当前好友的消息条数
@@ -55,11 +84,11 @@ QVariant MessageModel::data(const QModelIndex &index, int role) const
         return {};
     auto friend_info = UserMgr::GetInstance()->GetFriendById(_uid);
     if (!friend_info || index.row() < 0
-        || index.row() >= static_cast<int>(friend_info->_chat_msgs.size())) {
+        || index.row() >= static_cast<int>(friend_info->_chat_thread->_chat_msgs.size())) {
         return {};
     }
 
-    const auto &msg = friend_info->_chat_msgs.at(index.row());
+    const auto &msg = friend_info->_chat_thread->_chat_msgs.at(index.row());
     switch (role) {
     case TextRole: return msg->_msg_content;
     case SelfRole: return msg->_from_uid == UserMgr::GetInstance()->GetUid();
@@ -74,6 +103,8 @@ QVariant MessageModel::data(const QModelIndex &index, int role) const
             return role == AvatarRole ? UserMgr::GetInstance()->GetIcon() : self->_name;
         return role == AvatarRole ? friend_info->_icon : friend_info->_name;
     }
+    case StatusRole:
+        return static_cast<int>(msg->_status);
     default: return {};
     }
 }
@@ -90,28 +121,75 @@ QHash<int, QByteArray> MessageModel::roleNames() const
         {ImageHeightRole, "imageHeight"},
         {AvatarRole, "avatar"},
         {NameRole, "name"},
+        {StatusRole, "status"},
     };
 }
 
-// 当前会话来了新消息：增量插入，不整表重置
+// 当前会话消息变化：顺序不变时按增量插入或按行刷新，只有重排/缩表才 reset
 void MessageModel::onFriendChatChanged(int uid)
 {
     if (uid != _uid || _uid == 0)
         return;
 
     auto friend_info = UserMgr::GetInstance()->GetFriendById(uid);
-    const int newCount = friend_info ? static_cast<int>(friend_info->_chat_msgs.size()) : 0;
+    if (!friend_info) {
+        if (_cachedCount > 0) {
+            beginResetModel();
+            _cachedCount = 0;
+            _cachedIds.clear();
+            _cachedStatus.clear();
+            endResetModel();
+            emit countChanged();
+        }
+        return;
+    }
+
+    const auto &msgs = friend_info->_chat_thread->_chat_msgs;
+    const int newCount = static_cast<int>(msgs.size());
+
+    if (newCount == _cachedCount) {
+        bool sameOrder = true;
+        for (int i = 0; i < newCount; ++i) {
+            if (!msgs[i] || msgs[i]->_msg_id != _cachedIds[i]) {
+                sameOrder = false;
+                break;
+            }
+        }
+        if (!sameOrder) {
+            beginResetModel();
+            syncCache(msgs);
+            endResetModel();
+            emit countChanged();
+            return;
+        }
+        // 行数与顺序都没变，只可能是状态/内容更新；按行刷新，不重建列表
+        if (newCount > 0) {
+            syncCache(msgs);
+            emit dataChanged(index(0, 0), index(newCount - 1, 0));
+        }
+        return;
+    }
 
     if (newCount > _cachedCount) {
-        // 追加：只插入新增的行，已有气泡不重建
-        beginInsertRows(QModelIndex(), _cachedCount, newCount - 1);
-        _cachedCount = newCount;
-        endInsertRows();
-        emit countChanged();
-    } else if (newCount < _cachedCount) {
-        beginResetModel();
-        _cachedCount = newCount;
-        endResetModel();
-        emit countChanged();
+        bool prefix = true;
+        for (int i = 0; i < _cachedCount; ++i) {
+            if (!msgs[i] || msgs[i]->_msg_id != _cachedIds[i]) {
+                prefix = false;
+                break;
+            }
+        }
+        if (prefix) {
+            beginInsertRows(QModelIndex(), _cachedCount, newCount - 1);
+            syncCache(msgs);
+            endInsertRows();
+            emit countChanged();
+            return;
+        }
     }
+
+    // 数量减少，或待确认消息拿到 message_id 后改变了位置
+    beginResetModel();
+    syncCache(msgs);
+    endResetModel();
+    emit countChanged();
 }

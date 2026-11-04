@@ -41,8 +41,76 @@ SessionService::SessionService() : _ready(false)
             [](std::shared_ptr<TextChatMsg> msg) {
                 if (!msg)
                     return;
-                UserMgr::GetInstance()->AppendFriendChatMsg(msg->_from_uid, msg->_chat_msgs);
+                const int peerUid = msg->_from_uid == UserMgr::GetInstance()->GetUid()
+                    ? msg->_to_uid : msg->_from_uid;
+                if (msg->_thread_id > 0)
+                    UserMgr::GetInstance()->SetThreadId(peerUid, msg->_thread_id);
+                UserMgr::GetInstance()->AppendFriendChatMsg(peerUid, msg->_chat_msgs);
             });
+    connect(tcp, &TcpMgr::sig_chat_msg_failed, this, [](const QJsonObject &data) {
+        auto *mgr = UserMgr::GetInstance().get();
+        const int peerUid = data.value("touid").toInt();
+        for (const auto &value : data.value("text_array").toArray())
+            mgr->UpdateChatMessage(peerUid, value.toObject().value("msgid").toString(), 0,
+                ChatMessageStatus::Failed);
+    });
+    connect(tcp, &TcpMgr::sig_chat_threads, this, [this](const QJsonObject &data) {
+        auto *mgr = UserMgr::GetInstance().get();
+        const auto threads = data.value("thread_list").toArray();
+        mgr->AppendChatThreads(threads);
+        mgr->RefreshFriendList();
+        for (const auto &value : threads) {
+            const auto item = value.toObject();
+            QJsonObject request{{"fromuid", mgr->GetUid()}, {"thread_id", item.value("thread_id")},
+                                {"message_id", 0}};
+            emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
+                QJsonDocument(request).toJson(QJsonDocument::Compact));
+        }
+        if (data.value("load_more").toBool() && !threads.isEmpty()) {
+            QJsonObject request{{"fromuid", mgr->GetUid()},
+                {"thread_id", threads.last().toObject().value("thread_id")}};
+            emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_THREAD_REQ,
+                QJsonDocument(request).toJson(QJsonDocument::Compact));
+        }
+    });
+    connect(tcp, &TcpMgr::sig_chat_messages, this, [](const QJsonObject &data) {
+        auto *mgr = UserMgr::GetInstance().get();
+        const qint64 threadId = data.value("thread_id").toVariant().toLongLong();
+        const int peerUid = mgr->FriendIdByThread(threadId);
+        if (peerUid <= 0)
+            return;
+        std::vector<std::shared_ptr<TextChatData>> messages;
+        for (const auto &value : data.value("text_array").toArray()) {
+            const auto item = value.toObject();
+            const int defaultStatus = item.value("fromuid").toInt() == mgr->GetUid()
+                ? static_cast<int>(ChatMessageStatus::Sent)
+                : static_cast<int>(ChatMessageStatus::Unread);
+            const auto status = static_cast<ChatMessageStatus>(
+                item.value("status").toInt(defaultStatus));
+            messages.push_back(std::make_shared<TextChatData>(item.value("msgid").toString(),
+                item.value("content").toString(), item.value("fromuid").toInt(),
+                item.value("touid").toInt(), item.value("message_id").toVariant().toLongLong(),
+                threadId, status));
+        }
+        mgr->AppendFriendChatMsg(peerUid, std::move(messages));
+        if (data.value("load_more").toBool()) {
+            const auto items = data.value("text_array").toArray();
+            if (!items.isEmpty()) {
+                QJsonObject request{{"fromuid", mgr->GetUid()}, {"thread_id", threadId},
+                    {"message_id", items.last().toObject().value("message_id")}};
+                emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
+                    QJsonDocument(request).toJson(QJsonDocument::Compact));
+            }
+        }
+    });
+    connect(tcp, &TcpMgr::sig_private_chat_created, this, [](const QJsonObject &data) {
+        if (data.value("error").toInt() != 0) {
+            UserMgr::GetInstance()->MarkPrivateChatPending(data.value("uid").toInt(), false);
+            return;
+        }
+        UserMgr::GetInstance()->SetThreadId(data.value("uid").toInt(),
+            data.value("thread_id").toVariant().toLongLong());
+    });
 
     // 收到新的好友申请：同一个人只留一条，重复通知直接丢掉
     connect(tcp, &TcpMgr::sig_friend_apply, this,
@@ -58,18 +126,26 @@ SessionService::SessionService() : _ready(false)
     // 「别人同意了我」和「我同意了别人」，都要落到同一份好友数据里
     connect(tcp, &TcpMgr::sig_add_auth_friend, this,
             [](std::shared_ptr<AuthInfo> info) {
-                if (!info || UserMgr::GetInstance()->CheckFriendById(info->_uid))
+                if (!info)
                     return;
-                UserMgr::GetInstance()->AddFriend(info);
+                auto *mgr = UserMgr::GetInstance().get();
+                if (!mgr->CheckFriendById(info->_uid))
+                    mgr->AddFriend(info);
+                mgr->SetThreadId(info->_uid, info->_thread_id);
+                if (!info->_welcome_msgs.empty())
+                    mgr->AppendFriendChatMsg(info->_uid, info->_welcome_msgs);
             });
     connect(tcp, &TcpMgr::sig_auth_rsp, this, [](std::shared_ptr<AuthRsp> rsp) {
         if (!rsp)
             return;
         // 服务端确认通过后，申请条目从「添加」变成「已添加」
         UserMgr::GetInstance()->SetApplyStatus(rsp->_uid, 1);
-        if (UserMgr::GetInstance()->CheckFriendById(rsp->_uid))
-            return;
-        UserMgr::GetInstance()->AddFriend(rsp);
+        auto *mgr = UserMgr::GetInstance().get();
+        if (!mgr->CheckFriendById(rsp->_uid))
+            mgr->AddFriend(rsp);
+        mgr->SetThreadId(rsp->_uid, rsp->_thread_id);
+        if (!rsp->_welcome_msgs.empty())
+            mgr->AppendFriendChatMsg(rsp->_uid, rsp->_welcome_msgs);
     });
     connect(tcp, &TcpMgr::sig_con_success, this, &SessionService::onTcpConnected);
     connect(tcp, &TcpMgr::sig_login_failed, this, &SessionService::onChatLoginFailed);
@@ -85,6 +161,7 @@ SessionService::SessionService() : _ready(false)
         else {
             _ready = false;
             _heartbeat.stop();
+            UserMgr::GetInstance()->FailPendingMessages();
         }
     });
     connect(tcp, &TcpMgr::sig_notify_offline, this, [this] {
@@ -175,6 +252,23 @@ void SessionService::onChatLoggedIn(const QJsonObject &data)
         data["nick"].toString(), data["icon"].toString(), data["sex"].toInt()));
     mgr->AppendApplyList(data["apply_list"].toArray());
     mgr->AppendFriendList(data["friend_list"].toArray());
+    mgr->SetChatThreads(data["thread_list"].toArray());
+    for (const auto &value : data["thread_list"].toArray()) {
+        const auto item = value.toObject();
+        QJsonObject request{{"fromuid", mgr->GetUid()}, {"thread_id", item.value("thread_id")},
+                            {"message_id", 0}};
+        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
+            QJsonDocument(request).toJson(QJsonDocument::Compact));
+    }
+    if (data.value("thread_more").toBool()) {
+        const auto threads = data.value("thread_list").toArray();
+        if (!threads.isEmpty()) {
+            QJsonObject request{{"fromuid", mgr->GetUid()},
+                {"thread_id", threads.last().toObject().value("thread_id")}};
+            emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_THREAD_REQ,
+                QJsonDocument(request).toJson(QJsonDocument::Compact));
+        }
+    }
     _connecting = false;
     _timeout.stop();
     _ready = true;

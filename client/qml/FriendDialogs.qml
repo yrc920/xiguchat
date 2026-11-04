@@ -45,11 +45,17 @@ FocusScope {
         authRemarkInput.forceInputFocus()
     }
 
+    function defaultWelcome() {
+        return controller.myUserName.length > 0
+            ? "你好，我是" + controller.myUserName
+            : "你好，很高兴认识你"
+    }
+
     function openApplyDialog(uid, name) {
         pendingUid = uid
         pendingName = name
         selectedTags = []
-        verifyInput.text = controller.myUserName
+        verifyInput.text = defaultWelcome()
         applyRemarkInput.text = name
         tagInput.text = ""
         overlay = "apply"
@@ -86,7 +92,8 @@ FocusScope {
             controller.clearSearch()
             openApplyDialog(uid, name)
         } else if (overlay === "apply") {
-            controller.applyTo(pendingUid, verifyInput.text || controller.myUserName,
+            // 留空就原样发空，由服务端回退到默认留言；不要在这里再补一次默认句
+            controller.applyTo(pendingUid, verifyInput.text.trim(),
                                applyRemarkInput.text || pendingName)
             overlay = ""
         } else if (overlay === "auth") {

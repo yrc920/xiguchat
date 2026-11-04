@@ -6,6 +6,7 @@
 #include <QJsonArray>
 #include <vector>
 #include <QJsonObject>
+#include <utility>
 /******************************************************************************
  *
  * @file       userdata.h
@@ -61,44 +62,80 @@ struct ApplyInfo {
     int _status;
 };
 
+struct TextChatData;
+
 //用户认证信息数据结构
 struct AuthInfo {
-    AuthInfo(int uid, QString name, QString nick, QString icon, int sex) :
-        _uid(uid), _name(name), _nick(nick), _icon(icon), _sex(sex){}
+    AuthInfo(int uid, QString name, QString nick, QString icon, int sex, qint64 thread_id = 0,
+             qint64 message_id = 0, QString welcome_msg_id = {}) :
+        _uid(uid), _name(name), _nick(nick), _icon(icon), _sex(sex), _thread_id(thread_id),
+        _message_id(message_id), _welcome_msg_id(std::move(welcome_msg_id)){}
 
     int _uid;
     QString _name;
     QString _nick;
     QString _icon;
     int _sex;
+    qint64 _thread_id = 0;
+    qint64 _message_id = 0;
+    QString _welcome_msg_id;
+    std::vector<std::shared_ptr<TextChatData>> _welcome_msgs;
 };
 
 //用户认证响应数据结构
 struct AuthRsp {
-    AuthRsp(int peer_uid, QString peer_name, QString peer_nick, QString peer_icon, int peer_sex) :
-        _uid(peer_uid),_name(peer_name),_nick(peer_nick), _icon(peer_icon),_sex(peer_sex){}
+    AuthRsp(int peer_uid, QString peer_name, QString peer_nick, QString peer_icon,
+            int peer_sex, qint64 thread_id = 0, qint64 message_id = 0,
+            QString welcome_msg_id = {}) :
+        _uid(peer_uid),_name(peer_name),_nick(peer_nick), _icon(peer_icon),_sex(peer_sex),
+        _thread_id(thread_id),_message_id(message_id),
+        _welcome_msg_id(std::move(welcome_msg_id)){}
 
     int _uid;
     QString _name;
     QString _nick;
     QString _icon;
     int _sex;
+    qint64 _thread_id = 0;
+    qint64 _message_id = 0;
+    QString _welcome_msg_id;
+    std::vector<std::shared_ptr<TextChatData>> _welcome_msgs;
 };
 
-struct TextChatData;
+enum class ChatMessageStatus : int {
+    Sending = 0,
+    Sent = 1,
+    Failed = 2,
+    Unread = 3,
+    Read = 4,
+};
+
+struct ChatThreadData {
+    explicit ChatThreadData(qint64 thread_id = 0) : _thread_id(thread_id) {}
+
+    qint64 _thread_id = 0;
+    std::vector<std::shared_ptr<TextChatData>> _chat_msgs;
+};
+
 struct FriendInfo {
     FriendInfo(int uid, QString name, QString nick, QString icon,
                int sex, QString desc, QString back, QString last_msg=""):_uid(uid),
         _name(name),_nick(nick),_icon(icon),_sex(sex),_desc(desc),
-        _back(back),_last_msg(last_msg){}
+        _back(back),_last_msg(last_msg),_chat_thread(std::make_shared<ChatThreadData>()){}
 
     FriendInfo(std::shared_ptr<AuthInfo> auth_info):_uid(auth_info->_uid),
         _nick(auth_info->_nick),_icon(auth_info->_icon),_name(auth_info->_name),
-        _sex(auth_info->_sex){}
+        _sex(auth_info->_sex),_chat_thread(std::make_shared<ChatThreadData>(auth_info->_thread_id))
+    {
+        _chat_thread->_chat_msgs = auth_info->_welcome_msgs;
+    }
 
     FriendInfo(std::shared_ptr<AuthRsp> auth_rsp):_uid(auth_rsp->_uid),
         _nick(auth_rsp->_nick),_icon(auth_rsp->_icon),_name(auth_rsp->_name),
-        _sex(auth_rsp->_sex){}
+        _sex(auth_rsp->_sex),_chat_thread(std::make_shared<ChatThreadData>(auth_rsp->_thread_id))
+    {
+        _chat_thread->_chat_msgs = auth_rsp->_welcome_msgs;
+    }
 
     void AppendChatMsgs(const std::vector<std::shared_ptr<TextChatData>> text_vec);
 
@@ -110,7 +147,7 @@ struct FriendInfo {
     QString _desc;
     QString _back;
     QString _last_msg;
-    std::vector<std::shared_ptr<TextChatData>> _chat_msgs;
+    std::shared_ptr<ChatThreadData> _chat_thread;
 };
 
 //好友信息数据结构
@@ -138,7 +175,7 @@ struct UserInfo {
         _uid(friend_info->_uid),_name(friend_info->_name),_nick(friend_info->_nick),
         _icon(friend_info->_icon),_sex(friend_info->_sex),_last_msg("")
     {
-        _chat_msgs = friend_info->_chat_msgs;
+        _chat_msgs = friend_info->_chat_thread->_chat_msgs;
     }
 
     int _uid;
@@ -151,10 +188,16 @@ struct UserInfo {
 };
 
 struct TextChatData{
-    TextChatData(QString msg_id, QString msg_content, int fromuid, int touid)
-        :_msg_id(msg_id),_msg_content(msg_content),_from_uid(fromuid),_to_uid(touid){
+    TextChatData(QString msg_id, QString msg_content, int fromuid, int touid,
+                 qint64 message_id = 0, qint64 thread_id = 0,
+                 ChatMessageStatus status = ChatMessageStatus::Sending)
+        :_msg_id(msg_id),_msg_content(msg_content),_from_uid(fromuid),_to_uid(touid),
+         _message_id(message_id),_thread_id(thread_id),_status(status){
     }
     QString _msg_id;
+    qint64 _message_id = 0;
+    qint64 _thread_id = 0;
+    ChatMessageStatus _status = ChatMessageStatus::Sending;
     QString _msg_content;
     QString _imageSource; // 仅用于本地预览，不进入文本协议
     int _imageWidth = 0;
@@ -164,18 +207,24 @@ struct TextChatData{
 };
 
 struct TextChatMsg{
-    TextChatMsg(int fromuid, int touid, QJsonArray arrays):
-        _from_uid(fromuid),_to_uid(touid){
+    TextChatMsg(int fromuid, int touid, QJsonArray arrays, qint64 thread_id = 0):
+        _from_uid(fromuid),_to_uid(touid),_thread_id(thread_id){
         for(auto  msg_data : arrays){
             auto msg_obj = msg_data.toObject();
             auto content = msg_obj["content"].toString();
             auto msgid = msg_obj["msgid"].toString();
-            auto msg_ptr = std::make_shared<TextChatData>(msgid, content,fromuid, touid);
+            auto msg_ptr = std::make_shared<TextChatData>(msgid, content,fromuid, touid,
+                msg_obj["message_id"].toVariant().toLongLong(),
+                msg_obj["thread_id"].toVariant().toLongLong() > 0
+                    ? msg_obj["thread_id"].toVariant().toLongLong() : thread_id,
+                static_cast<ChatMessageStatus>(msg_obj["status"].toInt(
+                    static_cast<int>(ChatMessageStatus::Sent))));
             _chat_msgs.push_back(msg_ptr);
         }
     }
     int _to_uid;
     int _from_uid;
+    qint64 _thread_id = 0;
     std::vector<std::shared_ptr<TextChatData>> _chat_msgs;
 };
 

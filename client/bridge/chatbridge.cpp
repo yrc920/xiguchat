@@ -186,6 +186,7 @@ void ChatBridge::openChat(int uid)
     clearSearch();
 
     _currentUid = uid;
+    ChatService::GetInstance()->ensurePrivateChat(uid);
     _currentName = info->_nick.isEmpty() ? info->_name : info->_nick;
 
     // 消息模型切到这个人，随后触发的 countChanged 会让界面滚到底

@@ -53,6 +53,7 @@ Status ChatServiceImpl::NotifyAuthFriend(ServerContext* context,
 		reply->set_error(ErrorCodes::Success);
 		reply->set_fromuid(request->fromuid());
 		reply->set_touid(request->touid());
+		reply->set_thread_id(request->thread_id());
 		});
 
 	//用户不在内存中则直接返回
@@ -65,6 +66,19 @@ Status ChatServiceImpl::NotifyAuthFriend(ServerContext* context,
 	rtvalue["error"] = ErrorCodes::Success;
 	rtvalue["fromuid"] = request->fromuid();
 	rtvalue["touid"] = request->touid();
+	rtvalue["thread_id"] = Json::Int64(request->thread_id());
+	rtvalue["welcome_msgs"] = Json::arrayValue;
+	for (const auto &msg : request->welcome_msgs()) {
+		Json::Value item;
+		item["msgid"] = msg.msgid();
+		item["content"] = msg.msgcontent();
+		item["message_id"] = Json::Int64(msg.message_id());
+		item["thread_id"] = Json::Int64(request->thread_id());
+		item["status"] = msg.status();
+		item["fromuid"] = msg.fromuid();
+		item["touid"] = msg.touid();
+		rtvalue["welcome_msgs"].append(item);
+	}
 
 	std::string base_key = USER_BASE_INFO + std::to_string(fromuid);
 	auto user_info = std::make_shared<UserInfo>();
@@ -92,6 +106,7 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext* context,
 	auto touid = request->touid();
 	auto session = UserMgr::GetInstance()->GetSession(touid);
 	reply->set_error(ErrorCodes::Success);
+	reply->set_thread_id(request->thread_id());
 
 	//用户不在内存中则直接返回
 	if (session == nullptr) {
@@ -103,6 +118,7 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext* context,
 	rtvalue["error"] = ErrorCodes::Success;
 	rtvalue["fromuid"] = request->fromuid();
 	rtvalue["touid"] = request->touid();
+	rtvalue["thread_id"] = Json::Int64(request->thread_id());
 
 	//将聊天数据组织为数组
 	Json::Value text_array;
@@ -110,6 +126,9 @@ Status ChatServiceImpl::NotifyTextChatMsg(::grpc::ServerContext* context,
 		Json::Value element;
 		element["content"] = msg.msgcontent();
 		element["msgid"] = msg.msgid();
+		element["message_id"] = Json::Int64(msg.message_id());
+		element["thread_id"] = Json::Int64(request->thread_id());
+		element["status"] = msg.status();
 		text_array.append(element);
 	}
 	rtvalue["text_array"] = text_array;

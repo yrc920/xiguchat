@@ -135,7 +135,9 @@ Item {
                 Text {
                     x: 23
                     y: 51
-                    text: bridge.friends.count + " 位好友"
+                    text: bridge.mode === ChatBridge.ChatMode
+                        ? bridge.friends.chatCount + " 个会话"
+                        : bridge.friends.count + " 位好友"
                     color: Theme.textSecondary
                     font.pixelSize: 11
                 }
@@ -333,7 +335,9 @@ Item {
                 delegate: Item {
                     id: friendRow
                     width: friendsList.width
-                    height: bridge.mode === ChatBridge.ChatMode ? 76 : 60
+                    height: bridge.mode === ChatBridge.ChatMode && model.threadId === 0
+                        ? 0 : (bridge.mode === ChatBridge.ChatMode ? 76 : 60)
+                    visible: height > 0
                     readonly property bool chosen: bridge.mode === ChatBridge.ChatMode
                         ? bridge.pane === ChatBridge.ChatPage && bridge.currentUid === model.uid
                         : bridge.pane === ChatBridge.FriendInfoPage && bridge.profile.uid === model.uid
@@ -429,8 +433,10 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: bridge.mode === ChatBridge.ContactMode ? 278 : 210
-                visible: bridge.friends.count === 0
-                text: "还没有好友"
+                visible: bridge.mode === ChatBridge.ChatMode
+                    ? bridge.friends.chatCount === 0
+                    : bridge.friends.count === 0
+                text: bridge.mode === ChatBridge.ChatMode ? "还没有会话" : "还没有好友"
                 font.pixelSize: 12
                 color: Theme.textHint
             }

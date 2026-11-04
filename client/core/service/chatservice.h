@@ -10,6 +10,7 @@ class ChatService : public Singleton<ChatService>
 public:
     friend class Singleton<ChatService>;
     bool sendText(int uid, const QString &text);
+    void ensurePrivateChat(int uid);
 
 private:
     ChatService() = default;

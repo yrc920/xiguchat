@@ -40,6 +40,9 @@ private:
 	void AddFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 	void AuthFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 	void DealChatTextMsg(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	void CreatePrivateChat(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	void LoadChatThreads(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	void LoadChatMessages(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
     //心跳处理函数，处理用户心跳请求并返回心跳响应
     void HeartBeatHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
 

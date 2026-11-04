@@ -189,28 +189,32 @@ flowchart TB
 
 ### 申请（1009）
 
-1. 解析 `{uid, applyname, bakname, touid}`；
-2. `MysqlMgr::AddFriendApply(uid, touid)`（唯一键冲突时 `ON DUPLICATE KEY` 静默）；
+1. 解析 `{uid, applyname, bakname, touid}`，`applyname` 是申请留言（为空时用默认句）；
+2. `MysqlMgr::AddFriendApply(uid, touid, welcome, bakname)`：把申请留言写 `friend_apply.descs`，备注写 `friend_apply.back_name`；重复申请用 `ON DUPLICATE KEY UPDATE` 覆盖；
 3. 查 `uip_<touid>`；
-4. 本实例 → 构造 1011 通知；跨实例 → `NotifyAddFriend`。
+4. 本实例 → 构造 1011 通知（`name` 是申请人资料名，`desc` 是申请留言）；跨实例 → `NotifyAddFriend`。
 
 ### 同意（1013）
 
 1. 解析 `{fromuid, touid, back}`；
-2. `AddFriend(uid, touid, back_name)` 开启事务并锁定对方向自己的好友申请，无申请则失败；
+2. `AddFriend(uid, touid, back_name, apply_desc)` 开启事务并锁定对方向自己的好友申请，无申请则失败；
 3. 同一事务内把申请状态置 1，再双向插入 `friend` 表（`INSERT IGNORE`）；
-4. 回 1014（附对方资料）；
-5. 通知对方 1015（本实例直投 / 跨实例 `NotifyAuthFriend`）。
+4. 创建或复用 `private_chat` 线程；线程创建失败不回滚好友关系，聊天在首次打开/发送时再建；
+5. `AddFriend` 在事务内读取 `friend_apply.descs` 并返回给逻辑层；逻辑层随后按“申请方留言 → 同意方默认句”写入两条 `chat_message`，申请方在前；欢迎消息写失败只记录日志，不回滚好友关系；
+6. 回 1014（附对方资料、`thread_id`、`welcome_msgs`）；
+7. 通知对方 1015（本实例直投 / 跨实例 `NotifyAuthFriend`），带同样的 `thread_id` 与申请方视角的 `welcome_msgs`。
 
-> 写库失败回滚事务并返回错误，不发送成功通知。
+> 好友关系写库失败才回滚并返回错误。欢迎消息属于附加内容，写失败只记录日志，不回滚好友关系。
 
-## 9.8 文本消息（1017）
+## 9.8 文本消息（1017）与会话同步
 
-1. 解析 `{fromuid, touid, text_array:[{content, msgid}]}`；
-2. 构造 1018 回执（`error` + 原样 `text_array`），由 `Defer` 保证回包；
-3. 查 `uip_<touid>` → 本实例直投 1019 / 跨实例 `NotifyTextChatMsg`。
+1. 解析 `{fromuid, touid, thread_id, text_array:[{content, msgid}]}`；
+2. 先按 `thread_id` 找到/创建单聊线程，把消息写入 `chat_message`，拿到 `message_id`；
+3. 构造 1018 回执：`thread_id`、`message_id`，发送方状态 1；写库失败时状态 2；
+4. 查 `uip_<touid>` → 本实例直投 1019 / 跨实例 `NotifyTextChatMsg`，接收方状态 3；
+5. 目标离线时消息已持久化，不推送；下次登录按 1027/1029 同步。
 
-消息**不落库**，离线即丢弃。
+登录同步使用 1027（会话游标）和 1029（`thread_id + message_id > last`，升序，`load_more`）；客户端按最后一条 `message_id` 继续翻页。客户端本地 SQLite 尚未接入，当前每次登录从 `message_id=0` 拉取。
 
 ## 9.9 多实例部署
 
@@ -241,4 +245,5 @@ flowchart TB
 - `GetBaseInfo` 在 `LogicSystem`、`ChatServiceImpl`、`ChatGrpcClient` 三处重复。
 - 断连时检查 session 标识后清理位置键；Redis 不可用或锁获取失败时仍可能残留。
 - 心跳阈值 20 秒、扫描周期 60 秒，半开连接最多接近 80 秒才回收，计数更新存在延迟。
-- 消息与好友操作均无重试、无补偿；跨实例 RPC 失败即丢弃。
+- 消息已落库；跨实例 RPC 失败时本次实时投递失败，但消息不会丢，需等下次登录同步，没有自动重试。
+- 好友操作仍无重试、无补偿；欢迎消息写失败只记录日志。

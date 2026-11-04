@@ -27,14 +27,16 @@ bool MysqlMgr::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 	return _dao.CheckPwd(email, pwd, userInfo);
 }
 
-bool MysqlMgr::AddFriendApply(const int& from, const int& to)
+bool MysqlMgr::AddFriendApply(const int& from, const int& to, const std::string& desc,
+	const std::string& back_name)
 {
 	//调用数据库访问对象的AddFriendApply方法, 将添加好友申请的请求转发给数据库访问对象处理
-	return _dao.AddFriendApply(from, to);
+	return _dao.AddFriendApply(from, to, desc, back_name);
 }
 
-bool MysqlMgr::AddFriend(const int& from, const int& to, std::string back_name) {
-	return _dao.AddFriend(from, to, back_name);
+bool MysqlMgr::AddFriend(const int& from, const int& to, std::string back_name,
+	std::string& apply_desc) {
+	return _dao.AddFriend(from, to, back_name, apply_desc);
 }
 
 std::shared_ptr<UserInfo> MysqlMgr::GetUser(int uid)
@@ -60,4 +62,28 @@ bool MysqlMgr::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> 
 {
 	//调用数据库访问对象的GetFriendList方法, 将获取好友列表的请求转发给数据库访问对象处理
 	return _dao.GetFriendList(self_id, user_info);
+}
+
+long long MysqlMgr::GetOrCreatePrivateChat(int user1, int user2)
+{
+	return _dao.GetOrCreatePrivateChat(user1, user2);
+}
+
+bool MysqlMgr::GetChatThreads(int uid, long long last_thread_id, int limit,
+	std::vector<ChatThreadInfo>& threads, bool& has_more)
+{
+	return _dao.GetChatThreads(uid, last_thread_id, limit, threads, has_more);
+}
+
+bool MysqlMgr::GetChatMessages(int uid, long long thread_id, long long last_message_id, int limit,
+	std::vector<ChatMessageInfo>& messages, bool& has_more)
+{
+	return _dao.GetChatMessages(uid, thread_id, last_message_id, limit, messages, has_more);
+}
+
+bool MysqlMgr::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
+	const std::vector<std::pair<std::string, std::string>>& contents,
+	std::vector<ChatMessageInfo>& messages)
+{
+	return _dao.SaveChatMessages(sender_id, recv_id, thread_id, contents, messages);
 }

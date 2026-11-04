@@ -11,6 +11,7 @@ Item {
     property string imageSource: ""
     property int imageWidth: 0
     property int imageHeight: 0
+    property int status: 1
     readonly property bool localImage: imageSource.length > 0
     readonly property real paddingH: localImage ? 5 : 15
     readonly property real paddingV: localImage ? 5 : 11
@@ -77,6 +78,50 @@ Item {
             wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
             font.pixelSize: Theme.fontBody
             color: root.isSelf ? Theme.bubbleSelfText : Theme.textPrimary
+        }
+    }
+
+    Row {
+        visible: root.isSelf && root.localImage === false
+        spacing: 3
+        anchors.right: body.left
+        anchors.rightMargin: 7
+        anchors.verticalCenter: body.verticalCenter
+
+        AppIcon {
+            visible: root.status === 0
+            name: "reset"
+            size: 14
+            color: Theme.textHint
+            RotationAnimation on rotation {
+                running: root.status === 0
+                loops: Animation.Infinite
+                duration: 900
+            }
+        }
+        AppIcon {
+            visible: root.status === 1
+            name: "check"
+            size: 14
+            color: Theme.primary
+        }
+        AppIcon {
+            visible: root.status === 2
+            name: "close"
+            size: 14
+            color: Theme.danger
+        }
+        Text {
+            visible: root.status === 3
+            text: "未读"
+            color: Theme.textHint
+            font.pixelSize: 10
+        }
+        Text {
+            visible: root.status === 4
+            text: "已读"
+            color: Theme.primary
+            font.pixelSize: 10
         }
     }
 }

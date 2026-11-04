@@ -34,3 +34,22 @@ struct ApplyInfo {
 	int _sex; //性别
 	int _status; //申请状态，0表示未处理，1表示同意，2表示拒绝
 };
+
+struct ChatThreadInfo {
+	long long thread_id = 0;
+	int peer_uid = 0;
+	std::string peer_name;
+	std::string peer_nick;
+	std::string peer_icon;
+	int peer_sex = 0;
+};
+
+struct ChatMessageInfo {
+	long long message_id = 0;
+	long long thread_id = 0;
+	int sender_id = 0;
+	int recv_id = 0;
+	std::string client_msg_id;
+	std::string content;
+	int status = 0;
+};

@@ -75,6 +75,12 @@
 | 1017 | `ID_TEXT_CHAT_MSG_REQ` | C → S | 发送文本消息 |
 | 1018 | `ID_TEXT_CHAT_MSG_RSP` | S → C | 发送方回执 |
 | 1019 | `ID_NOTIFY_TEXT_CHAT_MSG_REQ` | S → C | 向接收方投递消息 |
+| 1025 | `ID_CREATE_PRIVATE_CHAT_REQ` | C → S | 创建或复用单聊线程 |
+| 1026 | `ID_CREATE_PRIVATE_CHAT_RSP` | S → C | 返回 `thread_id` 与对方资料 |
+| 1027 | `ID_LOAD_CHAT_THREAD_REQ` | C → S | 按 `thread_id` 游标拉会话列表 |
+| 1028 | `ID_LOAD_CHAT_THREAD_RSP` | S → C | 会话列表与 `load_more` |
+| 1029 | `ID_LOAD_CHAT_MSG_REQ` | C → S | 按 `thread_id + message_id` 拉历史消息 |
+| 1030 | `ID_LOAD_CHAT_MSG_RSP` | S → C | 历史消息与 `load_more` |
 
 > 1012 与 1016 为历史预留空位，当前未使用。
 
@@ -97,7 +103,11 @@
   ],
   "friend_list": [                  // 好友列表
     {"name":"", "uid":0, "icon":"", "nick":"", "sex":0, "desc":"", "back":""}
-  ]
+  ],
+  "thread_list": [                  // 已建立的单聊会话
+    {"thread_id":0, "uid":0, "name":"", "nick":"", "icon":"", "sex":0}
+  ],
+  "thread_more": false              // 会话是否还有下一页
 }
 ```
 
@@ -110,21 +120,47 @@
 
 **1009 好友申请** `{uid:int, applyname:string, bakname:string, touid:int}`
 
+`applyname` 是申请留言（为空时服务端用默认句），`bakname` 是备注名。
+
 **1010 好友申请回执** `{error:int}`
 
 **1011 好友申请通知** `{error, applyuid, name, desc, icon, sex, nick}`
 
-**1013 同意好友申请** `{fromuid:int, touid:int, back:string}`（`back` 为备注名）
+`name` 是申请人资料名，`desc` 是申请留言。
 
-**1014 同意回包** `{error, name, nick, icon, sex, uid}`
+**1013 同意好友申请** `{fromuid:int, touid:int, back:string}`（`back` 为备注名，同意方不填欢迎语）
 
-**1015 同意通知** `{error, fromuid, touid, name, nick, icon, sex}`
+**1014 同意回包** `{error, name, nick, icon, sex, uid, thread_id, welcome_msgs}`
 
-**1017 文本消息** `{fromuid:int, touid:int, text_array:[{content:string, msgid:string}]}`
+`welcome_msgs` 项为 `{msgid, content, message_id, thread_id, status, fromuid, touid}`；同意方视角：申请方留言（status=3）、同意方默认句（status=1）。
 
-**1018 文本消息回执** `{error, text_array, fromuid, touid}`
+**1015 同意通知** `{error, fromuid, touid, name, nick, icon, sex, thread_id, welcome_msgs}`
 
-**1019 文本消息投递** `{error, fromuid, touid, text_array:[{content, msgid}]}`
+`welcome_msgs` 项同上；申请方视角：自己的留言（status=1）、同意方默认句（status=3）。
+
+**1017 文本消息** `{fromuid:int, touid:int, thread_id:int64, text_array:[{content:string, msgid:string}]}`
+
+`thread_id` 可为 0；服务端会按两人关系找到或创建线程。
+
+**1018 文本消息回执** `{error, fromuid, touid, thread_id, text_array:[{content, msgid, message_id, status}]}`
+
+`status`：1=已发送，2=发送失败。
+
+**1019 文本消息投递** `{error, fromuid, touid, thread_id, text_array:[{content, msgid, message_id, status}]}`
+
+接收方收到的消息 `status=3`（未读）。
+
+**1025 创建单聊** `{fromuid:int, touid:int}`
+
+**1026 创建单聊回包** `{error, thread_id, uid, name, nick, icon, sex}`
+
+**1027 拉会话列表** `{fromuid:int, thread_id:int64}` —— `thread_id` 是上一页最后一条，首屏传 0。
+
+**1028 会话列表回包** `{error, thread_list:[{thread_id, uid, name, nick, icon, sex}], load_more:bool}`
+
+**1029 拉历史消息** `{fromuid:int, thread_id:int64, message_id:int64}` —— 取 `message_id` 之后的消息，首屏传 0。
+
+**1030 历史消息回包** `{error, thread_id, text_array:[{message_id, thread_id, fromuid, touid, msgid, content, status}], load_more:bool}`
 
 ---
 

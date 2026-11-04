@@ -17,6 +17,7 @@ class FriendListModel : public QAbstractListModel
     Q_OBJECT
     QML_ELEMENT
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
+    Q_PROPERTY(int chatCount READ chatCount NOTIFY countChanged)
 
 public:
     enum Roles {
@@ -27,6 +28,7 @@ public:
         DescRole,
         LastTextRole,
         InitialRole,   // 名字首字符，供联系人列表分组
+        ThreadIdRole,
     };
 
     explicit FriendListModel(QObject *parent = nullptr);
@@ -37,6 +39,7 @@ public:
 
     Q_INVOKABLE int indexOfUid(int uid) const;
     Q_INVOKABLE QVariantMap get(int row) const;
+    int chatCount() const; //会话题（thread_id > 0）数量，供聊天模式空态使用
 
 signals:
     void countChanged();

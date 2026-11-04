@@ -1,6 +1,7 @@
 #include "MysqlDao.h"
 #include "ConfigMgr.h"
 #include <cstdlib>
+#include <algorithm>
 
 MysqlDao::MysqlDao()
 {
@@ -161,7 +162,8 @@ bool MysqlDao::CheckPwd(const std::string& email, const std::string& pwd, UserIn
 	}
 }
 
-bool MysqlDao::AddFriendApply(const int& from, const int& to)
+bool MysqlDao::AddFriendApply(const int& from, const int& to, const std::string& desc,
+	const std::string& back_name)
 {
 	auto con = pool_->getConnection(); //从连接池中获取一个可用的MySQL会话对象
 	//如果连接池返回空指针, 则说明连接池已停止, 直接返回false
@@ -174,10 +176,11 @@ bool MysqlDao::AddFriendApply(const int& from, const int& to)
 		});
 
 	try {
-		//执行插入语句(插入一条好友申请记录, 如果已经存在相同的记录则保持不变)
-		con->_session->sql("INSERT INTO friend_apply (from_uid, to_uid) values (?,?) "
-			"ON DUPLICATE KEY UPDATE from_uid = from_uid, to_uid = to_uid")
-			.bind(from).bind(to).execute();
+		//申请留言和申请方给对方的备注都保存在申请记录里，同意时直接读取，不另建表
+		con->_session->sql(
+			"INSERT INTO friend_apply (from_uid, to_uid, descs, back_name) VALUES (?, ?, ?, ?) "
+			"ON DUPLICATE KEY UPDATE descs = VALUES(descs), back_name = VALUES(back_name)")
+			.bind(from).bind(to).bind(desc).bind(back_name).execute();
 
 		return true;
 	}
@@ -188,7 +191,8 @@ bool MysqlDao::AddFriendApply(const int& from, const int& to)
 	}
 }
 
-bool MysqlDao::AddFriend(const int& from, const int& to, std::string back_name) {
+bool MysqlDao::AddFriend(const int& from, const int& to, std::string back_name,
+	std::string& apply_desc) {
 	auto con = pool_->getConnection();
 	if (con == nullptr)
 		return false;
@@ -204,12 +208,15 @@ bool MysqlDao::AddFriend(const int& from, const int& to, std::string back_name) 
         //from是当前同意申请的用户，to是原申请人，所以查找申请时要按to到from的方向匹配
         //FOR UPDATE在事务内锁住这条申请，后面的状态修改和双向好友写入与它一起提交或回滚
         auto apply = con->_session->sql(
-            "SELECT status FROM friend_apply WHERE from_uid = ? AND to_uid = ? FOR UPDATE")
+            "SELECT status, descs, back_name FROM friend_apply "
+            "WHERE from_uid = ? AND to_uid = ? FOR UPDATE")
             .bind(to).bind(from).execute().fetchOne();
         if (apply.isNull()) { //没有对应申请时不允许直接建立好友关系
             con->_session->rollback();
             return false;
         }
+        apply_desc = apply[1].get<std::string>();
+        const std::string reverse_back = apply[2].get<std::string>();
         //申请已确认时再次设为1不会产生额外状态变化，后续INSERT IGNORE也可避免重复插入好友关系
         con->_session->sql("UPDATE friend_apply SET status = 1 WHERE from_uid = ? AND to_uid = ?")
             .bind(to).bind(from).execute();
@@ -222,7 +229,7 @@ bool MysqlDao::AddFriend(const int& from, const int& to, std::string back_name) 
 		//执行第二个插入语句, 插入申请方好友数据(反过来的申请时from, 验证时to)
 		con->_session->sql("INSERT IGNORE INTO friend(self_id, friend_id, back) "
 			"VALUES (?, ?, ?) ")
-			.bind(to).bind(from).bind("").execute();
+			.bind(to).bind(from).bind(reverse_back).execute();
 
 		//提交事务
 		con->_session->commit();
@@ -344,7 +351,7 @@ bool MysqlDao::GetApplyList(int touid,
 
 	try {
 		//执行查询语句, 根据起始id和限制条数返回列表
-		auto res = con->_session->sql("select apply.from_uid, apply.status, user.name, user.nick, user.sex "
+		auto res = con->_session->sql("select apply.from_uid, apply.status, user.name, user.nick, user.sex, apply.descs "
 			"from friend_apply as apply join user on apply.from_uid = user.uid where apply.to_uid = ? "
 			"and apply.id > ? order by apply.id ASC LIMIT ? ")
 			.bind(touid).bind(begin).bind(limit).execute();
@@ -357,11 +364,13 @@ bool MysqlDao::GetApplyList(int touid,
 			auto status = row[1].get<int>();
 			auto nick = row[3].get<std::string>();
 			auto sex = row[4].get<int>();
+			auto desc = row[5].get<std::string>();
 			//将查询结果中的好友申请信息封装成ApplyInfo对象
-			auto apply_ptr = std::make_shared<ApplyInfo>(uid, name, "", "", nick, sex, status);
+			auto apply_ptr = std::make_shared<ApplyInfo>(uid, name, desc, "", nick, sex, status);
 			applyList.push_back(apply_ptr); //将查询结果中的好友申请信息存储在applyList中
 			row = res.fetchOne();
 		}
+
 		return true;
 	}
 	catch (mysqlx::Error& e) {
@@ -407,6 +416,234 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> 
 	catch (mysqlx::Error& e) {
 		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		std::cerr << "Mysqlx Error: " << e.what() << std::endl;
+		return false;
+	}
+}
+
+long long MysqlDao::GetOrCreatePrivateChat(int user1, int user2)
+{
+	if (user1 <= 0 || user2 <= 0 || user1 == user2)
+		return 0;
+	const int low = std::min(user1, user2);
+	const int high = std::max(user1, user2);
+
+	for (int attempt = 0; attempt < 2; ++attempt) {
+		auto con = pool_->getConnection();
+		if (con == nullptr)
+			return 0;
+		try {
+			con->_session->startTransaction();
+		auto friendship = con->_session->sql(
+			"SELECT id FROM friend WHERE self_id = ? AND friend_id = ?")
+			.bind(user1).bind(user2).execute().fetchOne();
+		if (friendship.isNull()) {
+			con->_session->rollback();
+			pool_->returnConnection(std::move(con));
+			return 0;
+		}
+			auto existing = con->_session->sql(
+				"SELECT thread_id FROM private_chat WHERE user1_id = ? AND user2_id = ? FOR UPDATE")
+				.bind(low).bind(high).execute().fetchOne();
+			if (!existing.isNull()) {
+				const long long thread_id = existing[0].get<long long>();
+				con->_session->commit();
+				pool_->returnConnection(std::move(con));
+				return thread_id;
+			}
+
+			con->_session->sql("INSERT INTO chat_thread (thread_type) VALUES (1)").execute();
+			auto id_row = con->_session->sql("SELECT LAST_INSERT_ID()").execute().fetchOne();
+			if (id_row.isNull()) {
+				con->_session->rollback();
+				pool_->returnConnection(std::move(con));
+				return 0;
+			}
+			const long long thread_id = id_row[0].get<long long>();
+			con->_session->sql("INSERT INTO private_chat (thread_id, user1_id, user2_id) VALUES (?, ?, ?)")
+				.bind(thread_id).bind(low).bind(high).execute();
+			con->_session->commit();
+			pool_->returnConnection(std::move(con));
+			return thread_id;
+		}
+		catch (mysqlx::Error& e) {
+			if (con) {
+				try { con->_session->rollback(); } catch (...) {}
+				con->_healthy = false;
+			}
+			pool_->returnConnection(std::move(con));
+			if (attempt == 1)
+				std::cerr << "Mysqlx Error creating private chat: " << e.what() << std::endl;
+		}
+	}
+	return 0;
+}
+
+bool MysqlDao::GetChatThreads(int uid, long long last_thread_id, int limit,
+	std::vector<ChatThreadInfo>& threads, bool& has_more)
+{
+	threads.clear();
+	has_more = false;
+	limit = std::clamp(limit, 1, 100);
+	auto con = pool_->getConnection();
+	if (con == nullptr)
+		return false;
+	Defer defer([this, &con]() { pool_->returnConnection(std::move(con)); });
+	try {
+		auto res = con->_session->sql(
+			"SELECT pc.thread_id, CASE WHEN pc.user1_id = ? THEN pc.user2_id ELSE pc.user1_id END, "
+			"u.name, u.nick, u.icon, u.sex "
+			"FROM private_chat pc JOIN user u ON u.uid = CASE WHEN pc.user1_id = ? THEN pc.user2_id ELSE pc.user1_id END "
+			"WHERE (pc.user1_id = ? OR pc.user2_id = ?) AND pc.thread_id > ? "
+			"ORDER BY pc.thread_id ASC LIMIT ?")
+			.bind(uid).bind(uid).bind(uid).bind(uid).bind(last_thread_id).bind(limit + 1).execute();
+		auto row = res.fetchOne();
+		while (!row.isNull()) {
+			if (static_cast<int>(threads.size()) == limit) {
+				has_more = true;
+				break;
+			}
+			ChatThreadInfo info;
+			info.thread_id = row[0].get<long long>();
+			info.peer_uid = row[1].get<int>();
+			info.peer_name = row[2].get<std::string>();
+			info.peer_nick = row[3].get<std::string>();
+			info.peer_icon = row[4].get<std::string>();
+			info.peer_sex = row[5].get<int>();
+			threads.push_back(std::move(info));
+			row = res.fetchOne();
+		}
+		return true;
+	}
+	catch (mysqlx::Error& e) {
+		if (con) con->_healthy = false;
+		std::cerr << "Mysqlx Error loading chat threads: " << e.what() << std::endl;
+		return false;
+	}
+}
+
+bool MysqlDao::GetChatMessages(int uid, long long thread_id, long long last_message_id, int limit,
+	std::vector<ChatMessageInfo>& messages, bool& has_more)
+{
+	messages.clear();
+	has_more = false;
+	limit = std::clamp(limit, 1, 100);
+	auto con = pool_->getConnection();
+	if (con == nullptr)
+		return false;
+	Defer defer([this, &con]() { pool_->returnConnection(std::move(con)); });
+	try {
+		auto member = con->_session->sql(
+			"SELECT thread_id FROM private_chat WHERE thread_id = ? AND (user1_id = ? OR user2_id = ?)")
+			.bind(thread_id).bind(uid).bind(uid).execute().fetchOne();
+		if (member.isNull())
+			return false;
+		auto res = con->_session->sql(
+			"SELECT message_id, thread_id, sender_id, recv_id, client_msg_id, content, status "
+			"FROM chat_message WHERE thread_id = ? AND message_id > ? "
+			"ORDER BY message_id ASC LIMIT ?")
+			.bind(thread_id).bind(last_message_id).bind(limit + 1).execute();
+		auto row = res.fetchOne();
+		while (!row.isNull()) {
+			if (static_cast<int>(messages.size()) == limit) {
+				has_more = true;
+				break;
+			}
+			ChatMessageInfo info;
+			info.message_id = row[0].get<long long>();
+			info.thread_id = row[1].get<long long>();
+			info.sender_id = row[2].get<int>();
+			info.recv_id = row[3].get<int>();
+			info.client_msg_id = row[4].get<std::string>();
+			info.content = row[5].get<std::string>();
+			info.status = row[6].get<int>();
+			messages.push_back(std::move(info));
+			row = res.fetchOne();
+		}
+		return true;
+	}
+	catch (mysqlx::Error& e) {
+		if (con) con->_healthy = false;
+		std::cerr << "Mysqlx Error loading chat messages: " << e.what() << std::endl;
+		return false;
+	}
+}
+
+bool MysqlDao::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
+	const std::vector<std::pair<std::string, std::string>>& contents,
+	std::vector<ChatMessageInfo>& messages)
+{
+	messages.clear();
+	if (contents.empty())
+		return true;
+	auto con = pool_->getConnection();
+	if (con == nullptr)
+		return false;
+	if (thread_id <= 0) {
+		try {
+			auto friendship = con->_session->sql(
+				"SELECT id FROM friend WHERE self_id = ? AND friend_id = ?")
+				.bind(sender_id).bind(recv_id).execute().fetchOne();
+			if (friendship.isNull()) {
+				pool_->returnConnection(std::move(con));
+				return false;
+			}
+		} catch (mysqlx::Error& e) {
+			con->_healthy = false;
+			pool_->returnConnection(std::move(con));
+			std::cerr << "Mysqlx Error checking chat friendship: " << e.what() << std::endl;
+			return false;
+		}
+		pool_->returnConnection(std::move(con));
+		thread_id = GetOrCreatePrivateChat(sender_id, recv_id);
+		con = pool_->getConnection();
+		if (con == nullptr)
+			return false;
+	}
+	if (thread_id <= 0)
+	{
+		pool_->returnConnection(std::move(con));
+		return false;
+	}
+	Defer defer([this, &con]() { pool_->returnConnection(std::move(con)); });
+	try {
+		auto member = con->_session->sql(
+			"SELECT thread_id FROM private_chat WHERE thread_id = ? AND ((user1_id = ? AND user2_id = ?) "
+			"OR (user1_id = ? AND user2_id = ?))")
+			.bind(thread_id).bind(sender_id).bind(recv_id).bind(recv_id).bind(sender_id).execute().fetchOne();
+		if (member.isNull())
+			return false;
+
+		con->_session->startTransaction();
+		for (const auto& [client_id, content] : contents) {
+			con->_session->sql(
+				"INSERT INTO chat_message (thread_id, sender_id, recv_id, client_msg_id, content) "
+				"VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE message_id = LAST_INSERT_ID(message_id)")
+				.bind(thread_id).bind(sender_id).bind(recv_id).bind(client_id).bind(content).execute();
+			auto id_row = con->_session->sql("SELECT LAST_INSERT_ID()").execute().fetchOne();
+			if (id_row.isNull()) {
+				con->_session->rollback();
+				return false;
+			}
+			ChatMessageInfo info;
+			info.message_id = id_row[0].get<long long>();
+			info.thread_id = thread_id;
+			info.sender_id = sender_id;
+			info.recv_id = recv_id;
+			info.client_msg_id = client_id;
+			info.content = content;
+			messages.push_back(std::move(info));
+		}
+		con->_session->sql("UPDATE chat_thread SET updated_at = CURRENT_TIMESTAMP WHERE thread_id = ?")
+			.bind(thread_id).execute();
+		con->_session->commit();
+		return true;
+	}
+	catch (mysqlx::Error& e) {
+		if (con) {
+			try { con->_session->rollback(); } catch (...) {}
+			con->_healthy = false;
+		}
+		std::cerr << "Mysqlx Error saving chat messages: " << e.what() << std::endl;
 		return false;
 	}
 }

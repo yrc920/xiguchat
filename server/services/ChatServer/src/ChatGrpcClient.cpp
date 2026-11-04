@@ -73,6 +73,7 @@ AuthFriendRsp ChatGrpcClient::NotifyAuthFriend(std::string server_ip, const Auth
 
     rsp.set_fromuid(req.fromuid());
     rsp.set_touid(req.touid());
+    rsp.set_thread_id(req.thread_id());
 
 	auto find_iter = _pools.find(server_ip);
 	if (find_iter == _pools.end()) {
@@ -147,6 +148,7 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
 
     rsp.set_fromuid(req.fromuid());
     rsp.set_touid(req.touid());
+    rsp.set_thread_id(req.thread_id());
 
 	auto find_iter = _pools.find(server_ip);
 	if (find_iter == _pools.end()) {
@@ -167,6 +169,10 @@ TextChatMsgRsp ChatGrpcClient::NotifyTextChatMsg(std::string server_ip,
         auto* message = rsp.add_textmsgs();
         message->set_msgid(text.msgid());
         message->set_msgcontent(text.msgcontent());
+		message->set_message_id(text.message_id());
+		message->set_status(text.status());
+		message->set_fromuid(text.fromuid());
+		message->set_touid(text.touid());
     }
 	Defer defercon([&stub, this, &pool]() {
 		pool->returnConnection(std::move(stub));

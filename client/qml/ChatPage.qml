@@ -122,6 +122,7 @@ Item {
             imageSource: model.imageSource
             imageWidth: model.imageWidth
             imageHeight: model.imageHeight
+            status: model.status
         }
 
         onCountChanged: Qt.callLater(messageList.positionViewAtEnd)

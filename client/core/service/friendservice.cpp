@@ -48,7 +48,7 @@ bool FriendService::searchUser(const QString &query)
     return true;
 }
 
-// 发起好友申请：applyname 是自报家门，bakname 是给对方设的备注
+// 发起好友申请：applyname 是申请留言（默认欢迎语），bakname 是给对方设的备注
 void FriendService::applyFriend(int touid, const QString &applyName,
                                 const QString &backName)
 {

@@ -212,6 +212,115 @@ void UserMgr::AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<Tex
     emit FriendChatChanged(friend_id);
 }
 
+void UserMgr::SetChatThreads(const QJsonArray &threads)
+{
+    emit FriendListAboutToChange();
+    for (auto &friend_info : _friend_list)
+        friend_info->_chat_thread->_thread_id = 0;
+    AppendChatThreads(threads);
+    emit FriendListChanged();
+}
+
+void UserMgr::AppendChatThreads(const QJsonArray &threads)
+{
+    for (const auto &value : threads) {
+        const QJsonObject item = value.toObject();
+        const int uid = item.value("uid").toInt();
+        auto info = GetFriendById(uid);
+        if (!info)
+            continue;
+        info->_chat_thread->_thread_id = item.value("thread_id").toVariant().toLongLong();
+    }
+}
+
+void UserMgr::RefreshFriendList()
+{
+    emit FriendListAboutToChange();
+    emit FriendListChanged();
+}
+
+void UserMgr::SetThreadId(int friend_id, qint64 thread_id)
+{
+    auto info = GetFriendById(friend_id);
+    _pending_private_chats.remove(friend_id);
+    if (thread_id <= 0 || !info || info->_chat_thread->_thread_id == thread_id)
+        return;
+    emit FriendListAboutToChange();
+    info->_chat_thread->_thread_id = thread_id;
+    emit FriendListChanged();
+}
+
+bool UserMgr::HasPendingPrivateChat(int friend_id) const
+{
+    return _pending_private_chats.value(friend_id, false);
+}
+
+void UserMgr::MarkPrivateChatPending(int friend_id, bool pending)
+{
+    if (pending)
+        _pending_private_chats[friend_id] = true;
+    else
+        _pending_private_chats.remove(friend_id);
+}
+
+void UserMgr::UpdateChatMessage(int friend_id, const QString &msg_id, qint64 message_id,
+                                ChatMessageStatus status)
+{
+    auto info = GetFriendById(friend_id);
+    if (!info)
+        return;
+    for (auto &message : info->_chat_thread->_chat_msgs) {
+        if (message->_msg_id != msg_id)
+            continue;
+        if (message_id > 0)
+            message->_message_id = message_id;
+        message->_status = status;
+        info->AppendChatMsgs({message});
+        emit FriendChatChanged(friend_id);
+        return;
+    }
+}
+
+void UserMgr::FailPendingMessages()
+{
+    for (const auto &info : _friend_list) {
+        bool changed = false;
+        for (const auto &message : info->_chat_thread->_chat_msgs) {
+            if (message->_status != ChatMessageStatus::Sending)
+                continue;
+            message->_status = ChatMessageStatus::Failed;
+            changed = true;
+        }
+        if (changed)
+            emit FriendChatChanged(info->_uid);
+    }
+}
+
+qint64 UserMgr::ThreadId(int friend_id) const
+{
+    auto it = _friend_map.constFind(friend_id);
+    return it == _friend_map.cend() ? 0 : it.value()->_chat_thread->_thread_id;
+}
+
+int UserMgr::FriendIdByThread(qint64 thread_id) const
+{
+    for (const auto &info : _friend_list)
+        if (info->_chat_thread->_thread_id == thread_id)
+            return info->_uid;
+    return 0;
+}
+
+qint64 UserMgr::LastMessageId(int friend_id) const
+{
+    auto it = _friend_map.constFind(friend_id);
+    if (it == _friend_map.cend() || it.value()->_chat_thread->_chat_msgs.empty())
+        return 0;
+    qint64 lastId = 0;
+    for (const auto &message : it.value()->_chat_thread->_chat_msgs)
+        lastId = qMax(lastId, message->_message_id);
+    return lastId;
+}
+
 int UserMgr::FriendCount() const
 {
     return static_cast<int>(_friend_list.size());
@@ -256,6 +365,7 @@ void UserMgr::ClearSession()
     _apply_list.clear();
     _friend_list.clear();
     _friend_map.clear();
+    _pending_private_chats.clear();
 
     emit ApplyListChanged();
     emit FriendListChanged();

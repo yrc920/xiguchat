@@ -43,6 +43,18 @@ public:
     void AddFriend(std::shared_ptr<AuthRsp> auth_rsp);
     void AddFriend(std::shared_ptr<AuthInfo> auth_info);
     void AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<TextChatData>> msgs);
+    void SetChatThreads(const QJsonArray &threads);
+    void AppendChatThreads(const QJsonArray &threads);
+    void RefreshFriendList();
+    void SetThreadId(int friend_id, qint64 thread_id);
+    qint64 ThreadId(int friend_id) const;
+    int FriendIdByThread(qint64 thread_id) const;
+    qint64 LastMessageId(int friend_id) const;
+    bool HasPendingPrivateChat(int friend_id) const;
+    void MarkPrivateChatPending(int friend_id, bool pending);
+    void UpdateChatMessage(int friend_id, const QString &msg_id, qint64 message_id,
+                           ChatMessageStatus status);
+    void FailPendingMessages();
 
     // 供列表模型按行读取：模型不复制数据，只引用这里的原始对象
     int FriendCount() const;
@@ -70,6 +82,7 @@ private:
     std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
     std::vector<std::shared_ptr<FriendInfo>> _friend_list;
     QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
+    QMap<int, bool> _pending_private_chats;
 };
 
 #endif // USERMGR_H

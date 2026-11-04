@@ -9,11 +9,24 @@
 #include "tcpmgr.h"
 #include "usermgr.h"
 
+void ChatService::ensurePrivateChat(int uid)
+{
+    auto *mgr = UserMgr::GetInstance().get();
+    if (!SessionService::GetInstance()->isReady() || uid <= 0 || mgr->ThreadId(uid) > 0
+        || mgr->HasPendingPrivateChat(uid))
+        return;
+    mgr->MarkPrivateChatPending(uid, true);
+    QJsonObject request{{"fromuid", mgr->GetUid()}, {"touid", uid}};
+    emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_CREATE_PRIVATE_CHAT_REQ,
+        QJsonDocument(request).toJson(QJsonDocument::Compact));
+}
+
 bool ChatService::sendText(int uid, const QString &text)
 {
     auto *mgr = UserMgr::GetInstance().get();
     if (!SessionService::GetInstance()->isReady() || !mgr->GetFriendById(uid))
         return false;
+    ensurePrivateChat(uid);
     if (text.isEmpty())
         return true;
 
@@ -23,6 +36,7 @@ bool ChatService::sendText(int uid, const QString &text)
         const QString msgId = QUuid::createUuid().toString();
         QJsonObject item{{"msgid", msgId}};
         QJsonObject frame{{"fromuid", from}, {"touid", uid}};
+        frame["thread_id"] = mgr->ThreadId(uid);
         QByteArray payload;
         QString content;
 
@@ -44,7 +58,7 @@ bool ChatService::sendText(int uid, const QString &text)
 
         emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_TEXT_CHAT_MSG_REQ, payload);
         mgr->AppendFriendChatMsg(uid, {
-            std::make_shared<TextChatData>(msgId, content, from, uid)
+            std::make_shared<TextChatData>(msgId, content, from, uid, 0, mgr->ThreadId(uid), ChatMessageStatus::Sending)
         });
     }
     return true;

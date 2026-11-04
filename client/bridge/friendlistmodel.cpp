@@ -44,11 +44,13 @@ QVariant FriendListModel::data(const QModelIndex &index, int role) const
     case IconRole: return friend_info->_icon;
     case DescRole: return friend_info->_desc;
     case LastTextRole:
-        if (!friend_info->_chat_msgs.empty()) {
-            const auto &last = friend_info->_chat_msgs.back();
+        if (!friend_info->_chat_thread->_chat_msgs.empty()) {
+            const auto &last = friend_info->_chat_thread->_chat_msgs.back();
             return last->_imageSource.isEmpty() ? last->_msg_content : QStringLiteral("[图片]");
         }
         return friend_info->_last_msg;
+    case ThreadIdRole:
+        return friend_info->_chat_thread->_thread_id;
     case InitialRole: {
         const QString name = friend_info->_name.isEmpty() ? friend_info->_nick
                                                           : friend_info->_name;
@@ -70,6 +72,7 @@ QHash<int, QByteArray> FriendListModel::roleNames() const
         {DescRole, "desc"},
         {LastTextRole, "lastText"},
         {InitialRole, "initial"},
+        {ThreadIdRole, "threadId"},
     };
 }
 
@@ -83,6 +86,19 @@ int FriendListModel::indexOfUid(int uid) const
             return row;
     }
     return -1;
+}
+
+// 聊天模式只展示已经有 thread 的会话；空态判断不能用好友总数
+int FriendListModel::chatCount() const
+{
+    int count = 0;
+    const int total = UserMgr::GetInstance()->FriendCount();
+    for (int row = 0; row < total; ++row) {
+        auto friend_info = UserMgr::GetInstance()->FriendAt(row);
+        if (friend_info && friend_info->_chat_thread->_thread_id > 0)
+            ++count;
+    }
+    return count;
 }
 
 QVariantMap FriendListModel::get(int row) const

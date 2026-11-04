@@ -2,6 +2,7 @@
 #include <QAbstractSocket>
 #include <QDebug>
 #include <QJsonDocument>
+#include "usermgr.h"
 
 TcpMgr::TcpMgr() : _host(""), _port(0), _b_recv_pending(false), _message_id(0), _message_len(0)
 {
@@ -126,6 +127,27 @@ void TcpMgr::initHandlers()
         }
 
         emit sig_login_success(jsonObj);
+    });
+
+    auto emitJson = [this](ReqId expected, auto signal) {
+        _handlers.insert(expected, [this, signal](ReqId id, int len, QByteArray data) {
+            Q_UNUSED(id);
+            Q_UNUSED(len);
+            const auto document = QJsonDocument::fromJson(data);
+            if (!document.isObject())
+                return;
+            const auto object = document.object();
+            if (object.value("error").toInt() == ErrorCodes::SUCCESS)
+                emit (this->*signal)(object);
+        });
+    };
+    emitJson(ID_LOAD_CHAT_THREAD_RSP, &TcpMgr::sig_chat_threads);
+    emitJson(ID_LOAD_CHAT_MSG_RSP, &TcpMgr::sig_chat_messages);
+    //创建会话失败也要回传，客户端据此清除 pending 并允许重试
+    _handlers.insert(ID_CREATE_PRIVATE_CHAT_RSP, [this](ReqId, int, QByteArray data) {
+        const auto document = QJsonDocument::fromJson(data);
+        if (document.isObject())
+            emit sig_private_chat_created(document.object());
     });
 
     //注册处理用户搜索响应的消息处理函数
@@ -273,7 +295,17 @@ void TcpMgr::initHandlers()
         QString icon = jsonObj["icon"].toString();
         int sex = jsonObj["sex"].toInt();
 
-        auto auth_info = std::make_shared<AuthInfo>(from_uid, name, nick, icon, sex);
+        auto auth_info = std::make_shared<AuthInfo>(from_uid, name, nick, icon, sex,
+            jsonObj["thread_id"].toVariant().toLongLong());
+        for (const auto &value : jsonObj["welcome_msgs"].toArray()) {
+            const auto item = value.toObject();
+            auth_info->_welcome_msgs.push_back(std::make_shared<TextChatData>(
+                item["msgid"].toString(), item["content"].toString(),
+                item["fromuid"].toInt(from_uid), item["touid"].toInt(UserMgr::GetInstance()->GetUid()),
+                item["message_id"].toVariant().toLongLong(),
+                jsonObj["thread_id"].toVariant().toLongLong(),
+                static_cast<ChatMessageStatus>(item["status"].toInt(3))));
+        }
 
         emit sig_add_auth_friend(auth_info);
     });
@@ -310,7 +342,17 @@ void TcpMgr::initHandlers()
         auto icon = jsonObj["icon"].toString();
         auto sex = jsonObj["sex"].toInt();
         auto uid = jsonObj["uid"].toInt();
-        auto rsp = std::make_shared<AuthRsp>(uid, name, nick, icon, sex);
+        auto rsp = std::make_shared<AuthRsp>(uid, name, nick, icon, sex,
+            jsonObj["thread_id"].toVariant().toLongLong());
+        for (const auto &value : jsonObj["welcome_msgs"].toArray()) {
+            const auto item = value.toObject();
+            rsp->_welcome_msgs.push_back(std::make_shared<TextChatData>(
+                item["msgid"].toString(), item["content"].toString(),
+                item["fromuid"].toInt(uid), item["touid"].toInt(UserMgr::GetInstance()->GetUid()),
+                item["message_id"].toVariant().toLongLong(),
+                jsonObj["thread_id"].toVariant().toLongLong(),
+                static_cast<ChatMessageStatus>(item["status"].toInt(1))));
+        }
         emit sig_auth_rsp(rsp);
 
         qDebug() << "Auth Friend Success " ;
@@ -339,11 +381,14 @@ void TcpMgr::initHandlers()
         int err = jsonObj["error"].toInt();
         if (err != ErrorCodes::SUCCESS) {
             qDebug() << "Chat Msg Rsp Failed, err is " << err;
+            emit sig_chat_msg_failed(jsonObj);
             return;
         }
 
-        qDebug() << "Receive Text Chat Rsp Success " ;
-        // TODO: 设置消息送达等标记（当前未实现）
+        const auto message = std::make_shared<TextChatMsg>(jsonObj["fromuid"].toInt(),
+            jsonObj["touid"].toInt(), jsonObj["text_array"].toArray(),
+            jsonObj["thread_id"].toVariant().toLongLong());
+        emit sig_text_chat_msg(message);
     });
 
     _handlers.insert(ID_NOTIFY_TEXT_CHAT_MSG_REQ, [this](ReqId id, int len, QByteArray data) {
@@ -374,7 +419,8 @@ void TcpMgr::initHandlers()
 
         qDebug() << "Receive Text Chat Notify Success " ;
         auto msg_ptr = std::make_shared<TextChatMsg>(jsonObj["fromuid"].toInt(),
-            jsonObj["touid"].toInt(),jsonObj["text_array"].toArray());
+            jsonObj["touid"].toInt(),jsonObj["text_array"].toArray(),
+            jsonObj["thread_id"].toVariant().toLongLong());
         emit sig_text_chat_msg(msg_ptr);
     });
 

@@ -17,8 +17,9 @@ public:
 	bool UpdatePwd(const std::string& name, const std::string& pwd); //更新密码
 	//检查邮箱和密码是否匹配, 如果匹配则将用户信息存储在userInfo中
 	bool CheckPwd(const std::string& email, const std::string& pwd, UserInfo& userInfo);
-	bool AddFriendApply(const int& from, const int& to); //添加好友申请
-	bool AddFriend(const int& from, const int& to, std::string back_name);
+	bool AddFriendApply(const int& from, const int& to, const std::string& desc,
+		const std::string& back_name); //添加好友申请、申请留言与备注
+	bool AddFriend(const int& from, const int& to, std::string back_name, std::string& apply_desc);
 
 	std::shared_ptr<UserInfo> GetUser(int uid); //根据用户ID获取用户信息
 	std::shared_ptr<UserInfo> GetUser(const std::string& name); //根据用户名获取用户信息
@@ -26,6 +27,14 @@ public:
 	bool GetApplyList(int touid,
 		std::vector<std::shared_ptr<ApplyInfo>>& applyList, int begin, int limit = 10);
 	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info);
+	long long GetOrCreatePrivateChat(int user1, int user2);
+	bool GetChatThreads(int uid, long long last_thread_id, int limit,
+		std::vector<ChatThreadInfo>& threads, bool& has_more);
+	bool GetChatMessages(int uid, long long thread_id, long long last_message_id, int limit,
+		std::vector<ChatMessageInfo>& messages, bool& has_more);
+	bool SaveChatMessages(int sender_id, int recv_id, long long thread_id,
+		const std::vector<std::pair<std::string, std::string>>& contents,
+		std::vector<ChatMessageInfo>& messages);
 
 private:
 	MysqlMgr();
