@@ -9,6 +9,8 @@
 #include "tcpmgr.h"
 #include "usermgr.h"
 
+// 打开会话：只有登录就绪、会话不存在且没有在途请求时才发 1025，
+// 避免连续点同一个好友时重复建 thread
 void ChatService::ensurePrivateChat(int uid)
 {
     auto *mgr = UserMgr::GetInstance().get();
@@ -21,6 +23,8 @@ void ChatService::ensurePrivateChat(int uid)
         QJsonDocument(request).toJson(QJsonDocument::Compact));
 }
 
+// 发送文本：先落一条本地待确认消息，再按服务端帧上限拆分发送。
+// 返回 true 只代表已交给网络层，不代表对方收到
 bool ChatService::sendText(int uid, const QString &text)
 {
     auto *mgr = UserMgr::GetInstance().get();

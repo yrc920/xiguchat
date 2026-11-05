@@ -243,6 +243,8 @@ void ChatBridge::setPane(int pane)
     emit paneChanged();
 }
 
+// 把编辑器片段送出去：图片只生成本地消息，文字才进协议。
+// 任意一段失败就返回 false，QML 因此保留输入内容
 bool ChatBridge::sendParts(const QVariantList &parts)
 {
     auto *mgr = UserMgr::GetInstance().get();
@@ -258,6 +260,7 @@ bool ChatBridge::sendParts(const QVariantList &parts)
     if (!hasContent)
         return false;
 
+    //图片没有网络字段，直接作为本地会话消息插入；文字交给 ChatService 分帧
     for (const QVariant &part : parts) {
         const QVariantMap item = part.toMap();
         if (item.value("kind").toString() == "image") {

@@ -66,13 +66,18 @@ int ApplyListModel::pendingCount() const
     return pending;
 }
 
+//把一行摊平成 map，字段与 roleNames 保持一致
 QVariantMap ApplyListModel::get(int row) const
 {
-    const QStringList names{"uid", "name", "nick", "icon", "desc", "status"};
-    QVariantMap result;
-    for (int i = 0; i < names.size(); ++i)
-        result.insert(names.at(i), data(index(row, 0), UidRole + i));
-    return result;
+    const QModelIndex idx = index(row, 0);
+    return {
+        {QStringLiteral("uid"), data(idx, UidRole)},
+        {QStringLiteral("name"), data(idx, NameRole)},
+        {QStringLiteral("nick"), data(idx, NickRole)},
+        {QStringLiteral("icon"), data(idx, IconRole)},
+        {QStringLiteral("desc"), data(idx, DescRole)},
+        {QStringLiteral("status"), data(idx, StatusRole)},
+    };
 }
 
 // 申请列表变化（新增、状态变更）：整表重置

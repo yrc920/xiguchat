@@ -2,6 +2,7 @@ import QtQuick
 import XiguChat
 
 // 好友表单共用一个弹层；标题和操作始终可见，内容按需滚动。
+// overlay 决定当前形态：apply 填写申请、auth 通过申请、found 展示搜索结果、notfound 提示未找到。
 FocusScope {
     id: root
     objectName: "friendDialogs"
@@ -12,6 +13,7 @@ FocusScope {
     property string pendingName: ""
     property string pendingDesc: ""
     property string pendingIcon: ""
+    // 常用标签只用于本次表单，不会提交到服务端
     property var presetTags: ["同学", "家人", "同事", "朋友", "游戏伙伴", "客户",
                               "读书", "运动", "旅行", "音乐", "电影", "其他"]
     property var selectedTags: []
@@ -21,6 +23,7 @@ FocusScope {
     z: 10
     Keys.onEscapePressed: closeDialog()
 
+    // 标题与主按钮文案完全由 overlay 推导，模板里不再各写一套
     readonly property string heading: overlay === "apply" ? "添加朋友"
         : overlay === "auth" ? "通过好友申请"
         : overlay === "found" ? "找到这位朋友" : "没有找到这个用户"
@@ -28,12 +31,14 @@ FocusScope {
         : overlay === "auth" ? "同意添加"
         : overlay === "found" ? "添加到通讯录" : "知道了"
 
+    // 搜索类弹层关闭时顺手退出搜索态，避免结果残留在输入框旁边
     function closeDialog() {
         if (overlay === "found" || overlay === "notfound")
             controller.clearSearch()
         overlay = ""
     }
 
+    // 同意方不需要写留言，只确认备注名；服务端会补一句默认欢迎语
     function openAuthDialog(uid, name, desc) {
         pendingUid = uid
         pendingName = name
@@ -45,6 +50,7 @@ FocusScope {
         authRemarkInput.forceInputFocus()
     }
 
+    // 申请表单只给一个默认文案，用户可以删空；空串原样提交，由服务端兜底
     function defaultWelcome() {
         return controller.myUserName.length > 0
             ? "你好，我是" + controller.myUserName
@@ -63,6 +69,7 @@ FocusScope {
         verifyInput.forceInputFocus()
     }
 
+    // 标签是普通字符串数组，增删都换新数组，保证 Repeater 收到变更
     function addTag(text) {
         const value = text.trim()
         if (value.length > 0 && selectedTags.indexOf(value) < 0)
@@ -104,6 +111,7 @@ FocusScope {
         }
     }
 
+    // 遮罩同时负责关闭与拦截滚轮，弹层打开时底层页面不跟着滚动
     Rectangle {
         anchors.fill: parent
         color: Theme.overlay
@@ -126,9 +134,19 @@ FocusScope {
         border.color: Theme.line
         clip: true
 
-        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }
+        // 面板本身拦截点击，避免点内容时触发遮罩关闭
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+        }
 
-        Rectangle { x: 28; y: 0; width: 38; height: 3; color: Theme.accent }
+        Rectangle {
+            x: 28
+            y: 0
+            width: 38
+            height: 3
+            color: Theme.accent
+        }
 
         Item {
             id: header
@@ -162,7 +180,12 @@ FocusScope {
                     radius: 6
                     color: closeArea.containsMouse || closeButton.activeFocus ? Theme.panelAlt : "transparent"
                 }
-                AppIcon { anchors.centerIn: parent; name: "close"; size: 18; color: Theme.textSecondary }
+                AppIcon {
+                    anchors.centerIn: parent
+                    name: "close"
+                    size: 18
+                    color: Theme.textSecondary
+                }
                 MouseArea {
                     id: closeArea
                     anchors.fill: parent
@@ -173,6 +196,7 @@ FocusScope {
             }
         }
 
+        // 内容区按需滚动，底部按钮固定；右侧细条是自绘滚动指示
         Flickable {
             id: content
             x: 28
@@ -236,7 +260,11 @@ FocusScope {
                         font.pixelSize: Theme.fontBody
                         wrapMode: Text.WrapAtWordBoundaryOrAnywhere
                     }
-                    Rectangle { width: parent.width; height: 1; color: Theme.line }
+                    Rectangle {
+                        width: parent.width
+                        height: 1
+                        color: Theme.line
+                    }
                     Spacer { gap: 2 }
                 }
 
@@ -245,7 +273,11 @@ FocusScope {
                     visible: root.overlay === "apply"
                     spacing: 0
                     Spacer { gap: 24 }
-                    Text { text: "申请留言"; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    Text {
+                        text: "申请留言"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSmall
+                    }
                     Spacer { gap: 8 }
                     AppInput {
                         id: verifyInput
@@ -254,7 +286,11 @@ FocusScope {
                         onAccepted: applyRemarkInput.forceInputFocus()
                     }
                     Spacer { gap: 18 }
-                    Text { text: "备注名"; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    Text {
+                        text: "备注名"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSmall
+                    }
                     Spacer { gap: 8 }
                     AppInput {
                         id: applyRemarkInput
@@ -263,7 +299,11 @@ FocusScope {
                         onAccepted: tagInput.forceInputFocus()
                     }
                     Spacer { gap: 20 }
-                    Text { text: "标签"; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    Text {
+                        text: "标签"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSmall
+                    }
                     Spacer { gap: 10 }
 
                     Flow {
@@ -351,7 +391,11 @@ FocusScope {
                     width: parent.width
                     visible: root.overlay === "auth"
                     spacing: 8
-                    Text { text: "备注名"; color: Theme.textSecondary; font.pixelSize: Theme.fontSmall }
+                    Text {
+                        text: "备注名"
+                        color: Theme.textSecondary
+                        font.pixelSize: Theme.fontSmall
+                    }
                     AppInput {
                         id: authRemarkInput
                         width: parent.width
@@ -369,7 +413,12 @@ FocusScope {
                         height: 48
                         radius: 10
                         color: Theme.panelAlt
-                        AppIcon { anchors.centerIn: parent; name: "search"; size: 23; color: Theme.textSecondary }
+                        AppIcon {
+                            anchors.centerIn: parent
+                            name: "search"
+                            size: 23
+                            color: Theme.textSecondary
+                        }
                     }
                     Text {
                         width: parent.width
@@ -418,6 +467,7 @@ FocusScope {
         }
     }
 
+    // 搜索状态由 ChatBridge 推进：2 显示结果，3 显示未找到，回到 0 时收起弹层
     Connections {
         target: controller
         function onSearchStateChanged() {

@@ -11,6 +11,8 @@ AddFriendApply::AddFriendApply(int from_uid, QString name, QString desc, QString
 
 }
 
+//按 msgid 去重后追加：同一条消息可能先以「发送中」进入列表，
+//回执或历史同步再带服务端 message_id 回来，这里只做原地更新
 void FriendInfo::AppendChatMsgs(const std::vector<std::shared_ptr<TextChatData> > text_vec)
 {
     for (const auto &text : text_vec) {
@@ -26,6 +28,7 @@ void FriendInfo::AppendChatMsgs(const std::vector<std::shared_ptr<TextChatData> 
             (*existing)->_msg_content = text->_msg_content;
         }
     }
+    //有服务端 ID 的消息按 ID 升序；尚未确认的排在最后，拿到回执后自然归位
     std::stable_sort(_chat_thread->_chat_msgs.begin(), _chat_thread->_chat_msgs.end(), [](const auto &left, const auto &right) {
         if (left->_message_id == 0 || right->_message_id == 0)
             return left->_message_id != 0 && right->_message_id == 0;

@@ -61,6 +61,8 @@ void ImageCropper::setFrameColor(const QColor &color)
     update();
 }
 
+//选图入口：先按文件大小和像素总量挡掉大图，再解码。
+//自动应用 EXIF 方向并统一到 sRGB，避免手机照片在裁剪框里是横的或偏色
 bool ImageCropper::loadImage(const QUrl &url)
 {
     if (url.isEmpty())
@@ -130,6 +132,7 @@ void ImageCropper::clear()
     update();
 }
 
+//图片按比例完整放进控件（上下或左右留白），裁剪坐标仍以原图像素为准
 QRectF ImageCropper::imageRect() const
 {
     if (!ready() || width() <= ImageMargin * 2 || height() <= ImageMargin * 2)
@@ -139,22 +142,26 @@ QRectF ImageCropper::imageRect() const
     return QRectF(QPointF((width() - size.width()) / 2, (height() - size.height()) / 2), size);
 }
 
+//原图与控件之间的比例；显示、拖动都要经过它换算
 qreal ImageCropper::displayScale() const
 {
     return ready() ? imageRect().width() / _image.width() : 0;
 }
 
+//把原图坐标系里的选区换算成控件坐标系，绘制和命中测试共用
 QRectF ImageCropper::displayCrop() const
 {
     const qreal scale = displayScale();
     return QRectF(imageRect().topLeft() + _crop.topLeft() * scale, _crop.size() * scale);
 }
 
+//选区最小 32 像素，既保证输出可用，也不让手柄挤在一起
 qreal ImageCropper::minimumSide() const
 {
     return qMin(32, qMin(_image.width(), _image.height()));
 }
 
+//默认取原图中央最大的正方形，短边用满
 void ImageCropper::resetCrop()
 {
     if (!ready())
@@ -163,6 +170,7 @@ void ImageCropper::resetCrop()
     setCrop(QRectF((_image.width() - side) / 2, (_image.height() - side) / 2, side, side));
 }
 
+//所有交互最终都落到这里：强制正方形、限制在图片内，并重新生成预览
 void ImageCropper::setCrop(const QRectF &crop)
 {
     if (!ready())
@@ -182,6 +190,7 @@ void ImageCropper::setCrop(const QRectF &crop)
     update();
 }
 
+//按选区输出正方形图；预览用 128，保存用 512
 QImage ImageCropper::croppedImage(int side) const
 {
     if (!ready() || _crop.isEmpty())
@@ -195,6 +204,7 @@ QImage ImageCropper::croppedImage(int side) const
     return result;
 }
 
+//以选区中心缩放：factor > 1 缩小选区（画面看起来放大），< 1 反之
 void ImageCropper::zoom(qreal factor)
 {
     if (!ready() || !std::isfinite(factor) || factor <= 0)
@@ -204,6 +214,7 @@ void ImageCropper::zoom(qreal factor)
     setCrop(QRectF(_crop.center() - QPointF(side / 2, side / 2), QSizeF(side, side)));
 }
 
+//dx/dy 是控件像素，换算成原图像素后再移动
 void ImageCropper::moveCrop(qreal dx, qreal dy)
 {
     const qreal scale = displayScale();
@@ -212,6 +223,7 @@ void ImageCropper::moveCrop(qreal dx, qreal dy)
     setCrop(_crop.translated(dx / scale, dy / scale));
 }
 
+//绘制顺序：底图 → 选区外压暗 → 圆角框与虚线 → 8 个手柄
 void ImageCropper::paint(QPainter *painter)
 {
     painter->setRenderHint(QPainter::Antialiasing);
@@ -242,6 +254,7 @@ void ImageCropper::paint(QPainter *painter)
         painter->drawRoundedRect(QRectF(point - QPointF(3, 3), QSizeF(6, 6)), 1, 1);
 }
 
+//先判 8 个角/边手柄，再判是否落在选区内；手柄半径比视觉尺寸大，便于点中
 ImageCropper::Handle ImageCropper::handleAt(const QPointF &position) const
 {
     if (!ready() || imageRect().isEmpty())
@@ -304,6 +317,7 @@ void ImageCropper::mouseMoveEvent(QMouseEvent *event)
         return;
     }
 
+    //拖动边或角时保持正方形：以对角为锚点，边长同时受图片边界约束
     const int sx = (_dragHandle == Left || _dragHandle == TopLeft || _dragHandle == BottomLeft) ? -1
         : (_dragHandle == Right || _dragHandle == TopRight || _dragHandle == BottomRight) ? 1 : 0;
     const int sy = (_dragHandle == Top || _dragHandle == TopLeft || _dragHandle == TopRight) ? -1
@@ -349,6 +363,7 @@ void ImageCropper::hoverLeaveEvent(QHoverEvent *)
         unsetCursor();
 }
 
+//滚轮按 120 一格换算成缩放倍数；触控板给的是像素增量
 void ImageCropper::wheelEvent(QWheelEvent *event)
 {
     if (!ready()) {
@@ -361,6 +376,7 @@ void ImageCropper::wheelEvent(QWheelEvent *event)
     event->accept();
 }
 
+//键盘：方向键移动 1 像素（Shift 为 10），+/- 缩放，Home 重置
 void ImageCropper::keyPressEvent(QKeyEvent *event)
 {
     if (!ready()) {
@@ -396,6 +412,7 @@ void ImageCropper::setError(const QString &message)
     emit errorChanged();
 }
 
+//保存前重新核对账号与路径：打开编辑器后切换账号或网关时不能写进别人的目录
 bool ImageCropper::saveAvatar()
 {
     setError({});
@@ -419,6 +436,7 @@ bool ImageCropper::saveAvatar()
         setError(tr("头像生成失败，请重新选择图片后重试"));
         return false;
     }
+    //QSaveFile 先写临时文件再原子替换，写到一半失败不会留下半个头像
     QSaveFile file(path);
     if (!file.open(QIODevice::WriteOnly) || file.write(png) != png.size() || !file.commit()) {
         setError(tr("头像保存失败，请检查磁盘空间和写入权限"));

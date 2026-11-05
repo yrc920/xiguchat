@@ -422,25 +422,31 @@ bool MysqlDao::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> 
 
 long long MysqlDao::GetOrCreatePrivateChat(int user1, int user2)
 {
+	//会话只对好友开放; 自己和自己不建会话
 	if (user1 <= 0 || user2 <= 0 || user1 == user2)
 		return 0;
+	//private_chat 的唯一键要求两人按固定顺序存放, 避免 (A,B) 和 (B,A) 建出两条会话
 	const int low = std::min(user1, user2);
 	const int high = std::max(user1, user2);
 
+	//两个线程同时首次打开同一会话时, 后插入的一方会撞唯一键;
+	//重试一次即可在下一轮读到对方刚提交的会话
 	for (int attempt = 0; attempt < 2; ++attempt) {
 		auto con = pool_->getConnection();
 		if (con == nullptr)
 			return 0;
 		try {
 			con->_session->startTransaction();
-		auto friendship = con->_session->sql(
-			"SELECT id FROM friend WHERE self_id = ? AND friend_id = ?")
-			.bind(user1).bind(user2).execute().fetchOne();
-		if (friendship.isNull()) {
-			con->_session->rollback();
-			pool_->returnConnection(std::move(con));
-			return 0;
-		}
+			auto friendship = con->_session->sql(
+				"SELECT id FROM friend WHERE self_id = ? AND friend_id = ?")
+				.bind(user1).bind(user2).execute().fetchOne();
+			if (friendship.isNull()) {
+				con->_session->rollback();
+				pool_->returnConnection(std::move(con));
+				return 0;
+			}
+
+			//FOR UPDATE 锁住这条会话记录, 让并发的创建请求在这里排队
 			auto existing = con->_session->sql(
 				"SELECT thread_id FROM private_chat WHERE user1_id = ? AND user2_id = ? FOR UPDATE")
 				.bind(low).bind(high).execute().fetchOne();
@@ -451,6 +457,7 @@ long long MysqlDao::GetOrCreatePrivateChat(int user1, int user2)
 				return thread_id;
 			}
 
+			//先建公共会话行, 再挂上两人的单聊关系, 两步必须同一个事务
 			con->_session->sql("INSERT INTO chat_thread (thread_type) VALUES (1)").execute();
 			auto id_row = con->_session->sql("SELECT LAST_INSERT_ID()").execute().fetchOne();
 			if (id_row.isNull()) {
@@ -466,6 +473,7 @@ long long MysqlDao::GetOrCreatePrivateChat(int user1, int user2)
 			return thread_id;
 		}
 		catch (mysqlx::Error& e) {
+			//连接可能停在事务中间, 回滚失败也不影响丢弃这条连接
 			if (con) {
 				try { con->_session->rollback(); } catch (...) {}
 				con->_healthy = false;
@@ -483,12 +491,15 @@ bool MysqlDao::GetChatThreads(int uid, long long last_thread_id, int limit,
 {
 	threads.clear();
 	has_more = false;
+	//单页上限固定为100, 防止客户端传过大的值
 	limit = std::clamp(limit, 1, 100);
 	auto con = pool_->getConnection();
 	if (con == nullptr)
 		return false;
 	Defer defer([this, &con]() { pool_->returnConnection(std::move(con)); });
 	try {
+		//CASE 把会话行翻成"对方"视角: 自己是 user1 就取 user2, 反之取 user1
+		//多取一条用来判断还有没有下一页, 返回前再截掉
 		auto res = con->_session->sql(
 			"SELECT pc.thread_id, CASE WHEN pc.user1_id = ? THEN pc.user2_id ELSE pc.user1_id END, "
 			"u.name, u.nick, u.icon, u.sex "
@@ -515,7 +526,7 @@ bool MysqlDao::GetChatThreads(int uid, long long last_thread_id, int limit,
 		return true;
 	}
 	catch (mysqlx::Error& e) {
-		if (con) con->_healthy = false;
+		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		std::cerr << "Mysqlx Error loading chat threads: " << e.what() << std::endl;
 		return false;
 	}
@@ -532,11 +543,13 @@ bool MysqlDao::GetChatMessages(int uid, long long thread_id, long long last_mess
 		return false;
 	Defer defer([this, &con]() { pool_->returnConnection(std::move(con)); });
 	try {
+		//先确认请求者属于这个会话, 不能靠猜 thread_id 读别人的聊天记录
 		auto member = con->_session->sql(
 			"SELECT thread_id FROM private_chat WHERE thread_id = ? AND (user1_id = ? OR user2_id = ?)")
 			.bind(thread_id).bind(uid).bind(uid).execute().fetchOne();
 		if (member.isNull())
 			return false;
+		//按消息ID升序增量读取; 多取一条判断下一页
 		auto res = con->_session->sql(
 			"SELECT message_id, thread_id, sender_id, recv_id, client_msg_id, content, status "
 			"FROM chat_message WHERE thread_id = ? AND message_id > ? "
@@ -562,7 +575,7 @@ bool MysqlDao::GetChatMessages(int uid, long long thread_id, long long last_mess
 		return true;
 	}
 	catch (mysqlx::Error& e) {
-		if (con) con->_healthy = false;
+		if (con) con->_healthy = false; //标记为不可复用, 归还时丢弃
 		std::cerr << "Mysqlx Error loading chat messages: " << e.what() << std::endl;
 		return false;
 	}
@@ -578,6 +591,7 @@ bool MysqlDao::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 	auto con = pool_->getConnection();
 	if (con == nullptr)
 		return false;
+	//客户端还没拿到会话ID时, 先确认两人仍是好友, 再由这里补建会话
 	if (thread_id <= 0) {
 		try {
 			auto friendship = con->_session->sql(
@@ -599,13 +613,13 @@ bool MysqlDao::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 		if (con == nullptr)
 			return false;
 	}
-	if (thread_id <= 0)
-	{
+	if (thread_id <= 0) {
 		pool_->returnConnection(std::move(con));
 		return false;
 	}
 	Defer defer([this, &con]() { pool_->returnConnection(std::move(con)); });
 	try {
+		//写入前再校验一次会话归属, 防止客户端传一个别人的 thread_id
 		auto member = con->_session->sql(
 			"SELECT thread_id FROM private_chat WHERE thread_id = ? AND ((user1_id = ? AND user2_id = ?) "
 			"OR (user1_id = ? AND user2_id = ?))")
@@ -613,8 +627,10 @@ bool MysqlDao::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 		if (member.isNull())
 			return false;
 
+		//整批消息一个事务: 要么全部拿到 message_id, 要么一条都不落库
 		con->_session->startTransaction();
 		for (const auto& [client_id, content] : contents) {
+			//(thread_id, sender_id, client_msg_id) 唯一; 断线重发同一条时沿用库里原来的 message_id
 			con->_session->sql(
 				"INSERT INTO chat_message (thread_id, sender_id, recv_id, client_msg_id, content) "
 				"VALUES (?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE message_id = LAST_INSERT_ID(message_id)")
@@ -633,6 +649,7 @@ bool MysqlDao::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 			info.content = content;
 			messages.push_back(std::move(info));
 		}
+		//会话列表按更新时间排序时需要这个时间戳, 消息写入和会话刷新放在同一事务
 		con->_session->sql("UPDATE chat_thread SET updated_at = CURRENT_TIMESTAMP WHERE thread_id = ?")
 			.bind(thread_id).execute();
 		con->_session->commit();

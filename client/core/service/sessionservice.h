@@ -45,6 +45,11 @@ private:
     void onChatLoggedIn(const QJsonObject &data);
     void failAndReset(const QString &msg);
 
+    // 拉会话历史；lastMessageId 为 0 表示第一页，否则从这个游标往后取
+    void requestMessages(qint64 threadId, qint64 lastMessageId = 0);
+    // thread_id 游标翻页：上一页最后一条作为下一页起点
+    void loadMoreThreads(qint64 lastThreadId);
+
     ServerInfo _current{};
     ServerInfo _pending{};   // 等待连接的会话信息
     bool _ready;

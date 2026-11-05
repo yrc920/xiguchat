@@ -161,7 +161,9 @@ message AuthFriendReq {
   int32 fromuid = 1;
   // 被添加的一方，即原申请人，需要收到"对方已通过"的通知
   int32 touid = 2;
+  // 两人共用的单聊会话 ID，接收方据此把欢迎消息挂到对应会话
   int64 thread_id = 3;
+  // 两条欢迎消息（申请方留言 + 通过方默认句），按 message_id 升序
   repeated TextChatData welcome_msgs = 4;
 }
 
@@ -173,7 +175,9 @@ message AuthFriendRsp {
   int32 fromuid = 2;
   // 回显被添加方 ID
   int32 touid = 3;
+  // 回显单聊会话 ID，0 表示会话创建失败但不影响好友关系
   int64 thread_id = 4;
+  // 回显欢迎消息，便于调用方核对本次写入结果
   repeated TextChatData welcome_msgs = 5;
 }
 
@@ -185,6 +189,7 @@ message TextChatMsgReq {
   int32 touid = 2;
   // 本次要投递的消息段，允许一次携带多条
   repeated TextChatData textmsgs = 3;
+  // 消息所属的单聊会话 ID，接收方按它归入对应会话
   int64 thread_id = 4;
 }
 
@@ -194,9 +199,13 @@ message TextChatData {
   string msgid = 1;
   // 消息正文
   string msgcontent = 2;
+  // 服务端 chat_message 自增主键，决定会话内显示顺序；0 表示尚未落库
   int64 message_id = 3;
+  // 消息状态：1 已发送 / 2 发送失败 / 3 未读
   int32 status = 4;
+  // 发送者用户 ID
   int32 fromuid = 5;
+  // 接收者用户 ID
   int32 touid = 6;
 }
 
@@ -210,6 +219,7 @@ message TextChatMsgRsp {
   int32 touid = 3;
   // 回显本次投递的消息段，便于发送方确认哪些消息已被转发
   repeated TextChatData textmsgs = 4;
+  // 回显消息所属的单聊会话 ID
   int64 thread_id = 5;
 }
 

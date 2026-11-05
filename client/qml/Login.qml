@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import XiguChat
 
 // 登录表单通过 bridge 提交，角色只跟随焦点和请求状态。
+// 表单按「角色 → 标题 → 邮箱 → 密码 → 错误位 → 按钮 → 注册入口」排列。
 Item {
     id: page
 
@@ -15,6 +16,7 @@ Item {
         anchors.fill: parent
         enabled: !bridge.busy
 
+        // 折纸角色只在输入区给反馈：聚焦、遮眼与忙碌都不影响表单可用性
         Item {
             width: parent.width
             height: 98
@@ -67,6 +69,7 @@ Item {
 
         Spacer { gap: 12 }
 
+        // 密码标题行右侧放找回入口，两者共用一条基线
         RowLayout {
             width: parent.width
             spacing: 0
@@ -100,6 +103,7 @@ Item {
 
         Spacer { gap: 8 }
 
+        // 错误位固定最小高度，出现提示时表单不会整体跳动
         Text {
             width: parent.width
             height: Math.max(20, implicitHeight)

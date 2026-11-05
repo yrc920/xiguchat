@@ -1,6 +1,7 @@
 import QtQuick
 
-//账号字段由桥接层提供，头像保存后与侧栏及自己的消息同步刷新。
+// 账号字段由桥接层提供，头像保存后与侧栏及自己的消息同步刷新。
+// 布局与好友资料页一致：标题栏 + 限宽 480 的详情列。
 Item {
     id: root
     property var controller
@@ -8,8 +9,12 @@ Item {
     readonly property var profile: controller ? controller.myProfile : ({})
     signal editAvatarRequested()
 
-    Rectangle { anchors.fill: parent; color: Theme.chatBg }
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.chatBg
+    }
 
+    // 标题栏
     Item {
         id: header
         width: parent.width
@@ -22,7 +27,13 @@ Item {
             font.pixelSize: 16
             font.weight: Font.DemiBold
         }
-        Rectangle { anchors.bottom: parent.bottom; width: parent.width; height: 1; color: Theme.line }
+        // 标题下用一条细线把页头和内容分开
+        Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width
+            height: 1
+            color: Theme.line
+        }
     }
 
     Flickable {
@@ -103,7 +114,11 @@ Item {
                 width: parent.width
                 height: 1
                 color: Theme.line
-                Rectangle { width: 28; height: 2; color: Theme.accent }
+                Rectangle {
+                    width: 28
+                    height: 2
+                    color: Theme.accent
+                }
             }
             Spacer { gap: 12 }
 

@@ -1,5 +1,6 @@
 import QtQuick
 
+// 主操作按钮：颜色跟随悬停/按下/忙碌，焦点态用朱红描边而不是换色。
 Rectangle {
     id: root
     property string text: ""
@@ -10,6 +11,7 @@ Rectangle {
     height: implicitHeight
     radius: Theme.radius
     activeFocusOnTab: enabled && !busy
+    // 忙碌时按钮仍保持主色，但不再响应点击，避免重复提交
     color: busy ? Theme.primaryHover : area.pressed ? Theme.primaryPressed
                             : area.containsMouse ? Theme.primaryHover : Theme.primary
     border.width: activeFocus ? 2 : 0
@@ -24,6 +26,7 @@ Rectangle {
     Behavior on color { ColorAnimation { duration: 140 } }
     Behavior on scale { NumberAnimation { duration: 110 } }
 
+    // 文字与图标作为一组居中，图标为空时不占宽度
     Row {
         anchors.centerIn: parent
         spacing: 10

@@ -1,6 +1,7 @@
 import QtQuick
 
 // 折纸信封的表情只由交互状态驱动；折盖会在密码输入时遮住眼睛。
+// 内部按 240×168 的画布坐标绘制，再整体缩放到控件大小，所以下面的坐标都是固定值。
 Item {
     id: root
     property bool hiding: false
@@ -21,6 +22,7 @@ Item {
         enabled: !root.compact && !root.hiding
     }
 
+    // 定时眨眼只在不遮眼、不紧凑时运行，避免登录页闪烁分散注意
     Timer {
         interval: 4600
         running: root.visible && !root.hiding && !root.compact

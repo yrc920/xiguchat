@@ -96,6 +96,7 @@ Item {
 
         Spacer { gap: 6 }
 
+        // 验证码输入与发送按钮同一行，倒计时和发送中状态都由 bridge 控制
         RowLayout {
             width: parent.width
             spacing: 10
@@ -119,6 +120,7 @@ Item {
 
         Spacer { gap: 13 }
 
+        // 两个密码框等宽并排，各自维护可见状态；提交前由 bridge 校验一致性
         Row {
             width: parent.width
             spacing: 12

@@ -1,5 +1,6 @@
 import QtQuick
 
+// 轻量文字操作：默认次要色，悬停或聚焦时变强调色并加下划线。
 Text {
     id: root
     property bool emphasize: false

@@ -67,6 +67,7 @@ Status ChatServiceImpl::NotifyAuthFriend(ServerContext* context,
 	rtvalue["fromuid"] = request->fromuid();
 	rtvalue["touid"] = request->touid();
 	rtvalue["thread_id"] = Json::Int64(request->thread_id());
+	//把proto里的欢迎消息还原成本实例客户端认识的JSON结构
 	rtvalue["welcome_msgs"] = Json::arrayValue;
 	for (const auto &msg : request->welcome_msgs()) {
 		Json::Value item;

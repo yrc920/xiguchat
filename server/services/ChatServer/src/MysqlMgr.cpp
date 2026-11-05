@@ -66,18 +66,21 @@ bool MysqlMgr::GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> 
 
 long long MysqlMgr::GetOrCreatePrivateChat(int user1, int user2)
 {
+	//单聊会话由 private_chat 的两人组合唯一确定, 创建过程在DAO里用事务处理
 	return _dao.GetOrCreatePrivateChat(user1, user2);
 }
 
 bool MysqlMgr::GetChatThreads(int uid, long long last_thread_id, int limit,
 	std::vector<ChatThreadInfo>& threads, bool& has_more)
 {
+	//调用数据库访问对象的GetChatThreads方法, 按会话ID游标向后翻页
 	return _dao.GetChatThreads(uid, last_thread_id, limit, threads, has_more);
 }
 
 bool MysqlMgr::GetChatMessages(int uid, long long thread_id, long long last_message_id, int limit,
 	std::vector<ChatMessageInfo>& messages, bool& has_more)
 {
+	//调用数据库访问对象的GetChatMessages方法, 按消息ID游标向后翻页
 	return _dao.GetChatMessages(uid, thread_id, last_message_id, limit, messages, has_more);
 }
 
@@ -85,5 +88,6 @@ bool MysqlMgr::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 	const std::vector<std::pair<std::string, std::string>>& contents,
 	std::vector<ChatMessageInfo>& messages)
 {
+	//调用数据库访问对象的SaveChatMessages方法, 写入成功时回填消息ID与所属会话
 	return _dao.SaveChatMessages(sender_id, recv_id, thread_id, contents, messages);
 }

@@ -35,21 +35,23 @@ struct ApplyInfo {
 	int _status; //申请状态，0表示未处理，1表示同意，2表示拒绝
 };
 
+//会话列表条目: 本端视角下的一条单聊, peer_* 是会话对面那个人的资料
 struct ChatThreadInfo {
-	long long thread_id = 0;
-	int peer_uid = 0;
-	std::string peer_name;
-	std::string peer_nick;
-	std::string peer_icon;
-	int peer_sex = 0;
+	long long thread_id = 0; //会话ID, 由 chat_thread 生成
+	int peer_uid = 0; //对方用户ID
+	std::string peer_name; //对方用户名
+	std::string peer_nick; //对方昵称
+	std::string peer_icon; //对方头像
+	int peer_sex = 0; //对方性别
 };
 
+//一条聊天消息: message_id 来自 chat_message 自增主键, 决定会话内的显示顺序
 struct ChatMessageInfo {
-	long long message_id = 0;
-	long long thread_id = 0;
-	int sender_id = 0;
-	int recv_id = 0;
-	std::string client_msg_id;
-	std::string content;
-	int status = 0;
+	long long message_id = 0; //全局自增的消息ID, 0 表示尚未落库
+	long long thread_id = 0; //所属会话ID
+	int sender_id = 0; //发送者用户ID
+	int recv_id = 0; //接收者用户ID
+	std::string client_msg_id; //客户端生成的去重ID, 重发同一条时保持不变
+	std::string content; //消息正文
+	int status = 0; //消息状态, 当前落库统一为默认值, 未读/已读由客户端展示
 };

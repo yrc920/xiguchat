@@ -1,5 +1,6 @@
 import QtQuick
 
+// 验证码按钮：高度与输入框一致，倒计时期间由 usable 置灰并阻止重复点击。
 Rectangle {
     id: root
     property string text: ""

@@ -4,7 +4,8 @@ import QtQuick.Controls
 import QtQuick.Dialogs
 import XiguChat
 
-//系统选图与模态裁剪分开，取消选图或裁剪都不会改变当前头像。
+// 系统选图与模态裁剪分开，取消选图或裁剪都不会改变当前头像。
+// 弹层本身不做图像处理，加载、缩放、保存都交给 ImageCropper。
 Popup {
     id: root
     objectName: "avatarEditor"
@@ -22,18 +23,21 @@ Popup {
     closePolicy: Popup.CloseOnEscape
     Overlay.modal: Rectangle { color: Theme.overlay }
 
+    // 打开系统选图前记住焦点，取消或关闭后还给原来的按钮
     function chooseImage() {
         if (!root.opened && root.parent && root.parent.Window.window)
             root.returnFocusItem = root.parent.Window.window.activeFocusItem
         fileDialog.open()
     }
 
+    // 关闭会把裁剪器里的原图一并丢掉，下次打开重新选图
     function dismiss() {
         fileDialog.close()
         root.close()
         cropper.clear()
     }
 
+    // 有图时焦点落在裁剪器，方便方向键微调；没图时落在「选择图片」
     function restoreEditorFocus() {
         if (cropper.ready)
             cropper.forceActiveFocus()
@@ -73,6 +77,7 @@ Popup {
     }
 
     contentItem: Item {
+        // 顶栏：标题、说明与关闭按钮
         Item {
             id: header
             width: parent.width
@@ -104,6 +109,7 @@ Popup {
             }
         }
 
+        // 主体：左侧裁剪器，右侧预览；底部留出缩放工具和错误提示
         Item {
             id: body
             x: 28
@@ -184,6 +190,7 @@ Popup {
                 }
             }
 
+            // 缩放与重置只改选区，不写文件；保存按钮才落盘
             Row {
                 id: tools
                 y: imageRow.height + 12

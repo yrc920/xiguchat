@@ -2,6 +2,7 @@ import QtQuick
 import XiguChat
 
 // 会话页只管理编辑与呈现，提交内容由外层交给聊天服务。
+// 结构：标题栏 → 消息列表 → 输入区；列表滚动与光标跟随都在本页处理。
 Item {
     id: root
 
@@ -11,8 +12,12 @@ Item {
     signal sendRequested(var parts)
     signal profileRequested()
 
+    readonly property int headerHeight: 78
+    readonly property int composerHeight: 174
+
     ComposerBridge { id: composerBridge }
 
+    // 切换会话时把输入文档也切过去，每个好友保留自己的草稿；新会话先滚到底部
     onCurrentUidChanged: {
         composerBridge.switchConversation(input.textDocument, currentUid)
         Qt.callLater(messageList.positionViewAtEnd)
@@ -20,12 +25,16 @@ Item {
     Component.onCompleted: composerBridge.switchConversation(input.textDocument, currentUid)
     onVisibleChanged: if (visible) input.forceActiveFocus()
 
-    Rectangle { anchors.fill: parent; color: Theme.chatBg }
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.chatBg
+    }
 
+    // 标题栏：左边是当前会话名，右边「资料」打开好友资料页
     Rectangle {
         id: header
         width: parent.width
-        height: 78
+        height: root.headerHeight
         color: Theme.chatBg
 
         Column {
@@ -98,6 +107,8 @@ Item {
         }
     }
 
+    // 消息列表：模型来自 MessageModel，条目高度由气泡内容决定；
+    // 数量或内容高度变化后滚到底，正在翻历史时由模型增量插入避免重建
     ListView {
         id: messageList
         anchors.left: parent.left
@@ -129,6 +140,7 @@ Item {
         onContentHeightChanged: Qt.callLater(messageList.positionViewAtEnd)
     }
 
+    // 没有消息时只显示一个轻提示，输入区仍然可以正常使用
     Column {
         anchors.centerIn: messageList
         visible: messageList.count === 0
@@ -146,6 +158,7 @@ Item {
         }
     }
 
+    // 输入区：上面是工具条和错误提示，中间是富文本编辑区，底部是发送按钮
     Rectangle {
         id: composer
         anchors.left: parent.left
@@ -154,13 +167,14 @@ Item {
         anchors.leftMargin: 24
         anchors.rightMargin: 24
         anchors.bottomMargin: 22
-        height: 174
+        height: root.composerHeight
         radius: 10
         color: Theme.fieldBg
         border.width: 1
         border.color: input.activeFocus ? Theme.primary : Theme.line
         Behavior on border.color { ColorAnimation { duration: 130 } }
 
+        // 表情与文件暂未接通，保持不可用；错误提示占这一行剩余宽度
         Row {
             id: tools
             x: 10
@@ -183,6 +197,7 @@ Item {
             font.pixelSize: 11
         }
 
+        // 编辑区自己滚动：TextEdit 不提供滚动条，外层 Flickable 只负责视口和滚轮
         Flickable {
             id: inputView
             x: 16
@@ -203,6 +218,8 @@ Item {
                 }
             }
 
+            // 回车发送、Shift+回车换行；输入法组合期间不抢键。
+            // 粘贴交给 ComposerBridge，才能把图片一起放进文档
             TextEdit {
                 id: input
                 objectName: "messageInput"
@@ -251,6 +268,7 @@ Item {
             }
         }
 
+        // 拖入图片时按 URL 逐个插入到当前光标位置，图片只留在本机会话里
         DropArea {
             anchors.fill: parent
             onEntered: (drag) => { drag.accepted = drag.hasUrls }
@@ -287,6 +305,7 @@ Item {
         }
     }
 
+    // 光标移出视口时把编辑区滚到可见位置，留 4px 余量避免贴边
     function followCursor() {
         const rect = input.cursorRectangle
         if (!rect || rect.height <= 0)

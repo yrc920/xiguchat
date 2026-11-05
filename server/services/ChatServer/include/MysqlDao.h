@@ -35,11 +35,14 @@ public:
 	bool GetApplyList(int touid,
 		std::vector<std::shared_ptr<ApplyInfo>>& applyList, int offset, int limit);
 	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info);
-	long long GetOrCreatePrivateChat(int user1, int user2);
+	long long GetOrCreatePrivateChat(int user1, int user2); //取单聊会话, 没有则创建; 非好友返回0
+	//按会话ID升序分页取会话列表, has_more 表示还有下一页
 	bool GetChatThreads(int uid, long long last_thread_id, int limit,
 		std::vector<ChatThreadInfo>& threads, bool& has_more);
+	//按消息ID升序分页取会话内消息, 只允许会话成员读取
 	bool GetChatMessages(int uid, long long thread_id, long long last_message_id, int limit,
 		std::vector<ChatMessageInfo>& messages, bool& has_more);
+	//批量写入消息; thread_id 为0时先找到或创建会话, 相同 (会话,发送者,client_msg_id) 视为重发
 	bool SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 		const std::vector<std::pair<std::string, std::string>>& contents,
 		std::vector<ChatMessageInfo>& messages);

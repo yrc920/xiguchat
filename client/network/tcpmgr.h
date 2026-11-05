@@ -56,10 +56,10 @@ signals:
     void sig_add_auth_friend(std::shared_ptr<AuthInfo>); //对方同意好友申请的信号
     void sig_auth_rsp(std::shared_ptr<AuthRsp>); //同意好友申请的响应信号
     void sig_text_chat_msg(std::shared_ptr<TextChatMsg>); //收到文本消息的信号
-    void sig_chat_msg_failed(const QJsonObject &data);
-    void sig_chat_threads(const QJsonObject &data);
-    void sig_chat_messages(const QJsonObject &data);
-    void sig_private_chat_created(const QJsonObject &data);
+    void sig_chat_msg_failed(const QJsonObject &data); //1018 回执带错误，按 msgid 标失败
+    void sig_chat_threads(const QJsonObject &data); //1028 会话列表，含 load_more
+    void sig_chat_messages(const QJsonObject &data); //1030 历史消息，含 load_more
+    void sig_private_chat_created(const QJsonObject &data); //1026 建会话结果，error 由会话层判断
     void sig_notify_offline(); //收到服务器踢人消息的信号
     void sig_connection_closed(); //连接断开的信号
 };

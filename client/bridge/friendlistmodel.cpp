@@ -101,14 +101,20 @@ int FriendListModel::chatCount() const
     return count;
 }
 
+//把一行摊平成 map，字段与 roleNames 保持一致，方便 QML 做搜索结果等一次性读取
 QVariantMap FriendListModel::get(int row) const
 {
-    QStringList names{"uid", "name", "nick", "icon", "desc", "lastText", "initial"};
-    QVariantMap result;
-    for (int i = 0; i < names.size(); ++i) {
-        result.insert(names.at(i), data(index(row, 0), UidRole + i));
-    }
-    return result;
+    const QModelIndex idx = index(row, 0);
+    return {
+        {QStringLiteral("uid"), data(idx, UidRole)},
+        {QStringLiteral("name"), data(idx, NameRole)},
+        {QStringLiteral("nick"), data(idx, NickRole)},
+        {QStringLiteral("icon"), data(idx, IconRole)},
+        {QStringLiteral("desc"), data(idx, DescRole)},
+        {QStringLiteral("lastText"), data(idx, LastTextRole)},
+        {QStringLiteral("initial"), data(idx, InitialRole)},
+        {QStringLiteral("threadId"), data(idx, ThreadIdRole)},
+    };
 }
 
 // 好友列表整体变化（登录、通过验证）：整表重置

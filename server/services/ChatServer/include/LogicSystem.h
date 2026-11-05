@@ -38,10 +38,15 @@ private:
 	void SearchInfo(std::shared_ptr<CSession>, const short& msg_id, const std::string& msg_data);
 	//申请添加好友处理函数，处理用户申请添加好友的请求并返回处理结果
 	void AddFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	//同意好友申请: 建立双向好友关系, 建会话并写入两条欢迎消息
 	void AuthFriendApply(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	//文本消息: 先落库再回执, 对方在线时实时投递
 	void DealChatTextMsg(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	//打开单聊会话: 按需创建 thread 并返回对方资料
 	void CreatePrivateChat(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	//按 thread_id 游标分页拉会话列表
 	void LoadChatThreads(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
+	//按 message_id 游标分页拉会话历史
 	void LoadChatMessages(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);
     //心跳处理函数，处理用户心跳请求并返回心跳响应
     void HeartBeatHandler(std::shared_ptr<CSession> session, const short& msg_id, const std::string& msg_data);

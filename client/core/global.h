@@ -38,12 +38,12 @@ enum ReqId{
     ID_NOTIFY_OFF_LINE_REQ = 1021, //通知用户下线
     ID_HEART_BEAT_REQ = 1023,      //心跳请求
     ID_HEARTBEAT_RSP = 1024,       //心跳回复
-    ID_CREATE_PRIVATE_CHAT_REQ = 1025,
-    ID_CREATE_PRIVATE_CHAT_RSP = 1026,
-    ID_LOAD_CHAT_THREAD_REQ = 1027,
-    ID_LOAD_CHAT_THREAD_RSP = 1028,
-    ID_LOAD_CHAT_MSG_REQ = 1029,
-    ID_LOAD_CHAT_MSG_RSP = 1030,
+    ID_CREATE_PRIVATE_CHAT_REQ = 1025, //打开单聊会话
+    ID_CREATE_PRIVATE_CHAT_RSP = 1026, //返回 thread_id 与对方资料
+    ID_LOAD_CHAT_THREAD_REQ = 1027, //拉会话列表
+    ID_LOAD_CHAT_THREAD_RSP = 1028, //会话列表与 load_more
+    ID_LOAD_CHAT_MSG_REQ = 1029, //拉会话历史消息
+    ID_LOAD_CHAT_MSG_RSP = 1030, //历史消息与 load_more
 };
 
 //模块

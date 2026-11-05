@@ -2,6 +2,7 @@ import QtQuick
 import XiguChat
 
 // 窗口负责页面装载、窗口尺寸和会话中断提示。
+// 认证页固定窄窗，聊天页给最小尺寸并尽量保留用户已拉大的窗口。
 Window {
     id: window
     visible: true
@@ -17,6 +18,7 @@ Window {
         return "Login.qml"
     }
     function showPage(name) {
+        // 切页前先解除上一页的固定尺寸，否则聊天页会被认证页的 420 宽卡住
         maximumWidth = 16777215
         maximumHeight = 16777215
         if (name === "chat") {
@@ -25,6 +27,7 @@ Window {
             width = Math.max(width, 1060)
             height = Math.max(height, 740)
         } else {
+            // 认证页高度按内容区分：登录 560、注册 740、重置 680
             const h = name === "register" ? 740 : name === "reset" ? 680 : 560
             minimumWidth = 420
             minimumHeight = h
@@ -36,7 +39,10 @@ Window {
         loader.setSource(pageFile(name))
     }
     Component.onCompleted: showPage(shell.page)
-    Connections { target: shell; function onPageChanged() { window.showPage(shell.page) } }
+    Connections {
+        target: shell
+        function onPageChanged() { window.showPage(shell.page) }
+    }
 
     Loader {
         id: loader
@@ -58,17 +64,36 @@ Window {
         Accessible.name: Theme.dark ? "切换浅色外观" : "切换深色外观"
         Keys.onReturnPressed: Theme.toggle()
         Keys.onSpacePressed: Theme.toggle()
-        AppIcon { anchors.centerIn: parent; name: Theme.dark ? "sun" : "moon"; color: Theme.ink; size: 19 }
-        MouseArea { id: modeArea; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Theme.toggle() }
+        AppIcon {
+            anchors.centerIn: parent
+            name: Theme.dark ? "sun" : "moon"
+            color: Theme.ink
+            size: 19
+        }
+        MouseArea {
+            id: modeArea
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: Theme.toggle()
+        }
     }
 
+    // 掉线提示覆盖整个窗口，点「返回登录」才真正切页
     FocusScope {
         anchors.fill: parent
         visible: shell.notice.length > 0
         focus: visible
         z: 100
-        Rectangle { anchors.fill: parent; color: Theme.overlay }
-        MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onWheel: (wheel) => { wheel.accepted = true } }
+        Rectangle {
+            anchors.fill: parent
+            color: Theme.overlay
+        }
+        MouseArea {
+            anchors.fill: parent
+            acceptedButtons: Qt.AllButtons
+            onWheel: (wheel) => { wheel.accepted = true }
+        }
         Rectangle {
             anchors.centerIn: parent
             width: 352
@@ -79,13 +104,34 @@ Window {
             MouseArea { anchors.fill: parent }
             Column {
                 id: content
-                x: 28; y: 28
+                x: 28
+                y: 28
                 width: parent.width - 56
                 spacing: 16
-                AppIcon { name: "mail"; size: 28; color: Theme.stamp }
-                Text { text: "连接中断了"; font.pixelSize: 22; font.weight: Font.DemiBold; color: Theme.textPrimary }
-                Text { width: parent.width; text: shell.notice; font.pixelSize: 14; color: Theme.textSecondary; wrapMode: Text.WordWrap }
-                AppButton { width: parent.width; text: "返回登录"; iconName: "arrowRight"; onClicked: shell.dismissNotice() }
+                AppIcon {
+                    name: "mail"
+                    size: 28
+                    color: Theme.stamp
+                }
+                Text {
+                    text: "连接中断了"
+                    font.pixelSize: 22
+                    font.weight: Font.DemiBold
+                    color: Theme.textPrimary
+                }
+                Text {
+                    width: parent.width
+                    text: shell.notice
+                    font.pixelSize: 14
+                    color: Theme.textSecondary
+                    wrapMode: Text.WordWrap
+                }
+                AppButton {
+                    width: parent.width
+                    text: "返回登录"
+                    iconName: "arrowRight"
+                    onClicked: shell.dismissNotice()
+                }
             }
         }
     }

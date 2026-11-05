@@ -1,6 +1,7 @@
 import QtQuick
 
 // 联系人资料按字段排列，所有可见信息来自当前好友。
+// profile 是 ChatBridge 生成的快照，字段缺失时用占位文案，不在这里补业务数据。
 Item {
     id: root
 
@@ -9,8 +10,12 @@ Item {
 
     readonly property int sex: profile.sex === undefined ? 0 : profile.sex
 
-    Rectangle { anchors.fill: parent; color: Theme.chatBg }
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.chatBg
+    }
 
+    // 标题栏
     Item {
         id: header
         width: parent.width
@@ -32,6 +37,7 @@ Item {
         }
     }
 
+    // 资料区限宽 480 并居中，窗口变窄时先减两侧留白
     Flickable {
         anchors.top: header.bottom
         anchors.bottom: parent.bottom
@@ -88,10 +94,15 @@ Item {
                 width: parent.width
                 height: 1
                 color: Theme.line
-                Rectangle { width: 28; height: 2; color: Theme.accent }
+                Rectangle {
+                    width: 28
+                    height: 2
+                    color: Theme.accent
+                }
             }
             Spacer { gap: 12 }
 
+            // 固定三行资料字段；值过长时换行，行高跟着内容增长
             Repeater {
                 model: [
                     { label: "昵称", value: root.profile.nick || "未设置" },
@@ -159,8 +170,18 @@ Item {
                     iconName: "chat"
                     onClicked: root.chatRequested()
                 }
-                IconButton { kind: "voice"; label: "语音"; available: false; width: 70 }
-                IconButton { kind: "video"; label: "视频"; available: false; width: 70 }
+                IconButton {
+                    kind: "voice"
+                    label: "语音"
+                    available: false
+                    width: 70
+                }
+                IconButton {
+                    kind: "video"
+                    label: "视频"
+                    available: false
+                    width: 70
+                }
             }
         }
     }

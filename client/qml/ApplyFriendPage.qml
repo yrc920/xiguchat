@@ -1,14 +1,19 @@
 import QtQuick
 
 // 好友申请只在服务端确认后变为已添加。
+// 列表数据来自 ApplyListModel，点击「添加」只发出请求，不改本地状态。
 Item {
     id: root
 
     property var applies: null
     signal authRequested(int uid, string name, string desc)
 
-    Rectangle { anchors.fill: parent; color: Theme.chatBg }
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.chatBg
+    }
 
+    // 标题栏：待处理数量由申请模型统计
     Item {
         id: header
         width: parent.width
@@ -47,6 +52,7 @@ Item {
         }
     }
 
+    // 一条申请占一行：头像、申请人、留言，右侧按钮在已处理时换成对勾
     ListView {
         id: requests
         anchors.top: header.bottom
@@ -121,8 +127,16 @@ Item {
                     anchors.centerIn: parent
                     visible: model.status !== 0
                     spacing: 5
-                    AppIcon { name: "check"; size: 14; color: Theme.textHint }
-                    Text { text: "已添加"; color: Theme.textHint; font.pixelSize: Theme.fontSmall }
+                    AppIcon {
+                        name: "check"
+                        size: 14
+                        color: Theme.textHint
+                    }
+                    Text {
+                        text: "已添加"
+                        color: Theme.textHint
+                        font.pixelSize: Theme.fontSmall
+                    }
                 }
             }
             Rectangle {
@@ -135,6 +149,7 @@ Item {
         }
     }
 
+    // 空态：没有申请时给出角色插画，而不是留一块空白
     Column {
         anchors.centerIn: parent
         width: parent.width - 60

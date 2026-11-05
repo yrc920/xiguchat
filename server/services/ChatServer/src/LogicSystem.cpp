@@ -11,7 +11,7 @@
 #include <charconv>
 
 namespace {
-// 加好友双方各自的第一句：申请方留言为空时用默认值，同意方使用老师的默认句
+//加好友双方各自的第一句: 申请方留言为空时用默认值, 同意方固定发通过语
 constexpr const char* kDefaultFriendWelcome = "你好，很高兴认识你";
 constexpr const char* kDefaultApproveWelcome = "We are friends now!";
 }
@@ -200,6 +200,8 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 	rtvalue["sex"] = user_info->sex;
 	rtvalue["icon"] = user_info->icon;
 
+	//登录时先带一页会话, 客户端据此建立 uid 与 thread_id 的对应关系;
+	//取不到会话不影响登录本身, 好友列表仍然可用
 	std::vector<ChatThreadInfo> chat_threads;
 	bool thread_more = false;
 	if (MysqlMgr::GetInstance()->GetChatThreads(uid, 0, 100, chat_threads, thread_more)) {
@@ -215,7 +217,7 @@ void LogicSystem::LoginHandler(std::shared_ptr<CSession> session,
 			thread_array.append(item);
 		}
 		rtvalue["thread_list"] = thread_array;
-		rtvalue["thread_more"] = thread_more;
+		rtvalue["thread_more"] = thread_more; //还有更多会话时客户端用最后一条 thread_id 继续拉
 	}
 
 	//从数据库获取申请列表
@@ -465,10 +467,11 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session,
     if (!b_info) return;
     //DAO在同一事务中检查申请、确认状态并建立双向好友关系，只有提交成功后才通知对方
     std::string apply_desc;
-    if (!MysqlMgr::GetInstance()->AddFriend(uid, touid, back_name, apply_desc)) {
-        rtvalue["error"] = ErrorCodes::RPCFailed;
-        return;
-    }
+	if (!MysqlMgr::GetInstance()->AddFriend(uid, touid, back_name, apply_desc)) {
+		rtvalue["error"] = ErrorCodes::RPCFailed;
+		return;
+	}
+	//好友关系已经提交, 会话和欢迎消息属于附加内容; 写失败只记日志, 不回滚也不让审批失败
 	long long thread_id = MysqlMgr::GetInstance()->GetOrCreatePrivateChat(uid, touid);
 	if (thread_id > 0)
 		rtvalue["thread_id"] = Json::Int64(thread_id);
@@ -478,9 +481,11 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session,
 	std::vector<ChatMessageInfo> applicant_msgs;
 	std::vector<ChatMessageInfo> approver_msgs;
 	if (thread_id > 0) {
+		//申请方没填留言时用默认句兜底, 同意方不填写, 固定发通过语
 		std::string applicant_welcome = apply_desc;
 		if (applicant_welcome.empty())
 			applicant_welcome = kDefaultFriendWelcome;
+		//client_msg_id 由双方 uid 拼成固定值: 重复审批同一条申请时不会再多写两条欢迎语
 		const std::string applicant_id = "friend-welcome-" + std::to_string(touid) + "-" + std::to_string(uid);
 		const std::string approver_id = "friend-welcome-" + std::to_string(uid) + "-" + std::to_string(touid);
 		//先写申请方的留言，再写同意方的默认句，message_id 顺序就是聊天里的显示顺序
@@ -492,6 +497,7 @@ void LogicSystem::AuthFriendApply(std::shared_ptr<CSession> session,
 			std::cerr << "save approver welcome failed: " << approver_id << std::endl;
 	}
 
+	//同一条欢迎消息对两个客户端的方向不同: 自己发的算已发送, 对方发的算未读
 	auto append_welcome = [&](Json::Value& array, const ChatMessageInfo& message, int status) {
 		Json::Value item;
 		item["msgid"] = message.client_msg_id;
@@ -594,6 +600,8 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 
 	const Json::Value  arrays = root["text_array"];
 
+	//先把回执按"全部失败"填好, 后面写库成功后逐条改成已发送;
+	//中途任何一步返回, Defer 都会把当前状态发回客户端
 	Json::Value rtvalue;
 	rtvalue["error"] = ErrorCodes::Success;
 	rtvalue["text_array"] = Json::arrayValue;
@@ -611,11 +619,13 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 	});
 	std::vector<std::pair<std::string, std::string>> contents;
 	for (const auto& item : arrays) contents.emplace_back(item["msgid"].asString(), item["content"].asString());
+	//先落库再投递: 对方离线时消息已经保存在 chat_message, 登录后还能拉回
 	std::vector<ChatMessageInfo> saved;
 	if (!MysqlMgr::GetInstance()->SaveChatMessages(uid, touid, thread_id, contents, saved)) {
 		rtvalue["error"] = ErrorCodes::RPCFailed;
 		return;
 	}
+	//thread_id 可能是0(客户端还没建会话), 以写库结果为准回填
 	if (!saved.empty()) thread_id = saved.front().thread_id;
 	if (session->IsClosed() || !_p_server->CheckValid(session->GetSessionId())) return;
 	rtvalue["thread_id"] = Json::Int64(thread_id);
@@ -631,6 +641,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 		rtvalue["text_array"].append(item);
 	}
 	notify["text_array"] = rtvalue["text_array"];
+	//同一批消息发给接收方时状态改成未读, 与发送方看到的已发送区分
 	for (auto &item : notify["text_array"])
 		item["status"] = 3;
 
@@ -645,7 +656,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 
 	auto& cfg = ConfigMgr::Inst();
 	auto self_name = cfg["SelfServer"]["Name"];
-	//直接通知对方有认证通过消息
+	//对方在本实例: 直接投递, 不再走一次 gRPC
 	if (to_ip_value == self_name) {
 		auto peer_session = UserMgr::GetInstance()->GetSession(touid);
 		if (peer_session) {
@@ -672,6 +683,7 @@ void LogicSystem::DealChatTextMsg(std::shared_ptr<CSession> session,
 	}
 
 	auto forwarded = ChatGrpcClient::GetInstance()->NotifyTextChatMsg(to_ip_value, text_msg_req, rtvalue);
+	//跨实例实时投递失败只影响"立刻看到", 消息已在库里, 对方下次登录仍能同步
 	if (forwarded.error() != ErrorCodes::Success)
 		rtvalue["delivery_pending"] = true;
 }
@@ -687,12 +699,12 @@ void LogicSystem::CreatePrivateChat(std::shared_ptr<CSession> session,
 	Json::Value response;
 	response["error"] = ErrorCodes::Success;
 	response["uid"] = peer_uid;
+	//打开会话时补拉一次: 登录后新加的好友可能还没有 thread_id
 	const long long thread_id = MysqlMgr::GetInstance()->GetOrCreatePrivateChat(uid, peer_uid);
 	if (thread_id <= 0) {
 		response["error"] = ErrorCodes::RPCFailed;
 	} else {
 		response["thread_id"] = Json::Int64(thread_id);
-		response["uid"] = peer_uid;
 		auto peer = MysqlMgr::GetInstance()->GetUser(peer_uid);
 		if (peer) {
 			response["name"] = peer->name;
@@ -711,6 +723,7 @@ void LogicSystem::LoadChatThreads(std::shared_ptr<CSession> session,
 	Json::Reader reader;
 	reader.parse(msg_data, root);
 	const int uid = root["fromuid"].asInt();
+	//客户端把上一页最后一条 thread_id 发回来当游标, 首次为0
 	const long long last_id = root["thread_id"].asInt64();
 	std::vector<ChatThreadInfo> threads;
 	bool has_more = false;
@@ -740,6 +753,7 @@ void LogicSystem::LoadChatMessages(std::shared_ptr<CSession> session,
 	reader.parse(msg_data, root);
 	const int uid = root["fromuid"].asInt();
 	const long long thread_id = root["thread_id"].asInt64();
+	//只取比游标大的消息, 历史页和实时消息因此可以按 message_id 拼成一条有序序列
 	const long long last_message_id = root["message_id"].asInt64();
 	std::vector<ChatMessageInfo> messages;
 	bool has_more = false;
@@ -758,6 +772,7 @@ void LogicSystem::LoadChatMessages(std::shared_ptr<CSession> session,
 		item["touid"] = message.recv_id;
 		item["msgid"] = message.client_msg_id;
 		item["content"] = message.content;
+		//历史消息按"自己发的/对方发的"给默认状态, 库里 status 暂未维护已读
 		item["status"] = message.sender_id == uid ? 1 : 3;
 		response["text_array"].append(item);
 	}

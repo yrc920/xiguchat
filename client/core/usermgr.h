@@ -42,19 +42,19 @@ public:
     bool CheckFriendById(int uid); //检查指定用户ID是否是好友
     void AddFriend(std::shared_ptr<AuthRsp> auth_rsp);
     void AddFriend(std::shared_ptr<AuthInfo> auth_info);
-    void AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<TextChatData>> msgs);
-    void SetChatThreads(const QJsonArray &threads);
-    void AppendChatThreads(const QJsonArray &threads);
-    void RefreshFriendList();
-    void SetThreadId(int friend_id, qint64 thread_id);
-    qint64 ThreadId(int friend_id) const;
-    int FriendIdByThread(qint64 thread_id) const;
-    qint64 LastMessageId(int friend_id) const;
-    bool HasPendingPrivateChat(int friend_id) const;
+    void AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<TextChatData>> msgs); //按 msgid 去重后并入会话
+    void SetChatThreads(const QJsonArray &threads); //登录时重置并写入全部会话映射
+    void AppendChatThreads(const QJsonArray &threads); //追加会话映射, 不动已有消息
+    void RefreshFriendList(); //仅通知列表重建, 数据已由调用方改好
+    void SetThreadId(int friend_id, qint64 thread_id); //补会话ID并清除 pending
+    qint64 ThreadId(int friend_id) const; //好友对应的会话ID, 0 表示还没有
+    int FriendIdByThread(qint64 thread_id) const; //反查会话属于哪个好友
+    qint64 LastMessageId(int friend_id) const; //当前最大消息ID, 作为翻页游标
+    bool HasPendingPrivateChat(int friend_id) const; //是否正在等待 1026 回包
     void MarkPrivateChatPending(int friend_id, bool pending);
     void UpdateChatMessage(int friend_id, const QString &msg_id, qint64 message_id,
-                           ChatMessageStatus status);
-    void FailPendingMessages();
+                           ChatMessageStatus status); //回执补 ID/状态并重新排序
+    void FailPendingMessages(); //断线时把发送中的消息统一标失败
 
     // 供列表模型按行读取：模型不复制数据，只引用这里的原始对象
     int FriendCount() const;
@@ -78,11 +78,11 @@ private:
     UserMgr();
 
     std::shared_ptr<UserInfo> _user_info;
-    QString _localIcon;
+    QString _localIcon; //本机头像 data URL, 为空时回落到服务端 icon
     std::vector<std::shared_ptr<ApplyInfo>> _apply_list; //好友申请列表
-    std::vector<std::shared_ptr<FriendInfo>> _friend_list;
-    QMap<int, std::shared_ptr<FriendInfo>> _friend_map;
-    QMap<int, bool> _pending_private_chats;
+    std::vector<std::shared_ptr<FriendInfo>> _friend_list; //列表模型按行读取的顺序容器
+    QMap<int, std::shared_ptr<FriendInfo>> _friend_map; //uid 索引, 与列表指向同一对象
+    QMap<int, bool> _pending_private_chats; //正在等待建会话回包的好友, 防止重复请求
 };
 
 #endif // USERMGR_H

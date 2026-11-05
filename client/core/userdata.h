@@ -76,10 +76,10 @@ struct AuthInfo {
     QString _nick;
     QString _icon;
     int _sex;
-    qint64 _thread_id = 0;
-    qint64 _message_id = 0;
-    QString _welcome_msg_id;
-    std::vector<std::shared_ptr<TextChatData>> _welcome_msgs;
+    qint64 _thread_id = 0; //两人共用的单聊会话ID, 0 表示尚未建立
+    qint64 _message_id = 0; //欢迎消息中的最后一条, 便于定位
+    QString _welcome_msg_id; //欢迎消息的客户端ID前缀
+    std::vector<std::shared_ptr<TextChatData>> _welcome_msgs; //通过申请时写入的两条欢迎消息
 };
 
 //用户认证响应数据结构
@@ -102,6 +102,8 @@ struct AuthRsp {
     std::vector<std::shared_ptr<TextChatData>> _welcome_msgs;
 };
 
+//消息状态：0 发送中、1 已发送、2 失败、3 未读、4 已读。
+//3/4 目前由历史同步按视角给出，等本地库接入后再补已读回执
 enum class ChatMessageStatus : int {
     Sending = 0,
     Sent = 1,
@@ -110,6 +112,7 @@ enum class ChatMessageStatus : int {
     Read = 4,
 };
 
+//一个单聊会话：thread_id 来自服务端，_chat_msgs 始终按 message_id 排序
 struct ChatThreadData {
     explicit ChatThreadData(qint64 thread_id = 0) : _thread_id(thread_id) {}
 

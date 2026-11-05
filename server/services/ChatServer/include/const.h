@@ -57,15 +57,15 @@ enum MSG_IDS {
 	ID_TEXT_CHAT_MSG_REQ = 1017, //文本聊天信息请求
 	ID_TEXT_CHAT_MSG_RSP = 1018, //文本聊天信息回复
 	ID_NOTIFY_TEXT_CHAT_MSG_REQ = 1019, //通知用户文本聊天信息
-    ID_NOTIFY_OFF_LINE_REQ = 1021, //通知用户下线
-    ID_HEART_BEAT_REQ = 1023, //心跳请求
-    ID_HEARTBEAT_RSP = 1024, //心跳回复
-	ID_CREATE_PRIVATE_CHAT_REQ = 1025,
-	ID_CREATE_PRIVATE_CHAT_RSP = 1026,
-	ID_LOAD_CHAT_THREAD_REQ = 1027,
-	ID_LOAD_CHAT_THREAD_RSP = 1028,
-	ID_LOAD_CHAT_MSG_REQ = 1029,
-	ID_LOAD_CHAT_MSG_RSP = 1030,
+	ID_NOTIFY_OFF_LINE_REQ = 1021, //通知用户下线
+	ID_HEART_BEAT_REQ = 1023, //心跳请求
+	ID_HEARTBEAT_RSP = 1024, //心跳回复
+	ID_CREATE_PRIVATE_CHAT_REQ = 1025, //打开单聊会话, 服务端按需创建 thread
+	ID_CREATE_PRIVATE_CHAT_RSP = 1026, //返回 thread_id 与对方资料
+	ID_LOAD_CHAT_THREAD_REQ = 1027, //按 thread_id 游标拉会话列表
+	ID_LOAD_CHAT_THREAD_RSP = 1028, //会话列表与 load_more
+	ID_LOAD_CHAT_MSG_REQ = 1029, //按 message_id 游标拉会话消息
+	ID_LOAD_CHAT_MSG_RSP = 1030, //历史消息与 load_more
 };
 
 #define USERIPPREFIX  "uip_" //用户登录ip server的名字前缀

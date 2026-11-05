@@ -1,24 +1,33 @@
 import QtQuick
 import XiguChat
 
-// 聊天工作区：窄导航、联系人索引与会话页面。
+// 聊天工作区：左侧导航 72、会话/联系人栏 280、右侧内容自适应。
+// 这里只负责布局与焦点，导航状态和业务动作都交给 ChatBridge。
 Item {
     id: root
     onEnabledChanged: if (!enabled) avatarEditor.dismiss()
+
+    readonly property int sidebarWidth: 72
+    readonly property int indexWidth: 280
+    readonly property int listHeaderHeight: 78
 
     ChatBridge {
         id: bridge
         objectName: "chatBridge"
     }
 
-    Rectangle { anchors.fill: parent; color: Theme.chatBg }
+    Rectangle {
+        anchors.fill: parent
+        color: Theme.chatBg
+    }
 
     Row {
         anchors.fill: parent
         enabled: !dialogs.visible
 
+        // 一级导航：从上到下依次是聊天、联系人、设置；底部固定外观切换与本人头像
         Rectangle {
-            width: 72
+            width: root.sidebarWidth
             height: parent.height
             color: Theme.sidebarBg
 
@@ -28,6 +37,7 @@ Item {
                 size: 32
             }
 
+            // 三个入口共用 SideButton，选中态由 bridge.mode 决定
             Column {
                 y: 112
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -50,6 +60,7 @@ Item {
                 }
             }
 
+            // 外观切换放在头像上方，与列表栏保持同一条底部基线
             Rectangle {
                 id: appearanceButton
                 width: 40
@@ -80,6 +91,7 @@ Item {
                 }
             }
 
+            // 本人头像：点击等同于进入设置里的个人资料
             Avatar {
                 id: ownAvatar
                 anchors.bottom: parent.bottom
@@ -112,18 +124,20 @@ Item {
             }
         }
 
+        // 第二栏：标题、搜索框与列表。设置模式下整栏让位给 SettingsPanel
         Rectangle {
             id: indexPanel
             visible: bridge.mode !== ChatBridge.SettingsMode
-            width: 280
+            width: root.indexWidth
             height: parent.height
             color: Theme.panelBg
 
             Item {
                 id: listHeader
                 width: parent.width
-                height: 78
+                height: root.listHeaderHeight
 
+                // 标题与统计随模式切换，右侧加号只负责把焦点交给搜索框
                 Text {
                     x: 22
                     y: 21
@@ -156,7 +170,12 @@ Item {
                     Accessible.onPressAction: searchInput.forceActiveFocus()
                     Keys.onSpacePressed: searchInput.forceActiveFocus()
                     Keys.onReturnPressed: searchInput.forceActiveFocus()
-                    AppIcon { anchors.centerIn: parent; name: "plus"; size: 16; color: Theme.primary }
+                    AppIcon {
+                        anchors.centerIn: parent
+                        name: "plus"
+                        size: 16
+                        color: Theme.primary
+                    }
                     MouseArea {
                         id: searchEntry
                         anchors.fill: parent
@@ -167,6 +186,7 @@ Item {
                 }
             }
 
+            // 搜索用户名或 UID：输入只同步文本，回车才发出请求，Esc 清空
             Rectangle {
                 id: searchBox
                 x: 16
@@ -233,7 +253,12 @@ Item {
                     Keys.onSpacePressed: bridge.clearSearch()
                     Keys.onReturnPressed: bridge.clearSearch()
                     Keys.onEnterPressed: bridge.clearSearch()
-                    AppIcon { anchors.centerIn: parent; name: "close"; size: 13; color: Theme.textSecondary }
+                    AppIcon {
+                        anchors.centerIn: parent
+                        name: "close"
+                        size: 13
+                        color: Theme.textSecondary
+                    }
                     MouseArea {
                         id: clearArea
                         anchors.fill: parent
@@ -244,6 +269,8 @@ Item {
                 }
             }
 
+            // 会话与联系人共用同一个好友模型；聊天模式下没有 thread_id 的条目高度为0，
+            // 所以统计会话数量用 friends.chatCount，而不是列表行数
             ListView {
                 id: friendsList
                 anchors.left: parent.left
@@ -256,6 +283,7 @@ Item {
                 spacing: 2
                 boundsBehavior: Flickable.StopAtBounds
 
+                // 联系人模式在列表顶部固定「新的朋友」，未处理数量来自申请模型
                 header: Item {
                     width: friendsList.width
                     height: bridge.mode === ChatBridge.ContactMode ? 94 : 0
@@ -286,7 +314,12 @@ Item {
                             height: 36
                             radius: 9
                             color: Theme.primarySoft
-                            AppIcon { anchors.centerIn: parent; name: "mail"; size: 19; color: Theme.primary }
+                            AppIcon {
+                                anchors.centerIn: parent
+                                name: "mail"
+                                size: 19
+                                color: Theme.primary
+                            }
                         }
                         Text {
                             x: 58
@@ -332,13 +365,18 @@ Item {
                     }
                 }
 
+                // 一行两用：聊天模式打开会话并显示最后一条摘要，联系人模式打开资料页；
+                // 高度为0的条目在此不可见也不可聚焦
                 delegate: Item {
                     id: friendRow
                     width: friendsList.width
-                    height: bridge.mode === ChatBridge.ChatMode && model.threadId === 0
-                        ? 0 : (bridge.mode === ChatBridge.ChatMode ? 76 : 60)
-                    visible: height > 0
-                    readonly property bool chosen: bridge.mode === ChatBridge.ChatMode
+                    //聊天模式只显示已有会话的好友；联系人模式全部显示
+                    readonly property bool chatMode: bridge.mode === ChatBridge.ChatMode
+                    readonly property bool hasThread: model.threadId > 0
+                    readonly property bool shown: !chatMode || hasThread
+                    height: !shown ? 0 : (chatMode ? 76 : 60)
+                    visible: shown
+                    readonly property bool chosen: chatMode
                         ? bridge.pane === ChatBridge.ChatPage && bridge.currentUid === model.uid
                         : bridge.pane === ChatBridge.FriendInfoPage && bridge.profile.uid === model.uid
                     activeFocusOnTab: true
@@ -354,7 +392,7 @@ Item {
                     }
 
                     function activate() {
-                        if (bridge.mode === ChatBridge.ChatMode)
+                        if (chatMode)
                             bridge.openChat(model.uid)
                         else
                             bridge.openProfile(model.uid)
@@ -407,7 +445,7 @@ Item {
                             elide: Text.ElideRight
                         }
                         Text {
-                            visible: bridge.mode === ChatBridge.ChatMode
+                            visible: friendRow.chatMode
                             width: parent.width
                             text: model.lastText.length > 0 ? model.lastText : "还没有消息"
                             color: Theme.textSecondary
@@ -430,6 +468,7 @@ Item {
                 }
             }
 
+            // 空态按模式区分：聊天看真实会话数，联系人看好友总数
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: bridge.mode === ChatBridge.ContactMode ? 278 : 210
@@ -448,15 +487,17 @@ Item {
             }
         }
 
+        //设置栏与列表栏同宽，切换模式时左侧不跳动
         SettingsPanel {
-            width: 280
+            width: root.indexWidth
             height: parent.height
             visible: bridge.mode === ChatBridge.SettingsMode
             controller: bridge
         }
 
+        // 右侧内容区：按 pane 切换页面，实例常驻以保留输入草稿和滚动位置
         Item {
-            width: parent.width - 72 - indexPanel.width
+            width: parent.width - root.sidebarWidth - root.indexWidth
             height: parent.height
 
             Column {
@@ -477,6 +518,7 @@ Item {
                 }
             }
 
+            // 四个页面共用这块区域，只切 visible；聊天页负责提交，清空由外层在成功后调用
             ChatPage {
                 id: chatPage
                 anchors.fill: parent
@@ -512,6 +554,7 @@ Item {
         }
     }
 
+    // 好友表单是覆盖层，打开时禁用底层 Row；头像编辑器独立于页面，避免切页被销毁
     FriendDialogs {
         id: dialogs
         anchors.fill: parent

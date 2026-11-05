@@ -1,6 +1,7 @@
 import QtQuick
 
 // 文字按自然宽度排版，图片使用消息中的尺寸；两种内容都能随窗口收窄。
+// 自己发的消息靠右，状态行只在文字消息左侧出现。
 Item {
     id: root
 
@@ -15,6 +16,7 @@ Item {
     readonly property bool localImage: imageSource.length > 0
     readonly property real paddingH: localImage ? 5 : 15
     readonly property real paddingV: localImage ? 5 : 11
+    // 宽度上限留给头像、左右间距和状态图标，避免气泡压到状态行
     readonly property real availableWidth: Math.max(1, Math.min(Theme.bubbleMaxWidth, width - 102))
     readonly property real contentWidth: localImage
         ? Math.max(1, Math.min(imageWidth, availableWidth - paddingH * 2))
@@ -81,8 +83,10 @@ Item {
         }
     }
 
+    // 状态行：0 发送中（转圈）、1 已发送、2 失败、3 未读、4 已读。
+    // 本地图片不参与网络协议，因此不显示状态
     Row {
-        visible: root.isSelf && root.localImage === false
+        visible: root.isSelf && !root.localImage
         spacing: 3
         anchors.right: body.left
         anchors.rightMargin: 7

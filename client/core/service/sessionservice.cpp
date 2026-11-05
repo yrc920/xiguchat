@@ -59,21 +59,15 @@ SessionService::SessionService() : _ready(false)
         const auto threads = data.value("thread_list").toArray();
         mgr->AppendChatThreads(threads);
         mgr->RefreshFriendList();
+        //每个会话先拿第一页，剩下的由 load_more 继续
         for (const auto &value : threads) {
             const auto item = value.toObject();
-            QJsonObject request{{"fromuid", mgr->GetUid()}, {"thread_id", item.value("thread_id")},
-                                {"message_id", 0}};
-            emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
-                QJsonDocument(request).toJson(QJsonDocument::Compact));
+            requestMessages(item.value("thread_id").toVariant().toLongLong());
         }
-        if (data.value("load_more").toBool() && !threads.isEmpty()) {
-            QJsonObject request{{"fromuid", mgr->GetUid()},
-                {"thread_id", threads.last().toObject().value("thread_id")}};
-            emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_THREAD_REQ,
-                QJsonDocument(request).toJson(QJsonDocument::Compact));
-        }
+        if (data.value("load_more").toBool() && !threads.isEmpty())
+            loadMoreThreads(threads.last().toObject().value("thread_id").toVariant().toLongLong());
     });
-    connect(tcp, &TcpMgr::sig_chat_messages, this, [](const QJsonObject &data) {
+    connect(tcp, &TcpMgr::sig_chat_messages, this, [this](const QJsonObject &data) {
         auto *mgr = UserMgr::GetInstance().get();
         const qint64 threadId = data.value("thread_id").toVariant().toLongLong();
         const int peerUid = mgr->FriendIdByThread(threadId);
@@ -95,12 +89,8 @@ SessionService::SessionService() : _ready(false)
         mgr->AppendFriendChatMsg(peerUid, std::move(messages));
         if (data.value("load_more").toBool()) {
             const auto items = data.value("text_array").toArray();
-            if (!items.isEmpty()) {
-                QJsonObject request{{"fromuid", mgr->GetUid()}, {"thread_id", threadId},
-                    {"message_id", items.last().toObject().value("message_id")}};
-                emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
-                    QJsonDocument(request).toJson(QJsonDocument::Compact));
-            }
+            if (!items.isEmpty())
+                requestMessages(threadId, items.last().toObject().value("message_id").toVariant().toLongLong());
         }
     });
     connect(tcp, &TcpMgr::sig_private_chat_created, this, [](const QJsonObject &data) {
@@ -253,28 +243,40 @@ void SessionService::onChatLoggedIn(const QJsonObject &data)
     mgr->AppendApplyList(data["apply_list"].toArray());
     mgr->AppendFriendList(data["friend_list"].toArray());
     mgr->SetChatThreads(data["thread_list"].toArray());
-    for (const auto &value : data["thread_list"].toArray()) {
-        const auto item = value.toObject();
-        QJsonObject request{{"fromuid", mgr->GetUid()}, {"thread_id", item.value("thread_id")},
-                            {"message_id", 0}};
-        emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
-            QJsonDocument(request).toJson(QJsonDocument::Compact));
-    }
-    if (data.value("thread_more").toBool()) {
-        const auto threads = data.value("thread_list").toArray();
-        if (!threads.isEmpty()) {
-            QJsonObject request{{"fromuid", mgr->GetUid()},
-                {"thread_id", threads.last().toObject().value("thread_id")}};
-            emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_THREAD_REQ,
-                QJsonDocument(request).toJson(QJsonDocument::Compact));
-        }
-    }
+    //登录响应只带一页会话；先给每个会话拉第一页消息，会话更多时按游标继续
+    const auto threads = data["thread_list"].toArray();
+    for (const auto &value : threads)
+        requestMessages(value.toObject().value("thread_id").toVariant().toLongLong());
+    if (data.value("thread_more").toBool() && !threads.isEmpty())
+        loadMoreThreads(threads.last().toObject().value("thread_id").toVariant().toLongLong());
     _connecting = false;
     _timeout.stop();
     _ready = true;
     _current = _pending;
     _heartbeat.start();
     emit sessionReady();
+}
+
+// 统一构造消息拉取帧：thread_id 无效时直接丢弃，避免服务端按 0 查库
+void SessionService::requestMessages(qint64 threadId, qint64 lastMessageId)
+{
+    if (threadId <= 0)
+        return;
+    QJsonObject request{{"fromuid", UserMgr::GetInstance()->GetUid()},
+                        {"thread_id", threadId}, {"message_id", lastMessageId}};
+    emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_MSG_REQ,
+        QJsonDocument(request).toJson(QJsonDocument::Compact));
+}
+
+// 会话列表翻页：服务端只认大于该值的 thread_id
+void SessionService::loadMoreThreads(qint64 lastThreadId)
+{
+    if (lastThreadId <= 0)
+        return;
+    QJsonObject request{{"fromuid", UserMgr::GetInstance()->GetUid()},
+                        {"thread_id", lastThreadId}};
+    emit TcpMgr::GetInstance()->sig_send_data(ReqId::ID_LOAD_CHAT_THREAD_REQ,
+        QJsonDocument(request).toJson(QJsonDocument::Compact));
 }
 
 // 统一失败出口：停表、复位状态，把原因抛给界面

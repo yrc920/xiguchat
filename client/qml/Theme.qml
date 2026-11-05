@@ -3,15 +3,18 @@ import QtQuick
 import QtCore
 
 // 纸白与墨绿共用一套语义色；外观选择保存在本机。
+// 页面只引用这里的语义名，不在各自的 QML 里再判断日/夜。
 QtObject {
     id: theme
     property bool dark: false
+    // 外观写入本机 Settings，切换后重启仍然保持
     property QtObject preferences: Settings {
         category: "Appearance"
         property alias dark: theme.dark
     }
     function toggle() { dark = !dark }
 
+    // 基础界面色
     readonly property color bgTop: dark ? "#17231F" : "#F5F5EE"
     readonly property color panelBg: dark ? "#202E28" : "#FDFDF8"
     readonly property color panelAlt: dark ? "#293830" : "#EBEFE5"
@@ -29,6 +32,7 @@ QtObject {
     readonly property color accent: dark ? "#ED9D80" : "#B4543C"
     readonly property color stamp: accent
 
+    // 强调色：primary 用于主操作，accent 只做少量标记，danger 用于失败
     readonly property color primary: dark ? "#BCD2AD" : "#2C503B"
     readonly property color primaryHover: dark ? "#CDE1BF" : "#3D634A"
     readonly property color primaryPressed: dark ? "#A7BF97" : "#1E3D2C"
@@ -45,6 +49,7 @@ QtObject {
     readonly property color paperFold: dark ? "#ABB99A" : "#E1E8CE"
     readonly property color paperInk: "#344B37"
 
+    // 字号与控件尺寸，页面不再各写像素值
     readonly property int fontTitle: 26
     readonly property int fontBody: 14
     readonly property int fontSmall: 12

@@ -94,6 +94,7 @@ Item {
 
         Spacer { gap: 6 }
 
+        // 验证码行：输入框占满剩余宽度，按钮宽度固定，倒计时期间不可用
         RowLayout {
             width: parent.width
             spacing: 10
@@ -137,6 +138,7 @@ Item {
 
         Spacer { gap: 8 }
 
+        // 提示位固定最小高度，成功与失败共用这一行
         Text {
             width: parent.width
             height: Math.max(20, implicitHeight)

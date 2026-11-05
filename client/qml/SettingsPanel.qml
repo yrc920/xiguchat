@@ -1,6 +1,7 @@
 import QtQuick
 
-//设置索引沿用聊天列表的宽度，当前选项对应右侧个人资料。
+// 设置索引沿用聊天列表的宽度，当前选项对应右侧个人资料。
+// 「个人资料」是唯一分栏，外观切换作为本机快捷开关固定在其下方。
 Rectangle {
     id: root
     property var controller
@@ -24,6 +25,7 @@ Rectangle {
         font.pixelSize: 11
     }
 
+    // 当前只有一组设置，选中态固定；以后增加分栏时这里换成可切换列表
     Rectangle {
         x: 12
         y: 96
@@ -66,6 +68,7 @@ Rectangle {
         color: Theme.line
     }
 
+    // 外观开关直接写本机配置，不经过服务器
     Rectangle {
         id: appearance
         x: 12

@@ -27,7 +27,8 @@ public:
 	bool GetApplyList(int touid,
 		std::vector<std::shared_ptr<ApplyInfo>>& applyList, int begin, int limit = 10);
 	bool GetFriendList(int self_id, std::vector<std::shared_ptr<UserInfo> >& user_info);
-	long long GetOrCreatePrivateChat(int user1, int user2);
+	long long GetOrCreatePrivateChat(int user1, int user2); //取单聊会话, 没有则创建
+	//分页读取会话列表与消息, 具体语义见 MysqlDao 中同名方法
 	bool GetChatThreads(int uid, long long last_thread_id, int limit,
 		std::vector<ChatThreadInfo>& threads, bool& has_more);
 	bool GetChatMessages(int uid, long long thread_id, long long last_message_id, int limit,

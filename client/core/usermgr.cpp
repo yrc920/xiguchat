@@ -12,6 +12,7 @@
 namespace {
 constexpr qint64 MaxAvatarBytes = 4 * 1024 * 1024;
 
+//头像文件按 PNG 签名和大小校验，避免把其他文件当图片塞进 Image
 bool isAvatarPng(const QByteArray &png)
 {
     static const QByteArray signature("\x89PNG\r\n\x1a\n", 8);
@@ -19,6 +20,7 @@ bool isAvatarPng(const QByteArray &png)
         && png.startsWith(signature);
 }
 
+//直接给 data URL：同一路径覆盖保存后 Image 会命中旧缓存，data URL 每次都是新内容
 QString avatarSource(const QByteArray &png)
 {
     return QStringLiteral("data:image/png;base64,") + QString::fromLatin1(png.toBase64());
@@ -32,6 +34,7 @@ UserMgr::UserMgr() : _user_info(nullptr)
 
 UserMgr::~UserMgr() {}
 
+//登录后先恢复本机头像；服务端 icon 仍保留，换设备时作为兜底
 void UserMgr::SetUserInfo(std::shared_ptr<UserInfo> user_info)
 {
     const QString previousIcon = GetIcon();
@@ -60,6 +63,7 @@ int UserMgr::GetUid()
     return _user_info ? _user_info->_uid : 0;
 }
 
+//头像按「网关地址 + uid」分目录：换服务器或换账号都不会读到别人的文件
 QString UserMgr::LocalAvatarPath()
 {
     const int uid = GetInstance()->GetUid();
@@ -85,6 +89,7 @@ QString UserMgr::GetIcon() const
     return _localIcon.isEmpty() ? _user_info->_icon : _localIcon;
 }
 
+//只更新内存中的显示头像；写盘由裁剪器完成，失败时不发布变更
 bool UserMgr::SetLocalAvatar(const QByteArray &png)
 {
     if (GetUid() <= 0 || !isAvatarPng(png))
@@ -212,6 +217,7 @@ void UserMgr::AppendFriendChatMsg(int friend_id, std::vector<std::shared_ptr<Tex
     emit FriendChatChanged(friend_id);
 }
 
+//登录返回的会话列表是当前账号的完整结果，先清空旧映射再逐条写入
 void UserMgr::SetChatThreads(const QJsonArray &threads)
 {
     emit FriendListAboutToChange();
@@ -221,6 +227,7 @@ void UserMgr::SetChatThreads(const QJsonArray &threads)
     emit FriendListChanged();
 }
 
+//只补 thread_id：会话里的消息由 1029 单独拉取
 void UserMgr::AppendChatThreads(const QJsonArray &threads)
 {
     for (const auto &value : threads) {
@@ -239,6 +246,7 @@ void UserMgr::RefreshFriendList()
     emit FriendListChanged();
 }
 
+//无论创建成功还是失败都要清掉 pending，否则该好友之后不会再重试建会话
 void UserMgr::SetThreadId(int friend_id, qint64 thread_id)
 {
     auto info = GetFriendById(friend_id);
@@ -263,6 +271,8 @@ void UserMgr::MarkPrivateChatPending(int friend_id, bool pending)
         _pending_private_chats.remove(friend_id);
 }
 
+//发送回执按 msgid 找到原消息，补上服务端 ID 和状态；
+//待确认消息原本排在末尾，拿到 ID 后要重新排序才能落到正确位置
 void UserMgr::UpdateChatMessage(int friend_id, const QString &msg_id, qint64 message_id,
                                 ChatMessageStatus status)
 {
@@ -281,6 +291,7 @@ void UserMgr::UpdateChatMessage(int friend_id, const QString &msg_id, qint64 mes
     }
 }
 
+//断线时把所有还在「发送中」的消息标失败，避免界面一直转圈
 void UserMgr::FailPendingMessages()
 {
     for (const auto &info : _friend_list) {
@@ -296,6 +307,7 @@ void UserMgr::FailPendingMessages()
     }
 }
 
+//会话与好友是 1:1 映射，两个方向互相查找；都只在已加好友范围内有效
 qint64 UserMgr::ThreadId(int friend_id) const
 {
     auto it = _friend_map.constFind(friend_id);
@@ -310,6 +322,7 @@ int UserMgr::FriendIdByThread(qint64 thread_id) const
     return 0;
 }
 
+//历史消息按最大 message_id 继续翻页；待确认消息 ID 为 0，不参与游标
 qint64 UserMgr::LastMessageId(int friend_id) const
 {
     auto it = _friend_map.constFind(friend_id);
@@ -355,6 +368,7 @@ std::shared_ptr<ApplyInfo> UserMgr::ApplyAt(int index) const
     return _apply_list[index];
 }
 
+//换账号或返回登录时清空全部会话数据；模型通过成对的 AboutToChange/Changed 重建
 void UserMgr::ClearSession()
 {
     const bool hadIcon = !GetIcon().isEmpty();

@@ -18,10 +18,12 @@ Rectangle {
     height: Theme.fieldHeight
     radius: Theme.radius
     color: Theme.fieldBg
+    // 焦点用主色描边，校验失败时优先显示错误色
     border.width: input.activeFocus ? 1.5 : 1
     border.color: invalid ? Theme.danger : input.activeFocus ? Theme.primary : Theme.fieldBorder
     Behavior on border.color { ColorAnimation { duration: 130 } }
 
+    // 右侧留出眼睛按钮的位置，密码可见时再收回；组合态期间隐藏占位文案
     TextInput {
         id: input
         anchors.left: parent.left
@@ -55,6 +57,7 @@ Rectangle {
         color: Theme.textHint
         font.pixelSize: Theme.fontBody
     }
+    // 密码可见开关：只改 echoMode，不在 QML 里缓存密码明文
     Item {
         anchors.right: parent.right
         anchors.verticalCenter: parent.verticalCenter
