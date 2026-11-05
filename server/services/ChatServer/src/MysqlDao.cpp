@@ -1,6 +1,7 @@
 #include "MysqlDao.h"
 #include "ConfigMgr.h"
 #include <cstdlib>
+#include <cstdint>
 #include <algorithm>
 
 MysqlDao::MysqlDao()
@@ -451,7 +452,8 @@ long long MysqlDao::GetOrCreatePrivateChat(int user1, int user2)
 				"SELECT thread_id FROM private_chat WHERE user1_id = ? AND user2_id = ? FOR UPDATE")
 				.bind(low).bind(high).execute().fetchOne();
 			if (!existing.isNull()) {
-				const long long thread_id = existing[0].get<long long>();
+				//X DevAPI 只对 int64_t 等固定类型实例化 get, 不支持 long long, 需要显式指定类型
+				const long long thread_id = existing[0].get<int64_t>();
 				con->_session->commit();
 				pool_->returnConnection(std::move(con));
 				return thread_id;
@@ -465,7 +467,7 @@ long long MysqlDao::GetOrCreatePrivateChat(int user1, int user2)
 				pool_->returnConnection(std::move(con));
 				return 0;
 			}
-			const long long thread_id = id_row[0].get<long long>();
+			const long long thread_id = id_row[0].get<int64_t>();
 			con->_session->sql("INSERT INTO private_chat (thread_id, user1_id, user2_id) VALUES (?, ?, ?)")
 				.bind(thread_id).bind(low).bind(high).execute();
 			con->_session->commit();
@@ -514,7 +516,7 @@ bool MysqlDao::GetChatThreads(int uid, long long last_thread_id, int limit,
 				break;
 			}
 			ChatThreadInfo info;
-			info.thread_id = row[0].get<long long>();
+			info.thread_id = row[0].get<int64_t>();
 			info.peer_uid = row[1].get<int>();
 			info.peer_name = row[2].get<std::string>();
 			info.peer_nick = row[3].get<std::string>();
@@ -562,8 +564,8 @@ bool MysqlDao::GetChatMessages(int uid, long long thread_id, long long last_mess
 				break;
 			}
 			ChatMessageInfo info;
-			info.message_id = row[0].get<long long>();
-			info.thread_id = row[1].get<long long>();
+			info.message_id = row[0].get<int64_t>();
+			info.thread_id = row[1].get<int64_t>();
 			info.sender_id = row[2].get<int>();
 			info.recv_id = row[3].get<int>();
 			info.client_msg_id = row[4].get<std::string>();
@@ -641,7 +643,7 @@ bool MysqlDao::SaveChatMessages(int sender_id, int recv_id, long long thread_id,
 				return false;
 			}
 			ChatMessageInfo info;
-			info.message_id = id_row[0].get<long long>();
+			info.message_id = id_row[0].get<int64_t>();
 			info.thread_id = thread_id;
 			info.sender_id = sender_id;
 			info.recv_id = recv_id;
